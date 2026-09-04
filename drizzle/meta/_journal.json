@@ -50,6 +50,13 @@
       "when": 1788550756414,
       "tag": "0006_ringtausch",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788552503406,
+      "tag": "0007_ringbewertungen",
+      "breakpoints": true
     }
   ]
 }

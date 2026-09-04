@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { submitReviewAction } from "@/app/actions/reviews";
+import { submitReviewAction, submitRingReviewAction } from "@/app/actions/reviews";
 
 const STUFEN = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 
@@ -33,12 +33,17 @@ export function Sterne({ value, className = "" }: { value: number; className?: s
  * zwei Fremden, die sich ein Auto übergeben haben — deshalb steht sie direkt
  * im abgeschlossenen Vorgang und nicht in einer Mail, die niemand öffnet.
  */
+export type ReviewTarget =
+  | { art: "deal"; dealId: string }
+  | { art: "ring"; ringId: string; subjectId: string };
+
 export function ReviewForm({
-  dealId,
+  target,
   otherName,
   vorhanden,
 }: {
-  dealId: string;
+  /** Zweiertausch oder eine bestimmte Person in einem Ring. */
+  target: ReviewTarget;
   otherName: string;
   vorhanden: { stars: number; body: string | null } | null;
 }) {
@@ -51,7 +56,7 @@ export function ReviewForm({
   if (vorhanden) {
     return (
       <div className="mt-3 rounded-lg border border-line bg-surface-2 p-3">
-        <p className="text-xs text-ink-3">Deine Bewertung</p>
+        <p className="text-xs text-ink-3">Deine Bewertung für {otherName}</p>
         <div className="mt-1 flex items-center gap-2">
           <Sterne value={vorhanden.stars} />
           <span className="text-sm tabular text-ink">{vorhanden.stars.toFixed(1)}</span>
@@ -64,7 +69,10 @@ export function ReviewForm({
   function senden() {
     setError(null);
     start(async () => {
-      const res = await submitReviewAction(dealId, stars, body);
+      const res =
+        target.art === "deal"
+          ? await submitReviewAction(target.dealId, stars, body)
+          : await submitRingReviewAction(target.ringId, target.subjectId, stars, body);
       if (res.error) setError(res.error);
       else router.refresh();
     });

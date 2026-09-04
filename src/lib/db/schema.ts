@@ -467,14 +467,17 @@ export const reports = pgTable(
   ],
 );
 
-/** Bewertungen nach abgeschlossenem Tausch. */
+/**
+ * Bewertungen nach abgeschlossenem Tausch. Im Zweiertausch bewertet jede Seite
+ * genau eine andere Person, im Ring jede zwei — deshalb greift dort ein
+ * eigener Eindeutigkeitsschlüssel über die bewertete Person.
+ */
 export const reviews = pgTable(
   "reviews",
   {
     id: text("id").primaryKey(),
-    dealId: text("deal_id")
-      .notNull()
-      .references(() => deals.id, { onDelete: "cascade" }),
+    dealId: text("deal_id").references(() => deals.id, { onDelete: "cascade" }),
+    ringId: text("ring_id").references(() => ringSwaps.id, { onDelete: "cascade" }),
     authorId: text("author_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -485,7 +488,14 @@ export const reviews = pgTable(
     body: text("body"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("reviews_deal_author_key").on(t.dealId, t.authorId)],
+  (t) => [
+    // Postgres behandelt NULL-Werte in eindeutigen Indizes als verschieden:
+    // Ringbewertungen (deal_id ist leer) laufen hier nicht auf.
+    uniqueIndex("reviews_deal_author_key").on(t.dealId, t.authorId),
+    uniqueIndex("reviews_ring_author_key").on(t.ringId, t.authorId, t.subjectId),
+    index("reviews_subject_idx").on(t.subjectId),
+    check("reviews_owner_check", sql`num_nonnulls(${t.dealId}, ${t.ringId}) = 1`),
+  ],
 );
 
 export type UserRow = typeof users.$inferSelect;

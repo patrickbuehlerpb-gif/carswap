@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { VehicleVisual } from "@/components/vehicle-visual";
+import { ReviewForm } from "@/components/review-form";
 import { Badge, Card } from "@/components/ui";
 import {
   acceptRingAction,
@@ -68,6 +69,7 @@ export function RingDetail({
   feesMinor,
   paymentsEnabled,
   escrowNotice,
+  meineBewertungen,
 }: {
   ring: RingDetailData;
   meId: string;
@@ -75,6 +77,8 @@ export function RingDetail({
   feesMinor: Record<string, number>;
   paymentsEnabled: boolean;
   escrowNotice: string | null;
+  /** Bereits abgegebene eigene Bewertungen, je bewerteter Person. */
+  meineBewertungen: Record<string, { stars: number; body: string | null }>;
 }) {
   const router = useRouter();
   const [text, setText] = useState("");
@@ -344,6 +348,28 @@ export function RingDetail({
                 Abschluss erneut anstossen
               </button>
             )}
+          </Card>
+        )}
+
+        {/* -------- Bewertungen -------- */}
+        {ring.status === "abgeschlossen" && (
+          <Card className="p-5">
+            <h2 className="mb-1 text-sm font-semibold text-ink">Bewertungen</h2>
+            <p className="mb-2 text-xs text-ink-3">
+              Im Ring hattest du mit beiden zu tun: {nachId.get(me.receiverId)?.user.name} hat dein
+              Fahrzeug übernommen, von {iGet.user.name} hast du deines bekommen. Beide Übergaben
+              können ganz unterschiedlich gelaufen sein — deshalb je eine eigene Bewertung.
+            </p>
+            {ring.participants
+              .filter((p) => p.user.id !== meId)
+              .map((p) => (
+                <ReviewForm
+                  key={p.user.id}
+                  target={{ art: "ring", ringId: ring.id, subjectId: p.user.id }}
+                  otherName={p.user.name}
+                  vorhanden={meineBewertungen[p.user.id] ?? null}
+                />
+              ))}
           </Card>
         )}
 

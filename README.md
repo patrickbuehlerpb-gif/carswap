@@ -59,7 +59,10 @@ Person nach der Aufhebung nie wieder an sie heran.
 ### Bewertungen
 
 Nach einem abgeschlossenen Tausch bewertet jede Seite die andere einmal — ein
-bis fünf Sterne in halben Schritten, dazu ein freiwilliger Text. Der Schnitt
+bis fünf Sterne in halben Schritten, dazu ein freiwilliger Text. Nach einem
+Ring sind es zwei Bewertungen je Person: eine für die, der man sein Fahrzeug
+gegeben hat, eine für die, von der man seines bekommen hat. Beide Übergaben
+können ganz unterschiedlich gelaufen sein. Der Schnitt
 steht am Namen, die letzten drei Texte auf der Fahrzeugseite. Bewerten lässt
 sich nur ein abgeschlossener Tausch: während einer laufenden Verhandlung wäre
 die Bewertung ein Druckmittel.
@@ -376,11 +379,6 @@ Nach dem ersten Deployment:
 - **Empirische Kalibrierung** der Restwertkurven an echten Marktdaten — am
   ehesten zusammen mit einer Eurotax-Lizenz, die auch den Fahrzeugkatalog
   mitbringt.
-- **Bewertungen für Ringtausche.** Nach einem Zweiertausch bewerten sich beide
-  Seiten; nach einem Ring bisher niemand. Der Grund ist die Tabelle: `reviews`
-  ist auf einen Tausch und eine Gegenseite zugeschnitten, im Ring sind es zwei.
-  Ein abgeschlossener Ring zählt aber bei allen dreien als abgeschlossener
-  Tausch.
 - **Nachverhandeln im Ring.** Der Ausgleich ergibt sich aus den drei
   Fahrzeugwerten und steht mit dem Vorschlag fest. Wer einen anderen Betrag
   will, muss ablehnen und neu vorschlagen — ein Gegenangebot wie beim

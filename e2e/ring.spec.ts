@@ -1,9 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
+import { eq, sql as raw } from "drizzle-orm";
+import { connect } from "../scripts/db-connect";
 
 /**
- * Der Ringtausch im echten Browser: drei Konten, drei Inserate, ein Vorschlag
- * und drei Zusagen. Der Test endet, sobald der Ring verbindlich ist — die
- * Treuhand-Einzahlung braucht Stripe und hat eigene Tests gegen ein Doppel.
+ * Der Ringtausch im echten Browser: drei Konten, drei Inserate, ein Vorschlag,
+ * drei Zusagen, drei Übergaben und die Bewertungen danach.
+ *
+ * Damit der Weg ohne Stripe durchläuft, wird der Ausgleich nach den Zusagen
+ * direkt in der Testdatenbank auf null gesetzt. Drei Fahrzeuge auf denselben
+ * Rappen zu konstruieren geht nicht: die Bewertung streut bewusst je Fahrzeug.
+ * Der Geldpfad selbst hat eigene Tests gegen ein Stripe-Doppel.
  */
 
 const PASSWORT = "ein sehr langes Testpasswort";
@@ -40,6 +46,30 @@ async function abmelden(page: Page) {
   await page.waitForURL(/\/(\?.*)?$/);
 }
 
+/** Setzt alle Ausgleiche des einzigen Rings in der Testdatenbank auf null. */
+async function ausgleichNullen() {
+  process.env.DATABASE_URL =
+    process.env.TEST_DATABASE_URL ?? "postgres://postgres@127.0.0.1:5432/carswap_test";
+  const { db, sql, schema } = connect();
+  try {
+    await db.update(schema.ringLegs).set({ cash: 0 });
+  } finally {
+    await sql.end();
+  }
+}
+
+/** Hakt die Übergabe-Checkliste ab und bestätigt. */
+async function uebergabeBestaetigen(page: Page) {
+  // Die Karte erscheint erst, nachdem der Server den Zustandswechsel bestätigt
+  // hat — ohne dieses Warten wären die Kästchen noch nicht da.
+  await expect(page.getByRole("heading", { name: "Übergabe" })).toBeVisible();
+  const haken = page.locator('input[type="checkbox"]');
+  await expect(haken.first()).toBeVisible();
+  const anzahl = await haken.count();
+  for (let i = 0; i < anzahl; i++) await haken.nth(i).check();
+  await page.getByRole("button", { name: "Übergabe bestätigen" }).click();
+}
+
 async function inserieren(
   page: Page,
   marke: string,
@@ -69,7 +99,7 @@ async function inserieren(
   await page.waitForURL("**/fahrzeug/**");
 }
 
-test("drei Konten schliessen einen Ring verbindlich ab", async ({ page }) => {
+test("drei Konten wickeln einen Ring ab und bewerten sich", async ({ page }) => {
   // Anna gibt einen Polestar, Bruno sucht genau den. Bruno gibt einen BMW,
   // Clara sucht einen BMW. Claras Audi geht zurück an Anna — der klassische
   // Fall, in dem sich zwei Wünsche nur über eine dritte Partei auflösen.
@@ -124,4 +154,36 @@ test("drei Konten schliessen einen Ring verbindlich ab", async ({ page }) => {
   // Die drei Fahrzeuge sind jetzt gebunden und stehen nicht mehr im Markt.
   await page.goto("/markt");
   await expect(page.getByText("Polestar 4")).toHaveCount(0);
+
+  // --- Ab hier ohne Ausgleich, damit der Weg ohne Stripe durchläuft ---
+  await ausgleichNullen();
+
+  await page.goto(ringUrl);
+  await page.getByRole("button", { name: "Weiter zur Übergabe" }).click();
+  await uebergabeBestaetigen(page);
+  await expect(page.getByText(/Du hast bestätigt/)).toBeVisible();
+  await abmelden(page);
+
+  await anmelden(page, anna);
+  await page.goto(ringUrl);
+  await uebergabeBestaetigen(page);
+  await abmelden(page);
+
+  // --- Bruno bestätigt als Letzter: Geld, Halterwechsel, Abschluss ---
+  await anmelden(page, bruno);
+  await page.goto(ringUrl);
+  await uebergabeBestaetigen(page);
+  await expect(page.getByText("Der Ring ist abgeschlossen.")).toBeVisible();
+
+  // Bruno hat jetzt Annas Polestar in der Garage.
+  await page.goto("/garage");
+  await expect(page.getByText("Polestar 4").first()).toBeVisible();
+
+  // --- Und bewertet beide anderen einzeln ---
+  await page.goto(ringUrl);
+  const bewertungen = page.getByRole("button", { name: "Bewertung abgeben" });
+  await expect(bewertungen).toHaveCount(2);
+  await bewertungen.first().click();
+  await expect(page.getByText(/Deine Bewertung für/).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Bewertung abgeben" })).toHaveCount(1);
 });

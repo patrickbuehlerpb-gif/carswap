@@ -369,6 +369,18 @@ export async function getMyReviewForDeal(dealId: string, userId: string) {
   return row ?? null;
 }
 
+/** Die eigenen Bewertungen zu einem Ring, je bewerteter Person. */
+export async function getMyRingReviews(
+  ringId: string,
+  authorId: string,
+): Promise<Map<string, { stars: number; body: string | null }>> {
+  const rows = await db
+    .select({ subjectId: reviews.subjectId, stars: reviews.stars, body: reviews.body })
+    .from(reviews)
+    .where(and(eq(reviews.ringId, ringId), eq(reviews.authorId, authorId)));
+  return new Map(rows.map((r) => [r.subjectId, { stars: r.stars, body: r.body }]));
+}
+
 /** Die neuesten Bewertungen über eine Person, mit dem Namen der Autorin. */
 export async function getReviewsAbout(userId: string, limit = 5) {
   const rows = await db

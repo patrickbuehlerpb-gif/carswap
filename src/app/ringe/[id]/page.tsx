@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { RingDetail } from "@/components/ring-detail";
 import { SectionHead } from "@/components/ui";
 import { getSessionUser } from "@/lib/auth/session";
-import { getRingForUser } from "@/lib/queries";
+import { getMyRingReviews, getRingForUser } from "@/lib/queries";
 import { platformFee, stripeConfigured } from "@/lib/payments";
 import { ringTransfers } from "@/lib/rings";
 
@@ -30,6 +30,11 @@ export default async function RingPage({
   // Die Zahlungsgebühr hängt an Umgebungsvariablen und wird deshalb hier
   // gerechnet, nicht im Browser. Je Weg eine — wer zwei Beträge einzahlt,
   // trägt sie zweimal.
+  const meineBewertungen =
+    ring.status === "abgeschlossen"
+      ? Object.fromEntries(await getMyRingReviews(id, me.id))
+      : {};
+
   const gebuehren: Record<string, number> = {};
   for (const t of ringTransfers(
     ring.participants.map((p) => ({ userId: p.user.id, cash: p.cash })),
@@ -56,6 +61,7 @@ export default async function RingPage({
         ring={ring}
         meId={me.id}
         feesMinor={gebuehren}
+        meineBewertungen={meineBewertungen}
         paymentsEnabled={stripeConfigured()}
         escrowNotice={
           treuhand === "ok"

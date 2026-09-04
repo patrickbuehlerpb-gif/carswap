@@ -7,6 +7,7 @@ import {
   deals,
   listings,
   payments,
+  reviews,
   ringLegs,
   ringSwaps,
   users,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/db/schema";
 import { als, createUser, createVehicle, resetDatabase } from "@/test/fixtures";
 import { deleteAccountAction } from "@/app/actions/account";
+import { submitRingReviewAction } from "@/app/actions/reviews";
 import {
   acceptRingAction,
   cancelRingAction,
@@ -657,5 +659,66 @@ describe("Vorschlag zurückziehen", () => {
     als(a);
     expect((await declineRingAction(ringId)).error).toBeUndefined();
     expect(await ringStatus(ringId)).toBe("abgelehnt");
+  });
+});
+
+describe("Bewertungen nach einem Ring", () => {
+  /** Führt einen ausgleichslosen Ring bis zum Abschluss. */
+  async function abgeschlossenerRing() {
+    const runde = await legeRingAn();
+    await ohneAusgleich(runde.ringId);
+    await zusagenAlle(runde.ringId, runde.b, runde.c);
+    als(runde.a);
+    await startRingEscrowAction(runde.ringId);
+    for (const wer of [runde.a, runde.b, runde.c]) {
+      als(wer);
+      await confirmRingHandoverAction(runde.ringId);
+    }
+    expect(await ringStatus(runde.ringId)).toBe("abgeschlossen");
+    return runde;
+  }
+
+  it("lässt jede Person die beiden anderen einzeln bewerten", async () => {
+    const { ringId, a, b, c } = await abgeschlossenerRing();
+    als(a);
+    expect((await submitRingReviewAction(ringId, b, 5, "Alles bestens")).error).toBeUndefined();
+    expect((await submitRingReviewAction(ringId, c, 4, "")).error).toBeUndefined();
+
+    const bewertungen = await db.select().from(reviews).where(eq(reviews.ringId, ringId));
+    expect(bewertungen).toHaveLength(2);
+
+    const [bruno] = await db.select().from(users).where(eq(users.id, b));
+    expect(bruno.ratingCount).toBe(1);
+    expect(bruno.ratingSum).toBe(50);
+    const [clara] = await db.select().from(users).where(eq(users.id, c));
+    expect(clara.ratingSum).toBe(40);
+  });
+
+  it("lässt dieselbe Bewertung nicht zweimal zu", async () => {
+    const { ringId, a, b } = await abgeschlossenerRing();
+    als(a);
+    await submitRingReviewAction(ringId, b, 5, "");
+    const res = await submitRingReviewAction(ringId, b, 1, "");
+    expect(res.error).toMatch(/bereits bewertet/);
+    const [bruno] = await db.select().from(users).where(eq(users.id, b));
+    expect(bruno.ratingCount).toBe(1);
+  });
+
+  it("verweigert die Bewertung vor dem Abschluss", async () => {
+    const { ringId, a, b, c } = await legeRingAn();
+    await zusagenAlle(ringId, b, c);
+    als(a);
+    const res = await submitRingReviewAction(ringId, b, 5, "");
+    expect(res.error).toMatch(/abgeschlossener Tausch/);
+  });
+
+  it("verweigert Selbstbewertung und Fremde", async () => {
+    const { ringId, a } = await abgeschlossenerRing();
+    const fremd = await createUser("Fremd");
+    als(a);
+    expect((await submitRingReviewAction(ringId, a, 5, "")).error).toMatch(/Sich selbst/);
+    expect((await submitRingReviewAction(ringId, fremd, 5, "")).error).toMatch(/gehört nicht/);
+    als(fremd);
+    expect((await submitRingReviewAction(ringId, a, 5, "")).error).toMatch(/nicht gefunden/);
   });
 });

@@ -523,7 +523,7 @@ export function DealDetail({
                 euren Garagen umgeschrieben.
               </p>
               <ReviewForm
-                dealId={deal.id}
+                target={{ art: "deal", dealId: deal.id }}
                 otherName={other.name}
                 vorhanden={meineBewertung}
               />
