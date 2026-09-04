@@ -1,6 +1,7 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth/session";
+import { checkRateLimit } from "@/lib/auth/rate-limit";
 
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -27,6 +28,12 @@ export async function POST(request: Request): Promise<NextResponse> {
       onBeforeGenerateToken: async () => {
         const user = await getSessionUser();
         if (!user) throw new Error("Nicht angemeldet.");
+        // Ohne Begrenzung könnte ein angemeldetes Konto den Blob-Speicher
+        // beliebig vollschreiben — die Kosten trägt der Betreiber.
+        const limit = await checkRateLimit(`upload:${user.id}`, 60, 24 * 60 * 60);
+        if (!limit.ok) {
+          throw new Error("Zu viele Uploads in den letzten 24 Stunden. Bitte morgen weitermachen.");
+        }
         return {
           allowedContentTypes: ALLOWED,
           maximumSizeInBytes: MAX_BYTES,

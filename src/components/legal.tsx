@@ -22,10 +22,26 @@ export function H2({ children }: { children: ReactNode }) {
   return <h2 className="pt-2 text-lg font-semibold tracking-tight text-ink">{children}</h2>;
 }
 
+/**
+ * Hinweis auf eine Lücke im Rechtstext. Sichtbar für alle — eine
+ * unvollständige Rechtsseite als vollständig auszugeben wäre schlimmer, als
+ * die Lücke zu benennen.
+ */
 export function Todo({ children }: { children: ReactNode }) {
   return (
     <p className="rounded-lg border border-warn/35 bg-warn/12 p-3 text-sm text-ink-2">
-      <strong className="font-semibold text-ink">Vor dem Livegang zu ergänzen:</strong> {children}
+      <strong className="font-semibold text-ink">Noch nicht eingetragen:</strong> {children}
+    </p>
+  );
+}
+
+/** Eine Zeile «Bezeichnung: Wert», die nur erscheint, wenn es den Wert gibt. */
+export function Angabe({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
+  return (
+    <p>
+      <span className="text-ink-3">{label}: </span>
+      <span className="text-ink">{value}</span>
     </p>
   );
 }

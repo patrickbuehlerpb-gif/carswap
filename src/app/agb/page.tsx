@@ -3,6 +3,8 @@ import { H2, LegalPage, Todo } from "@/components/legal";
 
 export const metadata: Metadata = { title: "AGB" };
 
+export const dynamic = "force-dynamic";
+
 export default function AgbPage() {
   return (
     <LegalPage title="Allgemeine Geschäftsbedingungen" updated="September 2026">

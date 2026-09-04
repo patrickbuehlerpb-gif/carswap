@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Badge, Card, SectionHead } from "@/components/ui";
-import { AccountForm, PayoutSetup } from "@/components/account-widgets";
-import { ResendVerification } from "@/components/account-widgets";
+import {
+  AccountForm,
+  DatenUndLoeschung,
+  PayoutSetup,
+  ResendVerification,
+} from "@/components/account-widgets";
 import { getSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
@@ -102,6 +106,16 @@ export default async function KontoPage({
             </dd>
           </div>
         </dl>
+      </Card>
+
+      <Card className="p-5">
+        <h2 className="text-sm font-semibold text-ink">Deine Daten</h2>
+        <p className="mt-1 text-xs text-ink-3">
+          Auskunft und Löschung, wie in der Datenschutzerklärung zugesagt.
+        </p>
+        <div className="mt-4">
+          <DatenUndLoeschung />
+        </div>
       </Card>
     </div>
   );

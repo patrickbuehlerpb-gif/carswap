@@ -39,6 +39,12 @@ export const users = pgTable(
     stripeAccountId: text("stripe_account_id"),
     stripePayoutsEnabled: boolean("stripe_payouts_enabled").notNull().default(false),
     isAdmin: boolean("is_admin").notNull().default(false),
+    /**
+     * Gelöschte Konten bleiben als anonymisierte Hülle bestehen: abgeschlossene
+     * Tausche verweisen darauf und dürfen aus buchhalterischen Gründen nicht
+     * verschwinden. Alles Persönliche ist dann entfernt.
+     */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

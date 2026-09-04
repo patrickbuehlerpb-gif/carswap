@@ -37,6 +37,19 @@ async function main() {
     process.exit(1);
   }
 
+  // Demo-Konten haben ein im Repository stehendes Passwort. In Produktion
+  // wären sie offene Türen — deshalb nur mit ausdrücklichem zweiten Schalter.
+  const produktiv =
+    process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
+  if (produktiv && !process.argv.includes("--auch-in-produktion")) {
+    console.error(
+      "Diese Umgebung ist als Produktion markiert. Demo-Konten mit bekanntem Passwort\n" +
+        "gehören dort nicht hin. Wenn es wirklich sein muss:\n\n" +
+        "  npm run db:seed -- --confirm --auch-in-produktion\n",
+    );
+    process.exit(1);
+  }
+
   const { db, sql, schema } = connect();
   const passwordHash = await hash(DEMO_PASSWORD);
 

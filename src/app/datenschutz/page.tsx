@@ -1,16 +1,32 @@
 import type { Metadata } from "next";
-import { H2, LegalPage, Todo } from "@/components/legal";
+import { Angabe, H2, LegalPage, Todo } from "@/components/legal";
+import { operator, operatorComplete } from "@/lib/operator";
 
 export const metadata: Metadata = { title: "Datenschutz" };
 
+export const dynamic = "force-dynamic";
+
 export default function DatenschutzPage() {
+  const op = operator();
+
   return (
     <LegalPage title="Datenschutzerklärung" updated="September 2026">
       <Todo>
-        Angaben zur verantwortlichen Stelle, zur Vertretung in der EU (falls einschlägig) und zu
-        den Aufbewahrungsfristen. Diese Erklärung beschreibt die tatsächliche Verarbeitung, ersetzt
-        aber keine juristische Prüfung.
+        {operatorComplete(op)
+          ? "Aufbewahrungsfristen und, falls einschlägig, die Vertretung in der EU. Diese Erklärung beschreibt die tatsächliche Verarbeitung, ersetzt aber keine juristische Prüfung."
+          : "Angaben zur verantwortlichen Stelle, zur Vertretung in der EU (falls einschlägig) und zu den Aufbewahrungsfristen. Diese Erklärung beschreibt die tatsächliche Verarbeitung, ersetzt aber keine juristische Prüfung."}
       </Todo>
+
+      {operatorComplete(op) && (
+        <>
+          <H2>Verantwortliche Stelle</H2>
+          <div className="space-y-1">
+            <Angabe label="Name" value={op.name} />
+            <Angabe label="Adresse" value={op.address} />
+            <Angabe label="E-Mail" value={op.email} />
+          </div>
+        </>
+      )}
 
       <H2>Welche Daten wir verarbeiten</H2>
       <p>
@@ -47,9 +63,14 @@ export default function DatenschutzPage() {
 
       <H2>Deine Rechte</H2>
       <p>
-        Du kannst Auskunft über die zu dir gespeicherten Daten verlangen, sie berichtigen lassen
-        oder die Löschung deines Kontos verlangen. Abgeschlossene Tauschvorgänge bewahren wir aus
-        buchhalterischen Gründen auf; sie werden dabei von deinem Konto entkoppelt.
+        Auskunft und Löschung erledigst du selbst unter{" "}
+        <a href="/konto" className="text-volt-ink hover:underline">
+          Konto
+        </a>
+        : «Meine Daten herunterladen» gibt alles aus, was zu dir gespeichert ist, «Konto löschen»
+        entfernt Name, Adresse und Kontaktdaten und nimmt deine Fahrzeuge aus dem Markt. Deine
+        Angaben berichtigst du direkt im Profil. Abgeschlossene Tauschvorgänge bewahren wir aus
+        buchhalterischen Gründen auf; sie sind danach nicht mehr deinem Konto zugeordnet.
       </p>
     </LegalPage>
   );

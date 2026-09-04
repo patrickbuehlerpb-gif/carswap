@@ -21,13 +21,34 @@ const dateSchema = z
   .or(z.literal(""));
 
 /** Erlaubt ausschliesslich https-Adressen aus dem Vercel-Blob-Speicher. */
+/**
+ * Der eigene Blob-Speicher. Der Hostname steckt in der Store-ID des Tokens;
+ * er lässt sich mit BLOB_PUBLIC_HOST auch direkt setzen. Im Browser ist keine
+ * der beiden Variablen sichtbar — dort bleibt die Prüfung grob, verbindlich
+ * ist ohnehin die serverseitige beim Speichern.
+ */
+function eigenerBlobHost(): string | null {
+  const explicit = process.env.BLOB_PUBLIC_HOST?.trim();
+  if (explicit) return explicit.toLowerCase();
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  const store = token?.match(/^vercel_blob_rw_([A-Za-z0-9]+)_/)?.[1];
+  return store ? `${store.toLowerCase()}.public.blob.vercel-storage.com` : null;
+}
+
 export function isBlobUrl(value: string): boolean {
   try {
     const url = new URL(value);
+    if (url.protocol !== "https:") return false;
+    const host = url.hostname.toLowerCase();
+
+    // Fremde Vercel-Blob-Speicher gehören nicht dazu: über ein Inserat liesse
+    // sich sonst auf beliebige andere Konten verweisen.
+    const eigener = eigenerBlobHost();
+    if (eigener) return host === eigener;
+
     return (
-      url.protocol === "https:" &&
-      (url.hostname.endsWith(".public.blob.vercel-storage.com") ||
-        url.hostname === "public.blob.vercel-storage.com")
+      host.endsWith(".public.blob.vercel-storage.com") ||
+      host === "public.blob.vercel-storage.com"
     );
   } catch {
     return false;

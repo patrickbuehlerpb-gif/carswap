@@ -4,6 +4,8 @@ import { useActionState, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { resendVerificationAction } from "@/app/actions/auth";
 import {
+  deleteAccountAction,
+  exportMyDataAction,
   refreshPayoutStatusAction,
   startPayoutOnboardingAction,
   updateProfileAction,
@@ -194,6 +196,111 @@ export function PayoutSetup({
       <p className="text-xs text-ink-3">
         Die Identitätsprüfung übernimmt Stripe. CarSwap sieht deine Bankdaten nicht.
       </p>
+    </div>
+  );
+}
+
+/**
+ * Auskunft und Löschung. Beides ist in der Datenschutzerklärung zugesagt und
+ * braucht deshalb einen sichtbaren Weg, nicht nur eine Mailadresse.
+ */
+export function DatenUndLoeschung() {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [bestaetigung, setBestaetigung] = useState("");
+  const [offen, setOffen] = useState(false);
+
+  function herunterladen() {
+    setError(null);
+    start(async () => {
+      const res = await exportMyDataAction();
+      if (res.error || !res.json) {
+        setError(res.error ?? "Die Auskunft konnte nicht erstellt werden.");
+        return;
+      }
+      const url = URL.createObjectURL(new Blob([res.json], { type: "application/json" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "carswap-meine-daten.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  function loeschen() {
+    setError(null);
+    start(async () => {
+      const res = await deleteAccountAction(bestaetigung);
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      window.location.href = res.redirectTo ?? "/";
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <button
+          onClick={herunterladen}
+          disabled={pending}
+          className="rounded-lg border border-line-strong px-4 py-2 text-sm text-ink-2 transition-colors hover:border-ink-3 hover:text-ink disabled:opacity-60"
+        >
+          {pending ? "Wird erstellt …" : "Meine Daten herunterladen"}
+        </button>
+        <p className="mt-1.5 text-xs text-ink-3">
+          Alles, was zu deinem Konto gespeichert ist, als JSON-Datei.
+        </p>
+      </div>
+
+      <div className="border-t border-line pt-4">
+        {!offen ? (
+          <button
+            onClick={() => setOffen(true)}
+            className="text-sm text-bad hover:underline"
+          >
+            Konto löschen
+          </button>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-sm text-ink-2">
+              Dein Konto wird gelöscht: Name, Adresse und Kontaktdaten werden entfernt, deine
+              Fahrzeuge verschwinden aus dem Markt. Abgeschlossene Tausche bleiben aus
+              buchhalterischen Gründen bestehen, sind danach aber nicht mehr dir zugeordnet. Das
+              lässt sich nicht rückgängig machen.
+            </p>
+            <label className="block text-sm text-ink-2">
+              Zum Bestätigen <span className="font-semibold text-ink">LÖSCHEN</span> eintippen
+              <input
+                value={bestaetigung}
+                onChange={(e) => setBestaetigung(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink"
+              />
+            </label>
+            <div className="flex gap-2">
+              <button
+                onClick={loeschen}
+                disabled={pending || bestaetigung.trim().toUpperCase() !== "LÖSCHEN"}
+                className="rounded-lg border border-bad/50 px-4 py-2 text-sm text-bad transition-colors hover:bg-bad/10 disabled:opacity-40"
+              >
+                {pending ? "Wird gelöscht …" : "Endgültig löschen"}
+              </button>
+              <button
+                onClick={() => {
+                  setOffen(false);
+                  setBestaetigung("");
+                }}
+                className="rounded-lg px-4 py-2 text-sm text-ink-3 hover:text-ink"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {error && <p className="text-xs text-bad">{error}</p>}
     </div>
   );
 }

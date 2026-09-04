@@ -244,11 +244,15 @@ Nach dem ersten Deployment:
 
 ## Was vor dem Livegang noch fehlt
 
-- **Impressum, Datenschutz und AGB** enthalten Platzhalter und müssen mit den
-  echten Firmenangaben gefüllt und juristisch geprüft werden. Insbesondere ist
-  zu klären, ob die Treuhandfunktion unter das Geldwäschereigesetz fällt — die
-  Konstruktion über Stripe Connect ist darauf ausgelegt, dass nie CarSwap
-  selbst Gelder Dritter hält.
+- **Impressum, Datenschutz und AGB** müssen juristisch geprüft werden.
+  Insbesondere ist zu klären, ob die Treuhandfunktion unter das
+  Geldwäschereigesetz fällt — die Konstruktion über Stripe Connect ist darauf
+  ausgelegt, dass nie CarSwap selbst Gelder Dritter hält. Die Firmenangaben
+  kommen aus `OPERATOR_NAME`, `OPERATOR_ADDRESS`, `OPERATOR_EMAIL` und
+  optional `OPERATOR_LEGAL_FORM`, `OPERATOR_UID`, `OPERATOR_REGISTER`,
+  `OPERATOR_PHONE`. Fehlen sie, sagen die Seiten das offen — statt eine
+  vollständige Rechtsseite vorzutäuschen. `/api/health` meldet den Zustand
+  als `impressum`.
 - **Identitätsprüfung** der Nutzer (`identityVerified` wird heute nirgends
   gesetzt) sowie Abfrage von Fahrzeugausweis und Pfandrecht.
 - **Empirische Kalibrierung** der Restwertkurven an echten Marktdaten — am
@@ -265,3 +269,20 @@ Nach dem ersten Deployment:
 - **Missbrauchsschutz**: Meldefunktion für Inserate, Prüfung neuer Konten,
   Betrugserkennung bei auffälligen Wertdifferenzen.
 - **Nonce-basierte CSP** statt `'unsafe-inline'` für Skripte.
+- **Rückbuchungen** nach abgeschlossenem Tausch werden erkannt und gemeldet,
+  aber nicht automatisch geheilt.
+
+### Umgebungsvariablen
+
+| Variable | Wofür | Ohne sie |
+| --- | --- | --- |
+| `DATABASE_URL` / `POSTGRES_URL` | Datenbank | Anwendung startet, jede Abfrage scheitert |
+| `SITE_URL` | Basis für Mail-Links und Stripe-Rücksprung | fällt auf `localhost` zurück, Fehler im Log |
+| `STRIPE_SECRET_KEY` | Zahlungen | Tausche mit Wertdifferenz nicht möglich |
+| `STRIPE_WEBHOOK_SECRET` | Webhook-Signatur | Webhook antwortet mit 503 |
+| `RESEND_API_KEY` + `MAIL_FROM` | Mailversand | keine Bestätigungs- und Reset-Mails |
+| `BLOB_READ_WRITE_TOKEN` | Fotouploads | Upload antwortet mit 503 |
+| `BLOB_PUBLIC_HOST` | erlaubter Foto-Host | wird aus dem Token abgeleitet |
+| `OPERATOR_*` | Impressum und Datenschutz | Rechtsseiten weisen sich als unvollständig aus |
+| `HEALTH_TOKEN` | Details unter `/api/health` | Details nur ausserhalb der Produktion |
+| `PLATFORM_FEE_PERCENT` / `PLATFORM_FEE_FIXED_MINOR` | Zahlungsgebühr | 2.9 % + 30 Rappen |

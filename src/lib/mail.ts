@@ -16,16 +16,28 @@ export async function sendMail(mail: Mail): Promise<{ delivered: boolean; reason
   const from = process.env.MAIL_FROM;
 
   if (!key || !from) {
-    console.info(
-      `[mail] Kein RESEND_API_KEY/MAIL_FROM gesetzt — Nachricht nicht versendet.\n` +
-        `  An:      ${mail.to}\n  Betreff: ${mail.subject}\n${mail.text}`,
-    );
+    // Der Text enthält Bestätigungs- und Passwort-Links. Im Log wären sie für
+    // jeden lesbar, der Zugriff auf die Protokolle hat — in Produktion also
+    // nur die Tatsache vermerken, nicht den Inhalt.
+    if (process.env.NODE_ENV === "production") {
+      console.error(
+        `[mail] Kein RESEND_API_KEY/MAIL_FROM gesetzt — «${mail.subject}» wurde NICHT zugestellt.`,
+      );
+    } else {
+      console.info(
+        `[mail] Kein RESEND_API_KEY/MAIL_FROM gesetzt — Nachricht nicht versendet.\n` +
+          `  An:      ${mail.to}\n  Betreff: ${mail.subject}\n${mail.text}`,
+      );
+    }
     return { delivered: false, reason: "kein Mailversand konfiguriert" };
   }
 
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
+      // Ohne Frist blockiert ein hängender Aufruf die ganze Server Action —
+      // etwa die Registrierung — bis zum Timeout der Plattform.
+      signal: AbortSignal.timeout(10_000),
       headers: {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
@@ -64,5 +76,23 @@ export function siteUrl(): string {
   if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
     return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
   }
+  if (process.env.NODE_ENV === "production" && !warnedAboutSiteUrl) {
+    warnedAboutSiteUrl = true;
+    console.error(
+      "[config] Weder SITE_URL noch VERCEL_PROJECT_PRODUCTION_URL gesetzt — Links in E-Mails " +
+        "und die Rücksprungadressen von Stripe zeigen auf localhost.",
+    );
+  }
   return "http://localhost:3000";
 }
+
+/** Ist die Basis-URL überhaupt konfiguriert? Für die Betriebsprüfung. */
+export function siteUrlConfigured(): boolean {
+  return Boolean(
+    process.env.SITE_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      process.env.VERCEL_PROJECT_PRODUCTION_URL,
+  );
+}
+
+let warnedAboutSiteUrl = false;

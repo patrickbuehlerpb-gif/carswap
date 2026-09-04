@@ -1,28 +1,52 @@
 import type { Metadata } from "next";
-import { H2, LegalPage, Todo } from "@/components/legal";
+import { Angabe, H2, LegalPage, Todo } from "@/components/legal";
+import { operator, operatorComplete } from "@/lib/operator";
 
 export const metadata: Metadata = { title: "Impressum" };
+export const dynamic = "force-dynamic";
 
 export default function ImpressumPage() {
+  const op = operator();
+
   return (
     <LegalPage title="Impressum" updated="September 2026">
-      <Todo>
-        Firmenname, Rechtsform, vollständige Adresse, UID/MWST-Nummer, Handelsregistereintrag und
-        eine Kontaktadresse für rechtliche Anfragen. Ohne diese Angaben ist der Betrieb in der
-        Schweiz nicht zulässig (Art. 3 Abs. 1 lit. s UWG).
-      </Todo>
+      {!operatorComplete(op) && (
+        <Todo>
+          Firmenname, Rechtsform, vollständige Adresse, UID/MWST-Nummer, Handelsregistereintrag und
+          eine Kontaktadresse für rechtliche Anfragen. Ohne diese Angaben ist der Betrieb in der
+          Schweiz nicht zulässig (Art. 3 Abs. 1 lit. s UWG). Die Werte werden über die
+          Umgebungsvariablen <code>OPERATOR_NAME</code>, <code>OPERATOR_ADDRESS</code> und{" "}
+          <code>OPERATOR_EMAIL</code> gesetzt, optional dazu <code>OPERATOR_LEGAL_FORM</code>,{" "}
+          <code>OPERATOR_UID</code>, <code>OPERATOR_REGISTER</code> und{" "}
+          <code>OPERATOR_PHONE</code>.
+        </Todo>
+      )}
 
       <H2>Betreiberin</H2>
-      <p>
-        CarSwap wird betrieben von der Betreiberin dieser Plattform. Die vollständigen Angaben
-        werden vor der öffentlichen Freischaltung hier eingetragen.
-      </p>
+      {operatorComplete(op) ? (
+        <div className="space-y-1">
+          <Angabe label="Name" value={op.name} />
+          <Angabe label="Rechtsform" value={op.legalForm} />
+          <Angabe label="Adresse" value={op.address} />
+          <Angabe label="UID/MWST" value={op.uid} />
+          <Angabe label="Handelsregister" value={op.register} />
+        </div>
+      ) : (
+        <p>
+          Die vollständigen Angaben zur Betreiberin sind noch nicht hinterlegt. Bis dahin ist diese
+          Plattform nicht für den öffentlichen Betrieb bestimmt.
+        </p>
+      )}
 
       <H2>Kontakt</H2>
-      <p>
-        Für Fragen zur Plattform, zu einzelnen Tauschvorgängen oder zu Zahlungen erreichst du uns
-        über die im Konto hinterlegte支持-Adresse.
-      </p>
+      {op.email || op.phone ? (
+        <div className="space-y-1">
+          <Angabe label="E-Mail" value={op.email} />
+          <Angabe label="Telefon" value={op.phone} />
+        </div>
+      ) : (
+        <p>Für rechtliche Anfragen ist noch keine Kontaktadresse hinterlegt.</p>
+      )}
 
       <H2>Haftung für Inhalte</H2>
       <p>
