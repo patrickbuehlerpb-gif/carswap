@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink-950: #08090b;
+  --color-ink-900: #0c0e11;
+  --color-ink-850: #111418;
+  --color-ink-800: #161a1f;
+  --color-ink-700: #1e242b;
+  --color-ink-600: #2a323b;
+  --color-ink-500: #3a444f;
+  --color-mist-400: #7c8894;
+  --color-mist-300: #9aa5b1;
+  --color-mist-200: #c3cbd3;
+  --color-mist-100: #e9edf1;
+
+  --color-volt-400: #d4fb5e;
+  --color-volt-500: #c2ee3a;
+  --color-volt-600: #a3ce22;
+
+  --color-sky-ice: #5cb6f5;
+  --color-amber-warn: #f6c453;
+  --color-good: #55d98a;
+  --color-bad: #f2736b;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-ink-950);
+    color: var(--color-mist-100);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: var(--color-volt-500);
+    color: #0b0d0f;
+  }
+
+  /* dezente Scrollbar, damit die dunkle Oberfläche ruhig bleibt */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-ink-600) transparent;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .grid-noise {
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  .glow-volt {
+    box-shadow: 0 0 0 1px rgba(194, 238, 58, 0.25), 0 8px 40px -12px rgba(194, 238, 58, 0.35);
+  }
+}
