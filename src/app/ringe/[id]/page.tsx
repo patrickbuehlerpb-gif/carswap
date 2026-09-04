@@ -5,7 +5,8 @@ import { RingDetail } from "@/components/ring-detail";
 import { SectionHead } from "@/components/ui";
 import { getSessionUser } from "@/lib/auth/session";
 import { getRingForUser } from "@/lib/queries";
-import { stripeConfigured } from "@/lib/payments";
+import { platformFee, stripeConfigured } from "@/lib/payments";
+import { ringTransfers } from "@/lib/rings";
 
 export const metadata: Metadata = { title: "Ringtausch" };
 export const dynamic = "force-dynamic";
@@ -26,6 +27,16 @@ export default async function RingPage({
   const ring = await getRingForUser(id, me.id);
   if (!ring) notFound();
 
+  // Die Zahlungsgebühr hängt an Umgebungsvariablen und wird deshalb hier
+  // gerechnet, nicht im Browser. Je Weg eine — wer zwei Beträge einzahlt,
+  // trägt sie zweimal.
+  const gebuehren: Record<string, number> = {};
+  for (const t of ringTransfers(
+    ring.participants.map((p) => ({ userId: p.user.id, cash: p.cash })),
+  )) {
+    gebuehren[`${t.payerId}|${t.payeeId}`] = platformFee(Math.round(t.amount * 100));
+  }
+
   return (
     <div>
       <nav className="mb-4 text-sm text-ink-3">
@@ -44,6 +55,7 @@ export default async function RingPage({
       <RingDetail
         ring={ring}
         meId={me.id}
+        feesMinor={gebuehren}
         paymentsEnabled={stripeConfigured()}
         escrowNotice={
           treuhand === "ok"

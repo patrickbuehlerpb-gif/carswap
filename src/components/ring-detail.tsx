@@ -65,11 +65,14 @@ const ZAHLUNG_TEXT: Record<string, string> = {
 export function RingDetail({
   ring,
   meId,
+  feesMinor,
   paymentsEnabled,
   escrowNotice,
 }: {
   ring: RingDetailData;
   meId: string;
+  /** Zahlungsgebühr je Weg («zahlerId|empfaengerId») in Rappen */
+  feesMinor: Record<string, number>;
   paymentsEnabled: boolean;
   escrowNotice: string | null;
 }) {
@@ -240,6 +243,8 @@ export function RingDetail({
               Im Ring zahlt niemand an die Person, von der er das Fahrzeug bekommt — der Topf wird
               so aufgeteilt, dass am Ende jeder genau seinen Ausgleich hat. Jeder Betrag liegt bis
               zur Übergabe auf dem Treuhandkonto.
+              {meineZahlungen.length > 1 &&
+                " Auf dich entfallen zwei Wege — die Zahlungsgebühr fällt deshalb zweimal an."}
             </p>
             <ul className="space-y-2">
               {transfers.map((t) => {
@@ -259,7 +264,14 @@ export function RingDetail({
                       </span>
                     </span>
                     <span className="flex items-center gap-2">
-                      <span className="tabular text-ink">{chf(t.amount)}</span>
+                      <span className="tabular text-ink">
+                        {chf(t.amount)}
+                        {t.payerId === meId && feesMinor[`${t.payerId}|${t.payeeId}`] > 0 && (
+                          <span className="ml-1 text-[11px] font-normal text-ink-3">
+                            zzgl. {chf(feesMinor[`${t.payerId}|${t.payeeId}`] / 100)} Gebühr
+                          </span>
+                        )}
+                      </span>
                       <Badge
                         tone={
                           status === "ausgezahlt"
@@ -480,6 +492,23 @@ export function RingDetail({
                   >
                     {chf(meineOffenen[0].amount)} hinterlegen
                   </button>
+                  {paymentsEnabled && (
+                    <p className="text-[11px] text-ink-3">
+                      Zahlung über Stripe · Betrag wird reserviert, nicht sofort belastet
+                      {feesMinor[`${meineOffenen[0].payerId}|${meineOffenen[0].payeeId}`] > 0 && (
+                        <>
+                          {" "}
+                          · zzgl.{" "}
+                          {chf(
+                            feesMinor[
+                              `${meineOffenen[0].payerId}|${meineOffenen[0].payeeId}`
+                            ] / 100,
+                          )}{" "}
+                          Zahlungsgebühr
+                        </>
+                      )}
+                    </p>
+                  )}
                   {!paymentsEnabled && (
                     <p className="text-xs text-ink-3">
                       Zahlungen sind auf dieser Installation noch nicht eingerichtet.
