@@ -60,8 +60,18 @@
   }
 
   /* Sichtbarer Fokus für Tastaturbedienung */
-  :focus-visible {
-    outline: 2px solid var(--color-volt-ink);
+  /*
+   * Der Ring gilt auch dort, wo eine Utility-Klasse outline-none setzt:
+   * die Eingabefelder tun das, um den Standardring des Browsers zu
+   * unterdrücken — sichtbar bleiben muss der Fokus trotzdem.
+   */
+  :focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  button:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--color-volt-ink) !important;
     outline-offset: 2px;
     border-radius: 4px;
   }

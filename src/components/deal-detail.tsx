@@ -184,7 +184,7 @@ export function DealDetail({
                 <p className="mt-0.5 text-xs text-ink-3">
                   {Math.abs(spread) < 500
                     ? "Angebot liegt im marktgerechten Bereich"
-                    : `Abweichung ${chf(Math.abs(spread))}`}
+                    : `${chf(Math.abs(spread))} ${spread > 0 ? "über" : "unter"} dem rechnerischen Wertunterschied`}
                 </p>
               </div>
             </div>

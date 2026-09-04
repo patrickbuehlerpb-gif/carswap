@@ -64,7 +64,9 @@ export function Combobox({
   useEffect(() => {
     if (!open) return;
     function onPointerDown(e: PointerEvent) {
-      if (!wrapRef.current?.contains(e.target as Node)) close(false);
+      // Ein Klick daneben darf das Getippte nicht verschlucken — sonst
+      // speichert ein Klick direkt auf «Speichern» den alten Wert.
+      if (!wrapRef.current?.contains(e.target as Node)) commitText();
     }
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
@@ -79,17 +81,30 @@ export function Combobox({
   }, [active, open]);
 
   function openList() {
-    if (disabled) return;
+    if (disabled || open) return;
     setQuery("");
     setActive(Math.max(0, options.indexOf(value)));
     setOpen(true);
   }
 
-  /** Schliesst die Liste. `commit` übernimmt die freie Eingabe. */
-  function close(commit: boolean) {
-    if (commit && allowCustom && query.trim()) onChange(query.trim());
+  /** Schliesst die Liste ohne den getippten Text zu übernehmen. */
+  function close() {
     setOpen(false);
     setQuery("");
+  }
+
+  /**
+   * Übernimmt den getippten Text. Deckt er sich mit einem Eintrag, wird
+   * dessen Schreibweise verwendet — sonst landen «bmw» und «BMW» als zwei
+   * verschiedene Marken in der Datenbank.
+   */
+  function commitText() {
+    const typed = query.trim();
+    if (!typed) return close();
+    const treffer = options.find((o) => o.toLowerCase() === typed.toLowerCase());
+    if (treffer) return pick(treffer);
+    if (allowCustom) onChange(typed);
+    close();
   }
 
   function pick(option: string) {
@@ -127,14 +142,18 @@ export function Combobox({
       case "Enter":
         e.preventDefault();
         if (matches[active]) pick(matches[active]);
-        else close(true);
+        else commitText();
         break;
       case "Escape":
         e.preventDefault();
-        close(false);
+        // Abbrechen heisst abbrechen: der getippte Text wird verworfen.
+        close();
         break;
       case "Tab":
-        close(true);
+        // Tab bestätigt den markierten Treffer. Wer bewusst etwas Eigenes
+        // eingibt, hat keinen Treffer in der Liste und behält seinen Text.
+        if (query.trim() && matches[active]) pick(matches[active]);
+        else commitText();
         break;
     }
   }
@@ -161,7 +180,7 @@ export function Combobox({
           required={required}
           disabled={disabled}
           value={display}
-          placeholder={placeholder}
+          placeholder={open && value ? value : placeholder}
           onFocus={openList}
           onClick={openList}
           onChange={(e) => {

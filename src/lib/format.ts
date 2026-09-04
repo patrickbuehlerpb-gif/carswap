@@ -54,10 +54,16 @@ export function dayMonth(iso: string): string {
   return `${d.getUTCDate()}. ${MONTHS_SHORT[d.getUTCMonth()]}`;
 }
 
-export function relativeAge(iso: string, now = "2026-09-01"): string {
+/**
+ * Der Stichtag wird bewusst übergeben statt hier gebildet: in einer
+ * Client-Komponente käme sonst serverseitig ein anderes Datum heraus als im
+ * Browser, und React verwirft die ganze Seite mit einem Hydration-Fehler.
+ */
+export function relativeAge(iso: string, now: string): string {
   const a = new Date(iso).getTime();
   const b = new Date(now).getTime();
   const days = Math.round((b - a) / 86_400_000);
+  if (days < 0) return "heute";
   if (days < 1) return "heute";
   if (days === 1) return "gestern";
   if (days < 31) return `vor ${days} Tagen`;

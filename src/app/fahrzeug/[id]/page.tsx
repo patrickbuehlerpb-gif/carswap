@@ -49,6 +49,9 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
   if (listing && !isMine) await countListingView(listing.id);
 
   const asOf = currentMonth();
+  // Stichtag für relative Zeitangaben — serverseitig gebildet, damit die
+  // Angabe nicht mit der Uhr des Browsers auseinanderläuft.
+  const heute = new Date().toISOString().slice(0, 10);
   const valuation = valuate(vehicle, asOf);
   const history = valueHistory(vehicle, 24, 18, asOf);
   const perMonth = depreciationPerMonth(vehicle, asOf);
@@ -102,6 +105,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
                 {listing && !isMine && (
                   <WatchButton
                     listingId={listing.id}
+                    vehicleId={vehicle.id}
                     initialActive={watchlist.includes(listing.id)}
                     signedIn={Boolean(me)}
                   />
@@ -382,7 +386,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
                   </div>
 
                   <p className="mt-4 border-t border-line pt-3 text-[11px] text-ink-3 tabular">
-                    Inseriert {relativeAge(listing.createdAt)} · {listing.views} Aufrufe
+                    Inseriert {relativeAge(listing.createdAt, heute)} · {listing.views} Aufrufe
                   </p>
                 </Card>
               )}

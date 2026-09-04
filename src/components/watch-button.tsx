@@ -6,10 +6,13 @@ import { toggleWatchAction } from "@/app/actions/watchlist";
 
 export function WatchButton({
   listingId,
+  vehicleId,
   initialActive,
   signedIn,
 }: {
   listingId: string;
+  /** Für den Rücksprung nach der Anmeldung — die Route heisst /fahrzeug/<Fahrzeug>. */
+  vehicleId: string;
   initialActive: boolean;
   signedIn: boolean;
 }) {
@@ -20,7 +23,7 @@ export function WatchButton({
 
   function toggle() {
     if (!signedIn) {
-      router.push(`/konto/anmelden?next=/fahrzeug/${listingId}`);
+      router.push(`/konto/anmelden?next=/fahrzeug/${vehicleId}`);
       return;
     }
     // Optimistisch umschalten und bei Fehler zurücknehmen

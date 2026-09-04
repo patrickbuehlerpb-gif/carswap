@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { signOutAction } from "@/app/actions/auth";
 
 interface NavItem {
@@ -68,9 +68,32 @@ export function NavLinks({
 
 export function UserMenu({ name, avatarColor }: { name: string; avatarColor: string }) {
   const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  /*
+   * Ein Overlay als Klickfänger funktioniert hier nicht: die Kopfzeile setzt
+   * backdrop-filter und wird damit zum Bezugsrahmen für position:fixed — das
+   * Overlay deckt dann nur die Kopfzeile ab statt der Seite. Deshalb direkt
+   * am Dokument lauschen.
+   */
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: PointerEvent) {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   return (
-    <div className="relative">
+    <div className="relative" ref={wrapRef}>
       <button
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
@@ -88,7 +111,6 @@ export function UserMenu({ name, avatarColor }: { name: string; avatarColor: str
 
       {open && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden />
           <div
             role="menu"
             className="absolute right-0 z-20 mt-2 w-52 rounded-lg border border-line bg-surface p-1 shadow-lg"

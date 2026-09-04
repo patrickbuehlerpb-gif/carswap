@@ -14,16 +14,21 @@ const FUELS: Fuel[] = ["elektro", "hybrid", "benzin", "diesel"];
 export function MatchFinder({
   pool,
   myVehicles,
+  myPremiums,
   me,
 }: {
   pool: ListingEntry[];
   myVehicles: Vehicle[];
+  /** Aufschlag je eigenem Fahrzeug, damit der Ring mit denselben Zahlen rechnet. */
+  myPremiums: Record<string, number>;
   me: User;
 }) {
   const [mineId, setMineId] = useState(myVehicles[0].id);
-  const [makes, setMakes] = useState<string[]>(["Zeekr"]);
-  const [bodies, setBodies] = useState<Body[]>(["suv"]);
-  const [fuels, setFuels] = useState<Fuel[]>(["elektro"]);
+  // Ohne Vorauswahl: ein voreingestellter Filter lässt die Seite für alle
+  // leer aussehen, deren Wunschfahrzeug zufällig nicht hineinpasst.
+  const [makes, setMakes] = useState<string[]>([]);
+  const [bodies, setBodies] = useState<Body[]>([]);
+  const [fuels, setFuels] = useState<Fuel[]>([]);
   const [tab, setTab] = useState<"direkt" | "ring">("direkt");
 
   const mine = myVehicles.find((v) => v.id === mineId) ?? myVehicles[0];
@@ -41,7 +46,10 @@ export function MatchFinder({
   const both = matches.filter((m) => m.mutual && m.fitsMyWish);
   const onlyMe = matches.filter((m) => !m.mutual && m.fitsMyWish).slice(0, 6);
   const onlyThem = matches.filter((m) => m.mutual && !m.fitsMyWish).slice(0, 6);
-  const rings = useMemo(() => findRingSwaps(mine, pool, wish, me, 6), [mine, pool, wish, me]);
+  const rings = useMemo(
+    () => findRingSwaps(mine, pool, wish, me, 6, myPremiums[mine.id] ?? 0),
+    [mine, pool, wish, me, myPremiums],
+  );
 
   function toggle<T>(arr: T[], set: (v: T[]) => void, v: T) {
     set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);

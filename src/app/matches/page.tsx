@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { MatchFinder } from "@/components/match-finder";
 import { Card, SectionHead } from "@/components/ui";
 import { getSessionUser } from "@/lib/auth/session";
-import { getActiveListings, getMyVehicles, getPublicUser } from "@/lib/queries";
+import { getActiveListings, getMyListings, getMyVehicles, getPublicUser } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Matches" };
 export const dynamic = "force-dynamic";
@@ -13,11 +13,16 @@ export default async function MatchesPage() {
   const me = await getSessionUser();
   if (!me) redirect("/konto/anmelden?next=/matches");
 
-  const [pool, myVehicles, publicMe] = await Promise.all([
+  const [pool, myVehicles, myListings, publicMe] = await Promise.all([
     getActiveListings(me.id),
     getMyVehicles(me.id),
+    getMyListings(me.id),
     getPublicUser(me.id),
   ]);
+
+  const myPremiums = Object.fromEntries(
+    myListings.map((l) => [l.listing.vehicleId, l.listing.askPremium ?? 0]),
+  );
 
   return (
     <div>
@@ -40,7 +45,7 @@ export default async function MatchesPage() {
           </Link>
         </Card>
       ) : (
-        <MatchFinder pool={pool} myVehicles={myVehicles} me={publicMe} />
+        <MatchFinder pool={pool} myVehicles={myVehicles} myPremiums={myPremiums} me={publicMe} />
       )}
     </div>
   );

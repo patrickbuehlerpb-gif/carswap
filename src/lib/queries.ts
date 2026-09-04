@@ -124,6 +124,9 @@ export async function getMyVehicles(userId: string): Promise<Vehicle[]> {
  * Passung passiert danach im Matching, weil es vom gewählten eigenen
  * Fahrzeug abhängt.
  */
+/** Obergrenze für den Marktpool. Darüber hinaus wird gezählt, nicht geladen. */
+export const MARKTPOOL_LIMIT = 500;
+
 export async function getActiveListings(excludeOwnerId?: string): Promise<ListingView[]> {
   const rows = await db
     .select({ listing: listings, vehicle: vehicles, owner: users })
@@ -136,13 +139,26 @@ export async function getActiveListings(excludeOwnerId?: string): Promise<Listin
         : eq(listings.status, "aktiv"),
     )
     .orderBy(desc(listings.createdAt))
-    .limit(300);
+    .limit(MARKTPOOL_LIMIT);
 
   return rows.map((r) => ({
     listing: toListing(r.listing),
     vehicle: toVehicle(r.vehicle),
     owner: toUser(r.owner),
   }));
+}
+
+/** Wie viele aktive Inserate es insgesamt gibt — für den Hinweis auf die Obergrenze. */
+export async function countActiveListings(excludeOwnerId?: string): Promise<number> {
+  const rows = await db
+    .select({ n: raw<number>`count(*)::int` })
+    .from(listings)
+    .where(
+      excludeOwnerId
+        ? and(eq(listings.status, "aktiv"), ne(listings.ownerId, excludeOwnerId))
+        : eq(listings.status, "aktiv"),
+    );
+  return rows[0]?.n ?? 0;
 }
 
 export async function getListingByVehicle(vehicleId: string): Promise<ListingView | null> {

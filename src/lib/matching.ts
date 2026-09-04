@@ -273,12 +273,22 @@ export function findRingSwaps(
   myWish: Partial<SwapWish> | undefined,
   myUser: User,
   limit = 6,
+  /** Aufschlag, den ich selbst auf mein Fahrzeug verlange. */
+  myAskPremium = 0,
 ): RingSwapDetail[] {
   const pool = entries.filter(
     (e) => e.listing.status !== "getauscht" && e.vehicle.ownerId !== myVehicle.ownerId,
   );
   const rings: RingSwapDetail[] = [];
   const seen = new Set<string>();
+
+  // Der Wert jedes Fahrzeugs wird einmal berechnet, nicht in der inneren
+  // Schleife — sonst wächst der Aufwand mit dem Quadrat des Marktes.
+  const askValue = new Map<string, number>();
+  for (const e of pool) {
+    askValue.set(e.vehicle.id, valueAt(e.vehicle) + (e.listing.askPremium ?? 0));
+  }
+  const vMe = valueAt(myVehicle) + myAskPremium;
 
   const wantsMyCar = pool.filter((e) => fitsWish(e.listing.wish, myVehicle).ok);
 
@@ -292,9 +302,10 @@ export function findRingSwaps(
       if (b.ownerId === a.ownerId) continue;
       if (bVehicle.id === myVehicle.id) continue;
 
-      // A muss das Auto von B wollen
-      if (!fitsWish(a.wish, bVehicle).ok) continue;
-      // B muss das Auto von A wollen
+      // Im Ring «ich → A → B → ich» bekommt A mein Fahrzeug (oben schon
+      // geprüft) und B das von A. Dass A das Fahrzeug von B will, gehört
+      // nicht dazu — A bekommt es nie zu sehen. Diese Bedingung hat
+      // vorher gültige Dreiecke verworfen.
       if (!fitsWish(b.wish, aVehicle).ok) continue;
 
       // Und ich muss das Auto von B wollen
@@ -314,13 +325,18 @@ export function findRingSwaps(
         myQuality = fit.quality;
       }
 
-      const key = [myVehicle.id, aVehicle.id, bVehicle.id].sort().join("|");
+      // Nicht sortieren: «ich → A → B» und «ich → B → A» sind zwei
+      // verschiedene Ringe mit anderen Zuzahlungen. Die eigene Position
+      // ist immer der Anfang, damit ist der Schlüssel schon eindeutig.
+      const key = [myVehicle.id, aVehicle.id, bVehicle.id].join("|");
       if (seen.has(key)) continue;
       seen.add(key);
 
-      const vMe = valueAt(myVehicle);
-      const vA = valueAt(aVehicle);
-      const vB = valueAt(bVehicle);
+      // Gerechnet wird mit dem geforderten Wert, also inklusive Aufschlag.
+      // Nur so bleibt die Summe der drei Zuzahlungen null und der Ring
+      // rechnet sich mit denselben Zahlen wie ein Zweiertausch.
+      const vA = askValue.get(aVehicle.id) ?? valueAt(aVehicle);
+      const vB = askValue.get(bVehicle.id) ?? valueAt(bVehicle);
 
       // Jeder zahlt die Differenz zwischen erhaltenem und abgegebenem Wert
       const myCash = round50(vB - vMe);

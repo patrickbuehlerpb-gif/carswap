@@ -269,6 +269,14 @@ export function SwapConfigurator({
             {fair.premium > 0 && (
               <Line label="Aufschlag des Inserenten" value={chf(fair.premium)} />
             )}
+            {fair.delta - (fair.getValue - fair.giveValue + fair.premium) !== 0 && (
+              <Line
+                label="Rundung auf 50"
+                value={chf(fair.delta - (fair.getValue - fair.giveValue + fair.premium), {
+                  sign: true,
+                })}
+              />
+            )}
             <div className="border-t border-line pt-2">
               <Line
                 label="Berechneter Ausgleich"
