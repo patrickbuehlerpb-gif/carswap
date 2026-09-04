@@ -8,6 +8,16 @@ import { markPayment, stripe, stripeConfigured } from "@/lib/payments";
 /** Der Rohtext wird für die Signaturprüfung gebraucht, also kein Body-Parsing. */
 export const dynamic = "force-dynamic";
 
+/** Ereignisarten, auf die diese Anwendung reagiert. */
+const HANDLED = new Set<string>([
+  "checkout.session.completed",
+  "checkout.session.expired",
+  "payment_intent.canceled",
+  "payment_intent.payment_failed",
+  "charge.refunded",
+  "account.updated",
+]);
+
 export async function POST(request: Request) {
   if (!stripeConfigured() || !process.env.STRIPE_WEBHOOK_SECRET) {
     return NextResponse.json({ error: "Webhook nicht konfiguriert" }, { status: 503 });
@@ -25,6 +35,13 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error("Webhook-Signatur ungültig:", err);
     return NextResponse.json({ error: "Signatur ungültig" }, { status: 400 });
+  }
+
+  // Nicht behandelte Ereignisarten sofort quittieren, ohne sie zu vermerken.
+  // Sonst füllt ein zu breit abonniertes Ziel die Tabelle mit Einträgen, die
+  // nie jemand liest.
+  if (!HANDLED.has(event.type)) {
+    return NextResponse.json({ received: true, ignored: event.type });
   }
 
   // Stripe liefert Ereignisse mindestens einmal — Duplikate hier abfangen.
@@ -150,7 +167,7 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
     }
 
     default:
-      // Alles andere interessiert uns nicht — trotzdem mit 200 quittieren.
+      // Kann nicht eintreten, solange HANDLED und dieses switch übereinstimmen.
       break;
   }
 }
