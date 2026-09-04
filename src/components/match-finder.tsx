@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState, useTransition } from "react";
 import { VehicleVisual } from "@/components/vehicle-visual";
 import { Badge, Card, ScorePill } from "@/components/ui";
 import { chf, km, label, vehicleFullTitle } from "@/lib/format";
 import { findMatches, findRingSwaps, type ListingEntry } from "@/lib/matching";
+import { proposeRingAction } from "@/app/actions/rings";
 import type { Body, Fuel, User, Vehicle } from "@/lib/types";
 
 const BODIES: Body[] = ["suv", "limousine", "kombi", "kompakt"];
@@ -27,6 +29,9 @@ export function MatchFinder({
   const [bodies, setBodies] = useState<Body[]>([]);
   const [fuels, setFuels] = useState<Fuel[]>([]);
   const [tab, setTab] = useState<"direkt" | "ring">("direkt");
+  const [ringFehler, setRingFehler] = useState<string | null>(null);
+  const [ringPending, startRing] = useTransition();
+  const router = useRouter();
 
   const mine = myVehicles.find((v) => v.id === mineId) ?? myVehicles[0];
 
@@ -159,11 +164,17 @@ export function MatchFinder({
             dritten Partei. Alle drei Ausgleichszahlungen summieren sich zu null.
           </p>
           <p className="mb-4 max-w-3xl rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-ink-2">
-            <span className="font-semibold text-ink">Noch nicht abwickelbar:</span> Ein Dreiertausch
-            lässt sich hier finden, aber noch nicht in einem Zug abschliessen — die Treuhand kennt
-            bisher nur zwei Parteien. Wer die Konstellation nutzen will, spricht sich mit den beiden
-            anderen ab. Wir arbeiten daran.
+            <span className="font-semibold text-ink">So läuft er ab:</span> Du schlägst den Ring
+            vor, die beiden anderen sagen zu oder ab. Erst mit allen drei Zusagen sind die
+            Fahrzeuge gebunden; danach hinterlegen alle, die etwas draufzahlen, ihren Ausgleich auf
+            dem Treuhandkonto. Ausgezahlt und umgeschrieben wird erst, wenn alle drei die Übergabe
+            bestätigt haben. Springt jemand ab, geht alles zurück — es bewegt sich kein Fahrzeug.
           </p>
+          {ringFehler && (
+            <p className="mb-4 max-w-3xl rounded-lg border border-bad/40 bg-bad/10 px-3 py-2 text-xs text-ink">
+              {ringFehler}
+            </p>
+          )}
           {rings.length === 0 ? (
             <EmptyBox text="Für diese Kombination liess sich kein Ring bilden. Erweitere deine Suchkriterien oder wähle ein anderes Fahrzeug." />
           ) : (
@@ -255,6 +266,26 @@ export function MatchFinder({
                             {p.gives.make} {p.gives.model} ansehen
                           </Link>
                         ))}
+                      <button
+                        type="button"
+                        disabled={ringPending}
+                        onClick={() => {
+                          setRingFehler(null);
+                          startRing(async () => {
+                            const res = await proposeRingAction({
+                              vehicleIds: r.participants.map((p) => p.gives.id),
+                            });
+                            if (res.ringId) {
+                              router.push(`/ringe/${res.ringId}`);
+                              return;
+                            }
+                            setRingFehler(res.error ?? "Der Ring liess sich nicht anlegen.");
+                          });
+                        }}
+                        className="rounded-lg bg-volt px-3 py-1.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi disabled:opacity-50"
+                      >
+                        Ring vorschlagen
+                      </button>
                     </div>
                   </div>
                 </Card>

@@ -203,8 +203,9 @@ export default async function HomePage() {
             </div>
             <p className="mt-5 border-t border-line pt-4 text-xs text-ink-3">
               Alle drei Ausgleichszahlungen summieren sich zu null — es fliesst nur Geld zwischen
-              den Teilnehmern, nicht aus dem System heraus. Abschliessen lässt sich ein Dreiertausch
-              heute noch nicht in einem Zug; die Treuhand kennt bisher zwei Parteien.
+              den Teilnehmern, nicht aus dem System heraus. Abgewickelt wird der Ring in einem Zug:
+              gebunden ist er erst mit allen drei Zusagen, ausgezahlt und umgeschrieben erst, wenn
+              alle drei die Übergabe bestätigt haben.
             </p>
           </Card>
         </section>

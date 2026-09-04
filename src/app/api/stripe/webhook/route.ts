@@ -2,9 +2,15 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { and, eq, inArray, or } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { dealMessages, deals, payments, users, webhookEvents } from "@/lib/db/schema";
+import { dealMessages, deals, payments, ringSwaps, users, webhookEvents } from "@/lib/db/schema";
 import { newId } from "@/lib/db/ids";
 import { markPayment, markPaymentIfIn, stripe, stripeConfigured } from "@/lib/payments";
+import {
+  addRingSystemMessage,
+  advanceRingToEscrow,
+  reopenRingEscrow,
+  ringParticipantIds,
+} from "@/lib/rings-db";
 import { sendMail, siteUrl } from "@/lib/mail";
 
 /** Der Rohtext wird für die Signaturprüfung gebraucht, also kein Body-Parsing. */
@@ -75,7 +81,8 @@ export async function handleEvent(event: Stripe.Event): Promise<void> {
       const session = event.data.object;
       const paymentId = session.metadata?.carswap_payment_id;
       const dealId = session.metadata?.carswap_deal_id;
-      if (!paymentId || !dealId) return;
+      const ringId = session.metadata?.carswap_ring_id;
+      if (!paymentId || (!dealId && !ringId)) return;
 
       const intentId =
         typeof session.payment_intent === "string"
@@ -87,28 +94,43 @@ export async function handleEvent(event: Stripe.Event): Promise<void> {
         authorizedAt: new Date(),
       });
 
-      // Der Betrag ist reserviert — der Tausch geht in die Treuhandphase.
+      // Der Betrag ist reserviert — der Vorgang geht in die Treuhandphase.
       // Nur aus «angenommen»: wurde zwischenzeitlich abgebrochen, darf die
-      // Zahlung den Vorgang nicht wiederbeleben. «treuhand» ist mit erlaubt,
-      // damit ein erneut zugestelltes Ereignis nicht als Fehlschlag gilt.
-      const moved = await db
-        .update(deals)
-        .set({ status: "treuhand", escrowAt: new Date(), updatedAt: new Date() })
-        .where(
-          and(
-            eq(deals.id, dealId),
-            or(eq(deals.status, "angenommen"), eq(deals.status, "treuhand")),
-          ),
-        )
-        .returning({ id: deals.id });
+      // Zahlung ihn nicht wiederbeleben. «treuhand» ist mit erlaubt, damit ein
+      // erneut zugestelltes Ereignis nicht als Fehlschlag gilt.
+      let passend: boolean;
+      if (ringId) {
+        // Der Ring wechselt erst, wenn alle nötigen Beträge reserviert sind.
+        // Solange noch einer fehlt, bleibt er in «angenommen» — die Zahlung
+        // ist trotzdem gültig hinterlegt und wird nicht storniert.
+        const [ring] = await db
+          .select({ status: ringSwaps.status })
+          .from(ringSwaps)
+          .where(eq(ringSwaps.id, ringId))
+          .limit(1);
+        passend = ring?.status === "angenommen" || ring?.status === "treuhand";
+        if (passend) await advanceRingToEscrow(ringId);
+      } else {
+        const moved = await db
+          .update(deals)
+          .set({ status: "treuhand", escrowAt: new Date(), updatedAt: new Date() })
+          .where(
+            and(
+              eq(deals.id, dealId!),
+              or(eq(deals.status, "angenommen"), eq(deals.status, "treuhand")),
+            ),
+          )
+          .returning({ id: deals.id });
+        passend = moved.length > 0;
+      }
 
-      if (!moved.length && intentId) {
-        // Der Tausch existiert nicht mehr im passenden Zustand — Geld sofort
+      if (!passend && intentId) {
+        // Der Vorgang existiert nicht mehr im passenden Zustand — Geld sofort
         // wieder freigeben, statt es hängen zu lassen.
-        console.warn(`Zahlung ${paymentId} ohne passenden Tausch — Autorisierung wird storniert.`);
+        console.warn(`Zahlung ${paymentId} ohne passenden Vorgang — Autorisierung wird storniert.`);
         try {
           await stripe().paymentIntents.cancel(intentId);
-          await markPayment(paymentId, "storniert", "Tausch war nicht mehr im Zustand angenommen");
+          await markPayment(paymentId, "storniert", "Vorgang war nicht mehr im Zustand angenommen");
         } catch (err) {
           console.error("Stornierung fehlgeschlagen:", err);
         }
@@ -128,13 +150,16 @@ export async function handleEvent(event: Stripe.Event): Promise<void> {
       const intent = event.data.object;
       const paymentId = intent.metadata?.carswap_payment_id;
       const dealId = intent.metadata?.carswap_deal_id;
+      const ringId = intent.metadata?.carswap_ring_id;
       if (paymentId) {
         await markPaymentIfIn(paymentId, ["erstellt", "autorisiert"], "storniert");
       }
       // Eine Reservierung verfällt nach sieben Tagen. Ohne hinterlegtes Geld
-      // darf der Tausch nicht in der Treuhandphase stehen bleiben, sonst
+      // darf der Vorgang nicht in der Treuhandphase stehen bleiben, sonst
       // führt ein späteres Bestätigen der Übergabe ins Leere.
-      if (dealId) await reopenEscrow(dealId, "Die Reservierung des Ausgleichs ist verfallen.");
+      const grund = "Die Reservierung des Ausgleichs ist verfallen.";
+      if (dealId) await reopenEscrow(dealId, grund);
+      if (ringId) await reopenRingEscrow(ringId, grund);
       break;
     }
 
@@ -172,15 +197,15 @@ export async function handleEvent(event: Stripe.Event): Promise<void> {
         break;
       }
       await markPayment(rows[0].id, "erstattet");
-      const zurueck = await reopenEscrow(
-        rows[0].dealId,
-        "Der hinterlegte Ausgleich wurde erstattet.",
-      );
+      const grund = "Der hinterlegte Ausgleich wurde erstattet.";
+      const zurueck = rows[0].dealId
+        ? await reopenEscrow(rows[0].dealId, grund)
+        : await reopenRingEscrow(rows[0].ringId!, grund);
       if (!zurueck) {
-        // Der Tausch ist nicht mehr in der Treuhandphase — bei einem bereits
+        // Der Vorgang ist nicht mehr in der Treuhandphase — bei einem bereits
         // abgeschlossenen Tausch ist das Geld zurück, die Fahrzeuge aber
         // umgeschrieben. Das braucht einen Menschen.
-        await flagRefundAfterCompletion(rows[0].dealId, rows[0].id);
+        await flagRefundAfterCompletion(rows[0].dealId, rows[0].ringId, rows[0].id);
       }
       break;
     }
@@ -241,34 +266,58 @@ async function reopenEscrow(dealId: string, reason: string): Promise<boolean> {
  * bereits umgeschrieben. Beide Seiten werden informiert, der Vorgang bleibt im
  * Verlauf sichtbar und im Log als Warnung stehen.
  */
-async function flagRefundAfterCompletion(dealId: string, paymentId: string): Promise<void> {
-  const [row] = await db.select().from(deals).where(eq(deals.id, dealId)).limit(1);
-  if (!row) return;
+async function flagRefundAfterCompletion(
+  dealId: string | null,
+  ringId: string | null,
+  paymentId: string,
+): Promise<void> {
+  const hinweis =
+    "Der Ausgleich wurde zurückerstattet, obwohl der Vorgang die Treuhandphase bereits " +
+    "verlassen hat. Bitte meldet euch beim Support — das muss von Hand geklärt werden.";
+
+  let beteiligte: string[];
+  let adresse: string;
+  let zustand: string;
+
+  if (ringId) {
+    const [ring] = await db.select().from(ringSwaps).where(eq(ringSwaps.id, ringId)).limit(1);
+    if (!ring) return;
+    beteiligte = await ringParticipantIds(ringId);
+    adresse = `${siteUrl()}/ringe/${ringId}`;
+    zustand = ring.status;
+    await addRingSystemMessage(ringId, ring.initiatorId, hinweis);
+  } else if (dealId) {
+    const [row] = await db.select().from(deals).where(eq(deals.id, dealId)).limit(1);
+    if (!row) return;
+    beteiligte = [row.initiatorId, row.counterpartyId];
+    adresse = `${siteUrl()}/deals/${dealId}`;
+    zustand = row.status;
+    await db.insert(dealMessages).values({
+      id: newId("msg"),
+      dealId,
+      authorId: row.initiatorId,
+      body: hinweis,
+      system: true,
+    });
+  } else {
+    return;
+  }
 
   console.warn(
-    `Erstattung zu Zahlung ${paymentId} betrifft Tausch ${dealId} im Zustand ${row.status} — Handeingriff nötig.`,
+    `Erstattung zu Zahlung ${paymentId} betrifft ${adresse} im Zustand ${zustand} — Handeingriff nötig.`,
   );
-  await db.insert(dealMessages).values({
-    id: newId("msg"),
-    dealId,
-    authorId: row.initiatorId,
-    body:
-      "Der Ausgleich wurde zurückerstattet, obwohl der Tausch die Treuhandphase bereits " +
-      "verlassen hat. Bitte meldet euch beim Support — das muss von Hand geklärt werden.",
-    system: true,
-  });
 
   const empfaenger = await db
     .select({ email: users.email })
     .from(users)
-    .where(inArray(users.id, [row.initiatorId, row.counterpartyId]));
+    .where(inArray(users.id, beteiligte));
   for (const person of empfaenger) {
     await sendMail({
       to: person.email,
       subject: "CarSwap: Rückerstattung zu einem abgeschlossenen Tausch",
       text:
         "Zu eurem Tausch wurde der Ausgleich zurückerstattet, obwohl der Vorgang bereits " +
-        `abgeschlossen war. Bitte meldet euch beim Support.\n\n${siteUrl()}/deals/${dealId}\n`,
+        `abgeschlossen war. Bitte meldet euch beim Support.\n\n${adresse}\n`,
     });
   }
 }

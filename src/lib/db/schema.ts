@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -240,13 +242,92 @@ export const deals = pgTable(
   ],
 );
 
+export type RingStatusDb =
+  | "vorschlag"
+  | "angenommen"
+  | "treuhand"
+  /** Alle drei haben bestätigt, das Geld wird gerade eingezogen und weitergeleitet. */
+  | "abwicklung"
+  | "abgeschlossen"
+  | "abgelehnt"
+  | "storniert";
+
+/**
+ * Ringtausch über drei Parteien. Anders als beim Zweiertausch gibt es keinen
+ * Initiator und keine Gegenseite, sondern drei gleichrangige Teilnehmer — die
+ * Rollen stehen in den Beinen (ring_legs).
+ */
+export const ringSwaps = pgTable(
+  "ring_swaps",
+  {
+    id: text("id").primaryKey(),
+    /** Wer den Ring vorgeschlagen hat. Nur für Anzeige und Systemnachrichten. */
+    initiatorId: text("initiator_id")
+      .notNull()
+      .references(() => users.id),
+    status: text("status").$type<RingStatusDb>().notNull().default("vorschlag"),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    escrowAt: timestamp("escrow_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ring_swaps_status_idx").on(t.status)],
+);
+
+/**
+ * Ein Bein des Rings: `userId` gibt `vehicleId` an `receiverId` ab und zahlt
+ * `cash` in den Topf (positiv) oder bekommt daraus (negativ). Jede Person
+ * kommt genau einmal als Geber und einmal als Empfänger vor, die Summe aller
+ * `cash` ist null — beides wird beim Anlegen geprüft.
+ */
+export const ringLegs = pgTable(
+  "ring_legs",
+  {
+    id: text("id").primaryKey(),
+    ringId: text("ring_id")
+      .notNull()
+      .references(() => ringSwaps.id, { onDelete: "cascade" }),
+    /** 0, 1, 2 — die Reihenfolge im Ring, und damit auch die Anzeigereihenfolge. */
+    position: smallint("position").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    vehicleId: text("vehicle_id")
+      .notNull()
+      .references(() => vehicles.id),
+    /** Wer dieses Fahrzeug bekommt. */
+    receiverId: text("receiver_id")
+      .notNull()
+      .references(() => users.id),
+    /** Positiv: zahlt in den Topf. Negativ: bekommt aus dem Topf. In Franken. */
+    cash: integer("cash").notNull().default(0),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("ring_legs_position_key").on(t.ringId, t.position),
+    // Niemand ist zweimal im selben Ring, und kein Fahrzeug steht doppelt drin.
+    uniqueIndex("ring_legs_user_key").on(t.ringId, t.userId),
+    uniqueIndex("ring_legs_vehicle_key").on(t.ringId, t.vehicleId),
+    index("ring_legs_user_idx").on(t.userId),
+    index("ring_legs_vehicle_idx").on(t.vehicleId),
+  ],
+);
+
+/**
+ * Verlauf zu einem Vorgang. Eine Nachricht gehört entweder zu einem
+ * Zweiertausch oder zu einem Ring — nie zu beidem und nie zu keinem, dafür
+ * sorgt die Prüfbedingung.
+ */
 export const dealMessages = pgTable(
   "deal_messages",
   {
     id: text("id").primaryKey(),
-    dealId: text("deal_id")
-      .notNull()
-      .references(() => deals.id, { onDelete: "cascade" }),
+    dealId: text("deal_id").references(() => deals.id, { onDelete: "cascade" }),
+    ringId: text("ring_id").references(() => ringSwaps.id, { onDelete: "cascade" }),
     authorId: text("author_id")
       .notNull()
       .references(() => users.id),
@@ -256,7 +337,11 @@ export const dealMessages = pgTable(
     system: boolean("system").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("deal_messages_deal_idx").on(t.dealId, t.createdAt)],
+  (t) => [
+    index("deal_messages_deal_idx").on(t.dealId, t.createdAt),
+    index("deal_messages_ring_idx").on(t.ringId, t.createdAt),
+    check("deal_messages_owner_check", sql`num_nonnulls(${t.dealId}, ${t.ringId}) = 1`),
+  ],
 );
 
 export type PaymentStatus =
@@ -272,9 +357,9 @@ export const payments = pgTable(
   "payments",
   {
     id: text("id").primaryKey(),
-    dealId: text("deal_id")
-      .notNull()
-      .references(() => deals.id, { onDelete: "cascade" }),
+    /** Gesetzt bei einem Zweiertausch — dann ist ringId leer, und umgekehrt. */
+    dealId: text("deal_id").references(() => deals.id, { onDelete: "cascade" }),
+    ringId: text("ring_id").references(() => ringSwaps.id, { onDelete: "cascade" }),
     payerId: text("payer_id")
       .notNull()
       .references(() => users.id),
@@ -298,8 +383,10 @@ export const payments = pgTable(
   },
   (t) => [
     index("payments_deal_idx").on(t.dealId),
+    index("payments_ring_idx").on(t.ringId),
     uniqueIndex("payments_session_key").on(t.stripeSessionId),
     uniqueIndex("payments_intent_key").on(t.stripePaymentIntentId),
+    check("payments_owner_check", sql`num_nonnulls(${t.dealId}, ${t.ringId}) = 1`),
   ],
 );
 
@@ -314,12 +401,15 @@ export const dealVehicleLocks = pgTable(
     vehicleId: text("vehicle_id")
       .primaryKey()
       .references(() => vehicles.id, { onDelete: "cascade" }),
-    dealId: text("deal_id")
-      .notNull()
-      .references(() => deals.id, { onDelete: "cascade" }),
+    dealId: text("deal_id").references(() => deals.id, { onDelete: "cascade" }),
+    ringId: text("ring_id").references(() => ringSwaps.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("deal_vehicle_locks_deal_idx").on(t.dealId)],
+  (t) => [
+    index("deal_vehicle_locks_deal_idx").on(t.dealId),
+    index("deal_vehicle_locks_ring_idx").on(t.ringId),
+    check("deal_vehicle_locks_owner_check", sql`num_nonnulls(${t.dealId}, ${t.ringId}) = 1`),
+  ],
 );
 
 /** Verarbeitete Stripe-Ereignisse, damit Webhooks idempotent bleiben. */
@@ -406,3 +496,5 @@ export type DealMessageRow = typeof dealMessages.$inferSelect;
 export type PaymentRow = typeof payments.$inferSelect;
 export type DealVehicleLockRow = typeof dealVehicleLocks.$inferSelect;
 export type ReportRow = typeof reports.$inferSelect;
+export type RingSwapRow = typeof ringSwaps.$inferSelect;
+export type RingLegRow = typeof ringLegs.$inferSelect;

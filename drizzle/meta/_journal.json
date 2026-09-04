@@ -43,6 +43,13 @@
       "when": 1788546163753,
       "tag": "0005_sperren",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788550756414,
+      "tag": "0006_ringtausch",
+      "breakpoints": true
     }
   ]
 }

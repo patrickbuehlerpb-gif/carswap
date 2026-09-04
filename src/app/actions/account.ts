@@ -11,6 +11,8 @@ import {
   listings,
   payments,
   reviews,
+  ringLegs,
+  ringSwaps,
   sessions,
   users,
   vehicles,
@@ -165,13 +167,21 @@ export async function exportMyDataAction(): Promise<{
       .where(or(eq(reviews.authorId, me.id), eq(reviews.subjectId, me.id))),
   ]);
 
-  const dealIds = meineDeals.map((d) => d.id);
-  const nachrichten = dealIds.length
-    ? await db
-        .select()
-        .from(dealMessages)
-        .where(inArray(dealMessages.dealId, dealIds))
+  const meineRingBeine = await db.select().from(ringLegs).where(eq(ringLegs.userId, me.id));
+  const ringIds = [...new Set(meineRingBeine.map((l) => l.ringId))];
+  const meineRinge = ringIds.length
+    ? await db.select().from(ringSwaps).where(inArray(ringSwaps.id, ringIds))
     : [];
+
+  const dealIds = meineDeals.map((d) => d.id);
+  const nachrichten = [
+    ...(dealIds.length
+      ? await db.select().from(dealMessages).where(inArray(dealMessages.dealId, dealIds))
+      : []),
+    ...(ringIds.length
+      ? await db.select().from(dealMessages).where(inArray(dealMessages.ringId, ringIds))
+      : []),
+  ];
 
   // Der Passwort-Hash gehört nicht in eine Auskunft — er ist kein
   // personenbezogenes Datum im Sinne der Auskunftspflicht, aber ein Geheimnis.
@@ -185,6 +195,8 @@ export async function exportMyDataAction(): Promise<{
         fahrzeuge: meineFahrzeuge,
         inserate: meineInserate,
         tausche: meineDeals,
+        ringtausche: meineRinge,
+        ringbeine: meineRingBeine,
         nachrichten,
         zahlungen: meineZahlungen,
         merkliste: meineMerkliste,
@@ -230,6 +242,27 @@ export async function deleteAccountAction(
     };
   }
 
+  // Dasselbe gilt für einen verbindlich gewordenen Ring: dort warten zwei
+  // andere Personen auf eine Übergabe.
+  const offenerRing = await db
+    .select({ id: ringSwaps.id })
+    .from(ringSwaps)
+    .innerJoin(ringLegs, eq(ringLegs.ringId, ringSwaps.id))
+    .where(
+      and(
+        eq(ringLegs.userId, me.id),
+        inArray(ringSwaps.status, ["angenommen", "treuhand", "abwicklung"]),
+      ),
+    )
+    .limit(1);
+  if (offenerRing.length) {
+    return {
+      error:
+        "Zu deinem Konto läuft noch ein verbindlich zugesagter Ringtausch. Er muss erst " +
+        "abgeschlossen oder abgebrochen sein.",
+    };
+  }
+
   // Auch eine Zahlung, die noch in der Luft hängt, hält die Löschung auf.
   // Sie kann einen abgebrochenen Tausch überleben — etwa wenn die Freigabe
   // bei Stripe scheitert. Danach wäre niemand mehr erreichbar, dem das Geld
@@ -272,6 +305,20 @@ export async function deleteAccountAction(
         .limit(1);
       if (nochOffen.length) throw new LoeschKonflikt("verbindlicher Tausch");
 
+      const nochRing = await tx
+        .select({ id: ringSwaps.id })
+        .from(ringSwaps)
+        .innerJoin(ringLegs, eq(ringLegs.ringId, ringSwaps.id))
+        .where(
+          and(
+            eq(ringLegs.userId, me.id),
+            inArray(ringSwaps.status, ["angenommen", "treuhand", "abwicklung"]),
+          ),
+        )
+        .for("update", { of: ringSwaps })
+        .limit(1);
+      if (nochRing.length) throw new LoeschKonflikt("verbindlicher Tausch");
+
       const nochZahlung = await tx
         .select({ id: payments.id })
         .from(payments)
@@ -304,6 +351,27 @@ export async function deleteAccountAction(
             inArray(deals.status, ["vorschlag", "verhandlung"]),
           ),
         );
+
+      // Offene Ringvorschläge ebenfalls: ohne diese Person kommen sie nie
+      // zustande, und die beiden anderen sollen nicht darauf warten.
+      const meineRinge = await tx
+        .select({ ringId: ringLegs.ringId })
+        .from(ringLegs)
+        .where(eq(ringLegs.userId, me.id));
+      if (meineRinge.length) {
+        await tx
+          .update(ringSwaps)
+          .set({ status: "storniert", updatedAt: new Date() })
+          .where(
+            and(
+              inArray(
+                ringSwaps.id,
+                meineRinge.map((r) => r.ringId),
+              ),
+              eq(ringSwaps.status, "vorschlag"),
+            ),
+          );
+      }
 
       // Fahrzeuge aus dem Markt nehmen
       await tx

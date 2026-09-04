@@ -33,6 +33,7 @@ hängen.
 | **Wertrechner** (`/wert`) | Wertverlauf, Prognoseband, vollständige Aufschlüsselung und Sensitivitätsanalyse. |
 | **Tausch** (`/tausch/[id]`) | Direktvergleich, Wertkurven beider Fahrzeuge, Ausgleich per Regler, Prüfung gegen den Rahmen der Gegenseite. |
 | **Tauschvorgang** (`/deals/[id]`) | Verhandlung, Zusage, Treuhand, Übergabe-Checkliste, Abschluss mit Halterwechsel. |
+| **Ringtausch** (`/ringe/[id]`) | Derselbe Ablauf über drei Parteien: drei Zusagen, aufgeteilter Treuhandtopf, drei Übergaben, Halterwechsel im Kreis. |
 
 ### Moderation
 
@@ -69,6 +70,26 @@ Das Grundproblem jedes Tauschmarkts ist die doppelte Bedarfskoinzidenz: Du
 willst das Auto von A, aber A will deines nicht. `findRingSwaps()` sucht
 deshalb Dreierkreise — du gibst an A, A gibt an B, B gibt an dich. Die drei
 Ausgleichszahlungen summieren sich zu null.
+
+Ein gefundener Ring lässt sich auch abwickeln (`/ringe/[id]`). Er läuft über
+dieselben Stationen wie ein Zweiertausch, mit drei Unterschieden:
+
+- **Gebunden erst mit allen drei Zusagen.** Bis dahin bleibt jedes Fahrzeug
+  frei; niemand wartet mit gesperrtem Auto auf eine Zusage, die nie kommt.
+  Die letzte Zusage setzt die Sperren, und zwar dieselben wie beim
+  Zweiertausch — ein Fahrzeug steckt nie in zwei verbindlichen Vorgängen.
+- **Der Topf wird zerlegt.** Im Ring zahlt niemand an die Person, von der er
+  das Auto bekommt. `ringTransfers()` löst die drei Ausgleiche in einzelne
+  Zahlungen von den Zahlenden zu den Empfangenden auf — bei drei Parteien
+  höchstens zwei. Jede davon durchläuft denselben abgesicherten Weg wie eine
+  Zahlung im Zweiertausch: reservieren, einziehen, weiterleiten. Die
+  Kartengebühr trägt wie dort der Zahlende, je Betrag.
+- **Alles oder nichts.** In die Treuhandphase kommt der Ring erst, wenn *jede*
+  nötige Reservierung vorliegt; ausgezahlt und umgeschrieben wird erst, wenn
+  *alle drei* die Übergabe bestätigt haben. Vor dem ersten Einzug werden alle
+  Empfängerkonten geprüft — sonst bliebe der Ring nach der ersten Überweisung
+  auf halbem Weg stehen. Springt jemand ab, geht alles zurück und kein
+  Fahrzeug bewegt sich.
 
 ## Bewertungsmodell
 
@@ -305,7 +326,9 @@ src/
     db/                Drizzle-Schema und Verbindung
     queries.ts         Datenzugriff mit Übersetzung in Domänenobjekte
     valuation.ts       Bewertungs- und Prognosemodell
-    matching.ts        Wunschabgleich, Scoring, Ringtausch
+    matching.ts        Wunschabgleich, Scoring, Ringsuche
+    rings.ts           Ringrechnung: Ausgleiche zerlegen, Ring prüfen
+    rings-db.ts        Ringzustände: Zusage, Treuhandwechsel, Freigabe
     payments.ts        Stripe: Treuhand, Capture, Connect-Auszahlung
     validation.ts      Zod-Schemata für alle Eingaben
 scripts/               Migration, Seed, Demo-Daten
@@ -353,14 +376,15 @@ Nach dem ersten Deployment:
 - **Empirische Kalibrierung** der Restwertkurven an echten Marktdaten — am
   ehesten zusammen mit einer Eurotax-Lizenz, die auch den Fahrzeugkatalog
   mitbringt.
-- **Ringtausch-Abwicklung.** Die Suche findet Dreierkonstellationen und rechnet
-  die Zuzahlungen so, dass sie sich zu null summieren — abschliessen lässt sich
-  ein solcher Tausch aber noch nicht: die Treuhand kennt zwei Parteien, nicht
-  drei. Die Oberfläche sagt das inzwischen auch. Offen sind dabei nicht nur
-  Schema und Zustandsmaschine, sondern Produktfragen: Was passiert, wenn eine
-  von drei Parteien nach der Einzahlung abspringt? Wer trägt die Gebühren,
-  wenn drei Beträge fliessen? Wie lange bleiben drei Fahrzeuge gebunden,
-  während auf die dritte Zusage gewartet wird?
+- **Bewertungen für Ringtausche.** Nach einem Zweiertausch bewerten sich beide
+  Seiten; nach einem Ring bisher niemand. Der Grund ist die Tabelle: `reviews`
+  ist auf einen Tausch und eine Gegenseite zugeschnitten, im Ring sind es zwei.
+  Ein abgeschlossener Ring zählt aber bei allen dreien als abgeschlossener
+  Tausch.
+- **Nachverhandeln im Ring.** Der Ausgleich ergibt sich aus den drei
+  Fahrzeugwerten und steht mit dem Vorschlag fest. Wer einen anderen Betrag
+  will, muss ablehnen und neu vorschlagen — ein Gegenangebot wie beim
+  Zweiertausch gibt es nicht.
 - **Rückbuchungen** (Chargebacks) und Erstattungen nach abgeschlossenem Tausch
   werden erkannt und beiden Seiten gemeldet, aber nicht automatisch geheilt —
   das braucht einen Streitfall-Prozess.

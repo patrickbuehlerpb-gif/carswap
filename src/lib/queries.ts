@@ -6,12 +6,17 @@ import {
   dealMessages,
   deals,
   listings,
+  payments,
   reviews,
+  ringLegs,
+  ringSwaps,
   users,
   vehicles,
   watchlist,
   type DealRow,
   type ListingRow,
+  type PaymentStatus,
+  type RingStatusDb,
   type UserRow,
   type VehicleRow,
 } from "./db/schema";
@@ -410,4 +415,188 @@ export async function getWatchlist(userId: string): Promise<ListingView[]> {
     vehicle: toVehicle(r.vehicle),
     owner: toUser(r.owner),
   }));
+}
+
+/* ------------------------------------------------------------------ */
+/* Ringtausche                                                         */
+/* ------------------------------------------------------------------ */
+
+export interface RingParticipantView {
+  user: User;
+  /** Fahrzeug, das diese Person abgibt */
+  gives: Vehicle;
+  /** Wer dieses Fahrzeug bekommt */
+  receiverId: string;
+  /** Positiv: zahlt in den Topf. Negativ: bekommt daraus. */
+  cash: number;
+  accepted: boolean;
+  confirmed: boolean;
+}
+
+export interface RingView {
+  id: string;
+  status: RingStatusDb;
+  initiatorId: string;
+  createdAt: string;
+  /** Nach Position sortiert: 0 gibt an 1, 1 an 2, 2 zurück an 0. */
+  participants: RingParticipantView[];
+  messageCount: number;
+}
+
+export interface RingPaymentView {
+  payerId: string;
+  payeeId: string;
+  amountMinor: number;
+  feeMinor: number;
+  status: PaymentStatus;
+}
+
+export interface RingDetail extends RingView {
+  messages: DealMessage[];
+  payments: RingPaymentView[];
+}
+
+/** Baut die Teilnehmeransicht aus Beinen, Fahrzeugen und Konten. */
+function toParticipants(
+  legs: { userId: string; vehicleId: string; receiverId: string; cash: number; acceptedAt: Date | null; confirmedAt: Date | null }[],
+  vehicleMap: Map<string, Vehicle>,
+  userMap: Map<string, User>,
+): RingParticipantView[] | null {
+  const out: RingParticipantView[] = [];
+  for (const leg of legs) {
+    const gives = vehicleMap.get(leg.vehicleId);
+    const user = userMap.get(leg.userId);
+    if (!gives || !user) return null;
+    out.push({
+      user,
+      gives,
+      receiverId: leg.receiverId,
+      cash: leg.cash,
+      accepted: leg.acceptedAt !== null,
+      confirmed: leg.confirmedAt !== null,
+    });
+  }
+  return out;
+}
+
+export async function getRingsForUser(userId: string): Promise<RingView[]> {
+  const meine = await db
+    .select({ ringId: ringLegs.ringId })
+    .from(ringLegs)
+    .where(eq(ringLegs.userId, userId));
+  if (!meine.length) return [];
+  const ringIds = [...new Set(meine.map((r) => r.ringId))];
+
+  const [ringRows, legRows, counts] = await Promise.all([
+    db
+      .select()
+      .from(ringSwaps)
+      .where(inArray(ringSwaps.id, ringIds))
+      .orderBy(desc(ringSwaps.updatedAt))
+      .limit(100),
+    db.select().from(ringLegs).where(inArray(ringLegs.ringId, ringIds)).orderBy(ringLegs.position),
+    db
+      .select({ ringId: dealMessages.ringId, n: raw<number>`count(*)::int` })
+      .from(dealMessages)
+      .where(inArray(dealMessages.ringId, ringIds))
+      .groupBy(dealMessages.ringId),
+  ]);
+
+  const vehicleMap = await getVehiclesByIds([...new Set(legRows.map((l) => l.vehicleId))]);
+  const userRows = await db
+    .select()
+    .from(users)
+    .where(inArray(users.id, [...new Set(legRows.map((l) => l.userId))]));
+  const userMap = new Map(userRows.map((u) => [u.id, toUser(u)]));
+  const countMap = new Map(counts.map((c) => [c.ringId, c.n]));
+
+  return ringRows.flatMap((ring) => {
+    const legs = legRows.filter((l) => l.ringId === ring.id);
+    if (legs.length !== 3) return [];
+    const participants = toParticipants(legs, vehicleMap, userMap);
+    if (!participants) return [];
+    return [
+      {
+        id: ring.id,
+        status: ring.status,
+        initiatorId: ring.initiatorId,
+        createdAt: ring.createdAt.toISOString().slice(0, 10),
+        participants,
+        messageCount: countMap.get(ring.id) ?? 0,
+      },
+    ];
+  });
+}
+
+/** Lädt einen Ring samt Verlauf — nur für die drei Beteiligten. */
+export async function getRingForUser(ringId: string, userId: string): Promise<RingDetail | null> {
+  const [ring] = await db.select().from(ringSwaps).where(eq(ringSwaps.id, ringId)).limit(1);
+  if (!ring) return null;
+
+  const legs = await db
+    .select()
+    .from(ringLegs)
+    .where(eq(ringLegs.ringId, ringId))
+    .orderBy(ringLegs.position);
+  if (legs.length !== 3) return null;
+  if (!legs.some((l) => l.userId === userId)) return null;
+
+  const [messageRows, vehicleMap, userRows, paymentRows] = await Promise.all([
+    db
+      .select()
+      .from(dealMessages)
+      .where(eq(dealMessages.ringId, ringId))
+      .orderBy(dealMessages.createdAt),
+    getVehiclesByIds(legs.map((l) => l.vehicleId)),
+    db.select().from(users).where(inArray(users.id, legs.map((l) => l.userId))),
+    db
+      .select({
+        payerId: payments.payerId,
+        payeeId: payments.payeeId,
+        amountMinor: payments.amountMinor,
+        feeMinor: payments.feeMinor,
+        status: payments.status,
+        createdAt: payments.createdAt,
+      })
+      .from(payments)
+      .where(eq(payments.ringId, ringId))
+      .orderBy(desc(payments.createdAt)),
+  ]);
+
+  const userMap = new Map(userRows.map((u) => [u.id, toUser(u)]));
+  const participants = toParticipants(legs, vehicleMap, userMap);
+  if (!participants) return null;
+
+  // Je Weg zählt nur der jüngste Versuch — ältere, verfallene Sessions
+  // stehen sonst als zweite Zeile in der Übersicht.
+  const jüngste = new Map<string, RingPaymentView>();
+  for (const row of paymentRows) {
+    const key = `${row.payerId}|${row.payeeId}`;
+    if (!jüngste.has(key)) {
+      jüngste.set(key, {
+        payerId: row.payerId,
+        payeeId: row.payeeId,
+        amountMinor: row.amountMinor,
+        feeMinor: row.feeMinor,
+        status: row.status,
+      });
+    }
+  }
+
+  return {
+    id: ring.id,
+    status: ring.status,
+    initiatorId: ring.initiatorId,
+    createdAt: ring.createdAt.toISOString().slice(0, 10),
+    participants,
+    messageCount: messageRows.length,
+    messages: messageRows.map((m) => ({
+      id: m.id,
+      authorId: m.authorId,
+      at: m.createdAt.toISOString(),
+      text: m.body,
+      system: m.system,
+    })),
+    payments: [...jüngste.values()],
+  };
 }

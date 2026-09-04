@@ -4,6 +4,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "./db";
 import { newId } from "./db/ids";
 import { payments, users, type DealRow, type PaymentRow } from "./db/schema";
+import type { RingTransfer } from "./rings";
 import { siteUrl } from "./mail";
 
 /**
@@ -316,8 +317,8 @@ export async function captureAndPayout(payment: PaymentRow): Promise<PaymentRow>
       amount: payment.amountMinor,
       currency: payment.currency,
       destination: payee.stripeAccountId,
-      transfer_group: payment.dealId,
-      metadata: { carswap_payment_id: payment.id, carswap_deal_id: payment.dealId },
+      transfer_group: payment.dealId ?? payment.ringId ?? undefined,
+      metadata: { carswap_payment_id: payment.id, ...vorgangMetadata(payment) },
     },
     { idempotencyKey: `payout:${payment.id}` },
   );
@@ -386,4 +387,143 @@ export async function markPayment(
     .where(eq(payments.id, id))
     .returning();
   return rows[0];
+}
+
+/* ------------------------------------------------------------------ */
+/* Ringtausch                                                          */
+/* ------------------------------------------------------------------ */
+
+/** Zu welchem Vorgang gehört diese Zahlung? Für Stripe-Metadaten. */
+function vorgangMetadata(payment: Pick<PaymentRow, "dealId" | "ringId">): Record<string, string> {
+  if (payment.dealId) return { carswap_deal_id: payment.dealId };
+  if (payment.ringId) return { carswap_ring_id: payment.ringId };
+  return {};
+}
+
+/**
+ * Legt die Checkout-Session für eine einzelne Zahlung innerhalb eines Rings an.
+ * Aufbau und Absicherung entsprechen `createEscrowCheckout`; unterschieden wird
+ * nur, wonach die bisherigen Versuche gesucht werden — beim Ring nach dem Paar
+ * aus Zahler und Empfänger, weil es je Ring mehrere Wege geben kann.
+ */
+export async function createRingCheckout(
+  ringId: string,
+  transfer: RingTransfer,
+  description: string,
+): Promise<EscrowCheckout> {
+  const s = stripe();
+
+  const existing = await db
+    .select()
+    .from(payments)
+    .where(
+      and(
+        eq(payments.ringId, ringId),
+        eq(payments.payerId, transfer.payerId),
+        eq(payments.payeeId, transfer.payeeId),
+      ),
+    )
+    .orderBy(desc(payments.createdAt));
+
+  for (const row of existing) {
+    if (row.status === "autorisiert" || row.status === "eingezogen" || row.status === "ausgezahlt") {
+      throw new Error("Für diesen Weg ist bereits ein Betrag hinterlegt.");
+    }
+    if (row.status === "erstellt" && row.stripeSessionId) {
+      const session = await s.checkout.sessions.retrieve(row.stripeSessionId);
+      if (session.status === "open" && session.url) {
+        return { url: session.url, paymentId: row.id };
+      }
+      await markPayment(row.id, "storniert", "Checkout-Session nicht mehr offen");
+    }
+  }
+
+  const paymentId = newId("pay");
+  const amountMinor = toMinor(transfer.amount);
+  const feeMinor = platformFee(amountMinor);
+  const chargeMinor = amountMinor + feeMinor;
+  const attempt = existing.length + 1;
+
+  const session = await s.checkout.sessions.create(
+    {
+      mode: "payment",
+      client_reference_id: ringId,
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: CURRENCY,
+            unit_amount: chargeMinor,
+            product_data: {
+              name: "CarSwap Treuhand-Einzahlung (Ringtausch)",
+              description: `${description} — davon ${(feeMinor / 100).toFixed(2)} CHF Zahlungsgebühr`,
+            },
+          },
+        },
+      ],
+      payment_intent_data: {
+        capture_method: "manual",
+        transfer_group: ringId,
+        description: `CarSwap Ringtausch ${ringId}`,
+        metadata: { carswap_ring_id: ringId, carswap_payment_id: paymentId },
+      },
+      metadata: { carswap_ring_id: ringId, carswap_payment_id: paymentId },
+      success_url: `${siteUrl()}/ringe/${ringId}?treuhand=ok`,
+      cancel_url: `${siteUrl()}/ringe/${ringId}?treuhand=abgebrochen`,
+      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+    },
+    {
+      idempotencyKey: `ring:${ringId}:${transfer.payerId}:${transfer.payeeId}:${transfer.amount}:${attempt}`,
+    },
+  );
+
+  const insertedRows = await db
+    .insert(payments)
+    .values({
+      id: paymentId,
+      ringId,
+      payerId: transfer.payerId,
+      payeeId: transfer.payeeId,
+      amountMinor,
+      feeMinor,
+      currency: CURRENCY,
+      status: "erstellt",
+      stripeSessionId: session.id,
+    })
+    .onConflictDoNothing({ target: payments.stripeSessionId })
+    .returning({ id: payments.id });
+
+  let storedId = insertedRows[0]?.id;
+  if (!storedId) {
+    const [row] = await db
+      .select({ id: payments.id })
+      .from(payments)
+      .where(eq(payments.stripeSessionId, session.id))
+      .limit(1);
+    storedId = row?.id;
+  }
+  if (!storedId) throw new Error("Die Zahlung konnte nicht gespeichert werden.");
+
+  if (!session.url) throw new Error("Stripe hat keine Checkout-URL geliefert.");
+  return { url: session.url, paymentId: storedId };
+}
+
+/**
+ * Die aktuelle Zahlung je Weg innerhalb eines Rings. Frühere, verfallene
+ * Versuche zum selben Paar bleiben in der Tabelle stehen — für die Abwicklung
+ * zählt nur der jüngste.
+ */
+export async function currentRingPayments(ringId: string): Promise<PaymentRow[]> {
+  const rows = await db
+    .select()
+    .from(payments)
+    .where(eq(payments.ringId, ringId))
+    .orderBy(desc(payments.createdAt));
+
+  const latest = new Map<string, PaymentRow>();
+  for (const row of rows) {
+    const key = `${row.payerId}|${row.payeeId}`;
+    if (!latest.has(key)) latest.set(key, row);
+  }
+  return [...latest.values()];
 }

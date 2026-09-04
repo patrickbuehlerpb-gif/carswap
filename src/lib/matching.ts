@@ -267,6 +267,24 @@ export interface RingSwapDetail extends RingSwap {
 }
 
 /**
+ * Die drei Ausgleichszahlungen eines Rings. `values` sind die Werte der
+ * abgegebenen Fahrzeuge in Ringreihenfolge: Position i gibt values[i] ab und
+ * bekommt values[i - 1] (Position 0 also das Fahrzeug von Position 2).
+ *
+ * Jeder zahlt die Differenz zwischen erhaltenem und abgegebenem Wert. Die
+ * dritte Zahlung wird abgeleitet statt einzeln gerundet: sonst summieren sich
+ * drei Rundungsfehler zu bis zu 50 Franken, die im Treuhandtopf fehlen würden.
+ *
+ * Dieselbe Funktion rechnet auf der Übersichtsseite und beim Anlegen des
+ * Rings — sonst stünden auf zwei Seiten zwei verschiedene Beträge.
+ */
+export function ringCashSplit(values: [number, number, number]): [number, number, number] {
+  const c0 = round50(values[2] - values[0]);
+  const c1 = round50(values[0] - values[1]);
+  return [c0, c1, -(c0 + c1)];
+}
+
+/**
  * Sucht Dreiertausche: du gibst dein Auto an A, A gibt seines an B, B gibt
  * seines an dich. Das löst den klassischen Fall, in dem zwei Parteien zwar
  * beide tauschen wollen, aber nicht miteinander.
@@ -345,13 +363,7 @@ export function findRingSwaps(
       const vA = askValue.get(aVehicle.id) ?? valueAt(aVehicle);
       const vB = askValue.get(bVehicle.id) ?? valueAt(bVehicle);
 
-      // Jeder zahlt die Differenz zwischen erhaltenem und abgegebenem Wert.
-      // Die dritte Zahlung ergibt sich aus den ersten beiden, statt einzeln
-      // gerundet zu werden: sonst summieren sich drei Rundungsfehler zu 50
-      // Franken, die im Treuhandtopf fehlen würden.
-      const myCash = round50(vB - vMe);
-      const aCash = round50(vMe - vA);
-      const bCash = -(myCash + aCash);
+      const [myCash, aCash, bCash] = ringCashSplit([vMe, vA, vB]);
 
       const ownerA = entryA.owner;
       const ownerB = entryB.owner;
