@@ -5,7 +5,7 @@ import { cache } from "react";
 import { and, eq, gt, lt } from "drizzle-orm";
 import { db } from "../db";
 import { newId } from "../db/ids";
-import { sessions, users, type UserRow } from "../db/schema";
+import { authTokens, sessions, users, type UserRow } from "../db/schema";
 
 const COOKIE = "carswap_session";
 const TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -135,6 +135,29 @@ export async function destroyAllSessions(userId: string): Promise<void> {
 export async function pruneExpiredSessions(): Promise<number> {
   const res = await db.delete(sessions).where(lt(sessions.expiresAt, new Date()));
   return res.count ?? 0;
+}
+
+/**
+ * Räumt gelegentlich auf, statt einen Hintergrunddienst zu verlangen.
+ *
+ * Abgelaufene Sitzungen und verbrauchte Einmal-Token sind wertlos, aber sie
+ * bleiben stehen: die Anwendung läuft serverlos, es gibt keinen Prozess, der
+ * regelmässig etwas tun könnte. Deshalb erledigt es ein kleiner Anteil der
+ * Anmeldungen nebenbei — der Aufwand ist ein DELETE über einen Index.
+ */
+export async function occasionalCleanup(): Promise<void> {
+  // Ungefähr jede zwanzigste Anmeldung.
+  if (Math.random() > 0.05) return;
+  try {
+    const [sitzungen] = await Promise.all([
+      pruneExpiredSessions(),
+      db.delete(authTokens).where(lt(authTokens.expiresAt, new Date())),
+    ]);
+    if (sitzungen > 0) console.info(`[aufräumen] ${sitzungen} abgelaufene Sitzung(en) entfernt.`);
+  } catch (err) {
+    // Aufräumen darf keine Anmeldung scheitern lassen.
+    console.error("[aufräumen] fehlgeschlagen:", err);
+  }
 }
 
 export { hashToken };

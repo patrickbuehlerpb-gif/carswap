@@ -6,6 +6,7 @@ import {
   dealMessages,
   deals,
   listings,
+  reviews,
   users,
   vehicles,
   watchlist,
@@ -351,6 +352,40 @@ export async function getDealForUser(dealId: string, userId: string): Promise<De
 /* ------------------------------------------------------------------ */
 /* Merkliste                                                           */
 /* ------------------------------------------------------------------ */
+
+/** Die eigene Bewertung zu einem Tausch, falls sie schon abgegeben wurde. */
+export async function getMyReviewForDeal(dealId: string, userId: string) {
+  const [row] = await db
+    .select({ stars: reviews.stars, body: reviews.body })
+    .from(reviews)
+    .where(and(eq(reviews.dealId, dealId), eq(reviews.authorId, userId)))
+    .limit(1);
+  return row ?? null;
+}
+
+/** Die neuesten Bewertungen über eine Person, mit dem Namen der Autorin. */
+export async function getReviewsAbout(userId: string, limit = 5) {
+  const rows = await db
+    .select({
+      stars: reviews.stars,
+      body: reviews.body,
+      createdAt: reviews.createdAt,
+      authorName: users.name,
+      authorColor: users.avatarColor,
+    })
+    .from(reviews)
+    .innerJoin(users, eq(users.id, reviews.authorId))
+    .where(eq(reviews.subjectId, userId))
+    .orderBy(desc(reviews.createdAt))
+    .limit(limit);
+  return rows.map((r) => ({
+    stars: r.stars,
+    body: r.body,
+    createdAt: r.createdAt.toISOString().slice(0, 10),
+    authorName: r.authorName,
+    authorColor: r.authorColor,
+  }));
+}
 
 export async function getWatchlistIds(userId: string): Promise<string[]> {
   const rows = await db

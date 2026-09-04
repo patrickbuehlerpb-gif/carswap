@@ -73,6 +73,37 @@ describe("Ratenbegrenzung", () => {
   });
 });
 
+describe("Datumsprüfung", () => {
+  it("weist Tage ab, die es nicht gibt", async () => {
+    const { listingSchema } = await import("@/lib/validation");
+    const basis = {
+      make: "Polestar",
+      model: "4",
+      firstRegistration: "2024-03",
+      mileageKm: 1000,
+      fuel: "elektro",
+      body: "suv",
+      drivetrain: "heck",
+      powerPs: 272,
+      listPriceNew: 60000,
+      condition: "gut",
+      serviceHistory: "lückenlos scheckheft",
+      previousOwners: 1,
+      accidentFree: true,
+      wishMakes: [],
+      wishBodies: [],
+      wishFuels: [],
+      askPremium: 0,
+    };
+    for (const mfk of ["2026-02-31", "2026-13-01", "2026-00-10", "1970-01-01"]) {
+      const res = listingSchema.safeParse({ ...basis, mfkUntil: mfk });
+      expect(res.success, `${mfk} durfte nicht durchkommen`).toBe(false);
+    }
+    expect(listingSchema.safeParse({ ...basis, mfkUntil: "2027-02-28" }).success).toBe(true);
+    expect(listingSchema.safeParse({ ...basis, mfkUntil: "" }).success).toBe(true);
+  });
+});
+
 describe("Passwörter", () => {
   it("erkennt das richtige Passwort und weist andere ab", async () => {
     const hash = await hashPassword("ein sehr gutes Passwort");

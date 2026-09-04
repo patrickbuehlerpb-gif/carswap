@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { DealDetail } from "@/components/deal-detail";
 import { SectionHead } from "@/components/ui";
 import { getSessionUser } from "@/lib/auth/session";
-import { getDealForUser } from "@/lib/queries";
+import { getDealForUser, getMyReviewForDeal } from "@/lib/queries";
 import { db } from "@/lib/db";
 import { payments } from "@/lib/db/schema";
 import { desc, eq } from "drizzle-orm";
@@ -29,6 +29,9 @@ export default async function DealPage({
 
   const detail = await getDealForUser(id, me.id);
   if (!detail) notFound();
+
+  const meineBewertung =
+    detail.deal.status === "abgeschlossen" ? await getMyReviewForDeal(id, me.id) : null;
 
   const [payment] = await db
     .select({
@@ -65,6 +68,7 @@ export default async function DealPage({
         payment={payment ?? null}
         escrowFeeMinor={platformFee(Math.round(Math.abs(detail.deal.cashDelta) * 100))}
         paymentsEnabled={stripeConfigured()}
+        meineBewertung={meineBewertung}
         escrowNotice={
           treuhand === "ok"
             ? "Einzahlung bestätigt — der Betrag liegt auf dem Treuhandkonto."

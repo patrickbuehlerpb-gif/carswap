@@ -14,9 +14,19 @@ const monthSchema = z
   .refine((m) => m >= "1980-01", "Das Baujahr liegt zu weit zurück.")
   .refine((m) => m <= new Date().toISOString().slice(0, 7), "Die Erstzulassung liegt in der Zukunft.");
 
+/**
+ * Die Form allein reicht nicht: «2026-02-31» passt auf das Muster, ist aber
+ * kein Tag. Ohne diese Prüfung landete er in der Datenbank und die Anzeige
+ * machte daraus «NaN. undefined NaN».
+ */
 const dateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Bitte ein gültiges Datum angeben.")
+  .refine((d) => {
+    const parsed = new Date(`${d}T00:00:00Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === d;
+  }, "Dieses Datum gibt es nicht.")
+  .refine((d) => d >= "1980-01-01" && d <= "2100-12-31", "Das Datum liegt ausserhalb des Bereichs.")
   .optional()
   .or(z.literal(""));
 

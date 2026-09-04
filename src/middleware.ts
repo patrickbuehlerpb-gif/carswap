@@ -1,10 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { contentSecurityPolicy } from "@/lib/security-headers";
 
 const COOKIE = "carswap_session";
 const MAX_AGE = 30 * 24 * 60 * 60;
 
 /**
- * Verlängert das Sitzungs-Cookie bei jedem Seitenaufruf.
+ * Setzt die Sicherheitsrichtlinie mit Nonce und verlängert das
+ * Sitzungs-Cookie bei jedem Seitenaufruf.
  *
  * Die Serverkomponenten verlängern zwar die Zeile in der Datenbank, können
  * aber keine Cookies schreiben — `cookies().set()` ist dort nicht erlaubt.
@@ -14,8 +16,19 @@ const MAX_AGE = 30 * 24 * 60 * 60;
  * hier wird nur die Frist des Cookies nachgezogen.
  */
 export function middleware(request: NextRequest) {
+  // Frische Nonce je Antwort. Next.js liest sie aus der CSP der Anfrage,
+  // deshalb muss der Header auch dort stehen — nicht nur in der Antwort.
+  const nonce = crypto.randomUUID().replace(/-/g, "");
+  const csp = contentSecurityPolicy(nonce);
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("content-security-policy", csp);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set("content-security-policy", csp);
+
   const token = request.cookies.get(COOKIE)?.value;
-  const response = NextResponse.next();
   if (!token) return response;
 
   response.cookies.set({

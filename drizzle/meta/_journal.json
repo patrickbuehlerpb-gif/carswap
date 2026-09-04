@@ -29,6 +29,13 @@
       "when": 1788531425912,
       "tag": "0003_konto_loeschung",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788543704197,
+      "tag": "0004_meldungen",
+      "breakpoints": true
     }
   ]
 }

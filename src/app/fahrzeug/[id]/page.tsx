@@ -6,12 +6,15 @@ import { ValuationBreakdown } from "@/components/valuation-breakdown";
 import { VehicleVisual } from "@/components/vehicle-visual";
 import { Badge, Card, SectionHead, SpecRow } from "@/components/ui";
 import { WatchButton } from "@/components/watch-button";
+import { Sterne } from "@/components/review-form";
+import { ReportButton } from "@/components/report-button";
 import { getSessionUser } from "@/lib/auth/session";
 import {
   countListingView,
   getListingByVehicle,
   getMyVehicles,
   getPublicVehicle,
+  getReviewsAbout,
   getVehicle,
   getWatchlistIds,
 } from "@/lib/queries";
@@ -44,9 +47,10 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
   const owner = view?.owner ?? null;
   const isMine = me?.id === vehicle.ownerId;
 
-  const [myVehicles, watchlist] = await Promise.all([
+  const [myVehicles, watchlist, bewertungen] = await Promise.all([
     me && !isMine ? getMyVehicles(me.id) : Promise.resolve([]),
     me ? getWatchlistIds(me.id) : Promise.resolve([]),
+    owner ? getReviewsAbout(owner.id, 3) : Promise.resolve([]),
   ]);
 
   // Aufrufe nur von Fremden zählen
@@ -335,12 +339,17 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
                       {owner.name.slice(0, 1)}
                     </span>
                     <div>
-                      <p className="text-sm font-medium text-ink">{owner.name}</p>
+                      <p className="flex items-center gap-2 text-sm font-medium text-ink">
+                        {owner.name}
+                        {owner.rating !== null && <Sterne value={owner.rating} />}
+                      </p>
                       <p className="text-xs text-ink-3">
                         {[owner.location, owner.canton].filter(Boolean).join(", ")}
                         {owner.location && " · "}
-                        {owner.swapsCompleted} Tausche
-                        {owner.rating !== null && ` · ${owner.rating.toFixed(1)} ★`}
+                        {owner.swapsCompleted} Tausche ·{" "}
+                        {owner.ratingCount > 0
+                          ? `${owner.rating?.toFixed(1)} aus ${owner.ratingCount} Bewertungen`
+                          : "noch keine Bewertung"}
                       </p>
                     </div>
                     {owner.verified && (
@@ -349,6 +358,24 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
                       </span>
                     )}
                   </div>
+
+                  {!isMine && <ReportButton vehicleId={vehicle.id} signedIn={Boolean(me)} />}
+
+                  {bewertungen.length > 0 && (
+                    <ul className="mt-4 space-y-3 border-t border-line pt-4">
+                      {bewertungen.map((b, i) => (
+                        <li key={i} className="text-sm">
+                          <div className="flex items-center gap-2">
+                            <Sterne value={b.stars} />
+                            <span className="text-xs text-ink-3">
+                              {b.authorName} · {dateLabel(b.createdAt)}
+                            </span>
+                          </div>
+                          {b.body && <p className="mt-1 text-ink-2">{b.body}</p>}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
 
                   <div className="mt-4 border-t border-line pt-4">
                     <p className="text-[11px] uppercase tracking-wider text-ink-3">

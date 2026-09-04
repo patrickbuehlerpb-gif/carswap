@@ -10,6 +10,18 @@ Die Anwendung läuft gegen eine PostgreSQL-Datenbank mit eigener
 Benutzerverwaltung, echten Inseraten und Stripe-Zahlungen. Demo-Daten gibt es
 nur auf ausdrücklichen Wunsch (`npm run db:seed`).
 
+## Startklar?
+
+```bash
+npm run preflight
+```
+
+Prüft in einem Durchgang, was für den Livegang noch fehlt — mit der Folge,
+nicht nur dem Variablennamen: «RESEND_API_KEY fehlt» hilft niemandem, «wer sein
+Passwort vergisst, kommt nicht mehr ins Konto» schon. Der Befehl endet mit
+Fehlercode, solange etwas blockiert, und lässt sich damit vor ein Deployment
+hängen.
+
 ## Funktionen
 
 | Bereich | Was es tut |
@@ -21,6 +33,14 @@ nur auf ausdrücklichen Wunsch (`npm run db:seed`).
 | **Wertrechner** (`/wert`) | Wertverlauf, Prognoseband, vollständige Aufschlüsselung und Sensitivitätsanalyse. |
 | **Tausch** (`/tausch/[id]`) | Direktvergleich, Wertkurven beider Fahrzeuge, Ausgleich per Regler, Prüfung gegen den Rahmen der Gegenseite. |
 | **Tauschvorgang** (`/deals/[id]`) | Verhandlung, Zusage, Treuhand, Übergabe-Checkliste, Abschluss mit Halterwechsel. |
+
+### Bewertungen
+
+Nach einem abgeschlossenen Tausch bewertet jede Seite die andere einmal — ein
+bis fünf Sterne in halben Schritten, dazu ein freiwilliger Text. Der Schnitt
+steht am Namen, die letzten drei Texte auf der Fahrzeugseite. Bewerten lässt
+sich nur ein abgeschlossener Tausch: während einer laufenden Verhandlung wäre
+die Bewertung ein Druckmittel.
 
 ### Ringtausch
 
@@ -150,6 +170,12 @@ Für eine vollständige, gepflegte Quelle kommen infrage:
 
 Ein paar Entscheidungen, die nicht offensichtlich sind:
 
+- **Die Content-Security-Policy arbeitet mit einer Nonce je Antwort.** Sie
+  wird in der Middleware gesetzt (`src/lib/security-headers.ts`); Next.js liest
+  sie aus der CSP der Anfrage und hängt sie an seine eigenen Skript-Tags.
+  `strict-dynamic` erlaubt den so freigegebenen Skripten, die Chunks des
+  Routers nachzuladen. Für Stile bleibt `'unsafe-inline'`: React setzt
+  style-Attribute, und eine Nonce für Stile würde das brechen.
 - **Die Anmeldesperre hängt an der IP, nicht an der Adresse.** Ein Zähler pro
   E-Mail-Adresse, der schon beim blossen Versuch hochläuft, wäre eine
   Einladung: damit sperrt jeder ein fremdes Konto aus, ohne das Passwort zu
@@ -274,7 +300,8 @@ Nach dem ersten Deployment:
   statt eine vollständige Rechtsseite vorzutäuschen. `/api/health` meldet den
   Zustand als `impressum`.
 - **Identitätsprüfung** der Nutzer (`identityVerified` wird heute nirgends
-  gesetzt) sowie Abfrage von Fahrzeugausweis und Pfandrecht.
+  gesetzt) sowie Abfrage von Fahrzeugausweis und Pfandrecht. Stripe Identity
+  wäre die naheliegende Anbindung, weil Stripe ohnehin schon eingebunden ist.
 - **Empirische Kalibrierung** der Restwertkurven an echten Marktdaten — am
   ehesten zusammen mit einer Eurotax-Lizenz, die auch den Fahrzeugkatalog
   mitbringt.
@@ -286,9 +313,10 @@ Nach dem ersten Deployment:
 - **Auszahlungen, die am Empfängerkonto scheitern**, bleiben liegen, bis jemand
   die Übergabe erneut bestätigt. Ein Hintergrundlauf, der das von selbst
   wiederholt, fehlt.
-- **Missbrauchsschutz**: Meldefunktion für Inserate, Prüfung neuer Konten,
-  Betrugserkennung bei auffälligen Wertdifferenzen.
-- **Nonce-basierte CSP** statt `'unsafe-inline'` für Skripte.
+- **Missbrauchsschutz**: Prüfung neuer Konten und Betrugserkennung bei
+  auffälligen Wertdifferenzen. Eine Meldefunktion gibt es; sie schreibt in die
+  Tabelle `reports` und schickt eine Mail an `OPERATOR_EMAIL`. Was fehlt, ist
+  eine Oberfläche, um Meldungen abzuarbeiten.
 - **Rückbuchungen** nach abgeschlossenem Tausch werden erkannt und gemeldet,
   aber nicht automatisch geheilt.
 - **Kontolöschung**: Name, Adresse, Kontaktdaten, Sitzungen, Token, Fotos und

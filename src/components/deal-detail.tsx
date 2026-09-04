@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { VehicleVisual } from "@/components/vehicle-visual";
 import { STATUS_META } from "@/components/deal-list";
+import { ReviewForm, Sterne } from "@/components/review-form";
 import { Badge, Card } from "@/components/ui";
 import {
   acceptDealAction,
@@ -45,6 +46,7 @@ export function DealDetail({
   escrowFeeMinor,
   paymentsEnabled,
   escrowNotice,
+  meineBewertung,
   asOf,
 }: {
   detail: DealDetailData;
@@ -54,6 +56,8 @@ export function DealDetail({
   escrowFeeMinor: number;
   paymentsEnabled: boolean;
   escrowNotice: string | null;
+  /** Bereits abgegebene Bewertung zu diesem Tausch, falls es sie gibt. */
+  meineBewertung: { stars: number; body: string | null } | null;
   asOf: string;
 }) {
   const router = useRouter();
@@ -513,10 +517,17 @@ export function DealDetail({
           )}
 
           {deal.status === "abgeschlossen" && (
-            <p className="mt-3 text-sm text-ink-2">
-              Tausch abgeschlossen. Der Ausgleich wurde freigegeben und die Fahrzeuge sind in euren
-              Garagen umgeschrieben.
-            </p>
+            <>
+              <p className="mt-3 text-sm text-ink-2">
+                Tausch abgeschlossen. Der Ausgleich wurde freigegeben und die Fahrzeuge sind in
+                euren Garagen umgeschrieben.
+              </p>
+              <ReviewForm
+                dealId={deal.id}
+                otherName={other.name}
+                vorhanden={meineBewertung}
+              />
+            </>
           )}
 
           {(deal.status === "abgelehnt" || deal.status === "storniert") && (
@@ -538,11 +549,15 @@ export function DealDetail({
               {other.name.slice(0, 1)}
             </span>
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-ink">{other.name}</p>
+              <p className="flex items-center gap-2 truncate text-sm font-medium text-ink">
+                {other.name}
+                {other.rating !== null && <Sterne value={other.rating} />}
+              </p>
               <p className="truncate text-xs text-ink-3">
                 {other.location || "Ort nicht angegeben"}
-                {other.rating !== null && ` · ${other.rating.toFixed(1)} ★`} ·{" "}
-                {other.swapsCompleted} Tausche
+                {other.location ? " · " : ""}
+                {other.ratingCount > 0 ? `${other.ratingCount} Bewertungen` : "noch keine Bewertung"}{" "}
+                · {other.swapsCompleted} Tausche
               </p>
             </div>
             {other.verified && (

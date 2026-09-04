@@ -333,6 +333,40 @@ export const watchlist = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.listingId] })],
 );
 
+export type ReportReason =
+  | "betrugsverdacht"
+  | "falsche angaben"
+  | "verbotenes fahrzeug"
+  | "beleidigend"
+  | "anderes";
+
+/**
+ * Meldungen zu Inseraten. Auf einem Marktplatz, auf dem sich Fremde ein Auto
+ * übergeben, ist das der einzige Weg, auf dem ein Verdacht überhaupt bei der
+ * Betreiberin ankommt.
+ */
+export const reports = pgTable(
+  "reports",
+  {
+    id: text("id").primaryKey(),
+    listingId: text("listing_id")
+      .notNull()
+      .references(() => listings.id, { onDelete: "cascade" }),
+    reporterId: text("reporter_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    reason: text("reason").$type<ReportReason>().notNull(),
+    note: text("note"),
+    status: text("status").$type<"offen" | "geprüft">().notNull().default("offen"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("reports_status_idx").on(t.status),
+    // Dieselbe Person meldet dasselbe Inserat nicht zweimal.
+    uniqueIndex("reports_listing_reporter_key").on(t.listingId, t.reporterId),
+  ],
+);
+
 /** Bewertungen nach abgeschlossenem Tausch. */
 export const reviews = pgTable(
   "reviews",
@@ -361,3 +395,4 @@ export type DealRow = typeof deals.$inferSelect;
 export type DealMessageRow = typeof dealMessages.$inferSelect;
 export type PaymentRow = typeof payments.$inferSelect;
 export type DealVehicleLockRow = typeof dealVehicleLocks.$inferSelect;
+export type ReportRow = typeof reports.$inferSelect;

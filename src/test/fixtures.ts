@@ -12,7 +12,7 @@ export function als(userId: string | null): void {
 /** Leert alle Tabellen. Reihenfolge egal, weil CASCADE die Verweise löst. */
 export async function resetDatabase(): Promise<void> {
   await db.execute(raw`truncate table
-    deal_vehicle_locks, deal_messages, payments, deals, watchlist, reviews,
+    deal_vehicle_locks, deal_messages, payments, deals, watchlist, reviews, reports,
     listings, vehicles, sessions, auth_tokens, rate_limits, webhook_events, users
     restart identity cascade`);
 }

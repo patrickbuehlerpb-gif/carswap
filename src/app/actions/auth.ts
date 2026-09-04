@@ -11,7 +11,12 @@ import { users } from "@/lib/db/schema";
 import { hashPassword, passwordProblem, verifyPassword } from "@/lib/auth/password";
 import { checkRateLimit, clearRateLimit, peekRateLimit } from "@/lib/auth/rate-limit";
 import { sicheresZiel } from "@/lib/auth/safe-redirect";
-import { createSession, destroyAllSessions, destroySession } from "@/lib/auth/session";
+import {
+  createSession,
+  destroyAllSessions,
+  destroySession,
+  occasionalCleanup,
+} from "@/lib/auth/session";
 import { consumeToken, issueToken } from "@/lib/auth/tokens";
 import { sendMail, siteUrl } from "@/lib/mail";
 
@@ -170,6 +175,8 @@ export async function signInAction(_prev: FormState, formData: FormData): Promis
   if (byPaar.count > 0) await clearRateLimit(paarKey);
 
   await createSession(user.id, userAgent);
+  // Nebenbei aufräumen — es gibt keinen Hintergrunddienst, der das täte.
+  await occasionalCleanup();
   redirect(sicheresZiel(next));
 }
 

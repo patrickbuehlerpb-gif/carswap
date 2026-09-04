@@ -116,5 +116,10 @@ vi.mock("@/lib/auth/session", async () => {
     },
     createSession: async () => {},
     destroySession: async () => {},
+    destroyAllSessions: async () => {},
+    // Das gelegentliche Aufräumen ist zufallsgesteuert und hätte im Test
+    // nichts zu suchen.
+    occasionalCleanup: async () => {},
+    pruneExpiredSessions: async () => 0,
   };
 });
