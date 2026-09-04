@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Combobox } from "@/components/combobox";
+import { featuresFor, normalizeFeatures } from "@/lib/data/features";
 import { ValueChart } from "@/components/value-chart";
 import { ValuationBreakdown } from "@/components/valuation-breakdown";
 import { VehicleVisual } from "@/components/vehicle-visual";
@@ -12,11 +13,6 @@ import { chf, km, label } from "@/lib/format";
 import type { Body, Condition, Fuel, ServiceHistory, Vehicle } from "@/lib/types";
 import { depreciationPerMonth, valuate, valueAt, valueHistory } from "@/lib/valuation";
 
-const FEATURES = [
-  "Anhängerkupplung", "Panoramadach", "Luftfederung", "Head-up-Display", "Wärmepumpe",
-  "Standheizung", "Massagesitze", "Harman Kardon", "360°-Kamera", "Winterräder",
-  "Matrix-LED", "Sportfahrwerk",
-];
 
 /** Formularzustand — daraus wird ein vollständiges Vehicle-Objekt gebaut. */
 interface Draft {
@@ -72,7 +68,7 @@ function draftFrom(v: Vehicle): Draft {
     previousOwners: v.previousOwners,
     accidentFree: v.accidentFree,
     batterySoh: v.batterySoh ?? 95,
-    features: v.features,
+    features: normalizeFeatures(v.features),
   };
 }
 
@@ -260,7 +256,15 @@ export function ValuationStudio({
             <Field label="Antrieb">
               <select
                 value={draft.fuel}
-                onChange={(e) => set("fuel", e.target.value as Fuel)}
+                onChange={(e) => {
+                  const fuel = e.target.value as Fuel;
+                  const allowed = new Set(featuresFor(fuel).map((f) => f.name));
+                  setDraft((d) => ({
+                    ...d,
+                    fuel,
+                    features: d.features.filter((f) => allowed.has(f)),
+                  }));
+                }}
                 className={inputClass}
               >
                 {(["elektro", "hybrid", "benzin", "diesel"] as Fuel[]).map((f) => (
@@ -349,11 +353,12 @@ export function ValuationStudio({
               Ausstattung
             </legend>
             <div className="flex flex-wrap gap-1.5">
-              {FEATURES.map((f) => {
+              {featuresFor(draft.fuel).map(({ name: f, hint }) => {
                 const active = draft.features.includes(f);
                 return (
                   <button
                     key={f}
+                    title={hint}
                     onClick={() =>
                       set(
                         "features",

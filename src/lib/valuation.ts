@@ -1,3 +1,4 @@
+import { featureValue, normalizeFeatures } from "./data/features";
 import { group } from "./format";
 import type { Fuel, HistoryPoint, Valuation, ValuationFactor, Vehicle } from "./types";
 
@@ -58,26 +59,6 @@ const BRAND_STRENGTH: Record<string, number> = {
   Renault: 1.1,
   Peugeot: 1.09,
   Ford: 1.08,
-};
-
-/** Ausstattung, die im Wiederverkauf messbar Geld bringt. */
-const FEATURE_VALUE: Record<string, number> = {
-  "Anhängerkupplung": 900,
-  "Panoramadach": 700,
-  "Luftfederung": 1400,
-  "Head-up-Display": 500,
-  "Wärmepumpe": 800,
-  "Standheizung": 600,
-  "Allrad": 1200,
-  "Massagesitze": 600,
-  "Harman Kardon": 400,
-  "Bowers & Wilkins": 900,
-  "Pilot Assist": 500,
-  "360°-Kamera": 400,
-  "Winterräder": 1100,
-  "Sportfahrwerk": 300,
-  "AHK abnehmbar": 700,
-  "Matrix-LED": 500,
 };
 
 const CONDITION_FACTOR: Record<Vehicle["condition"], number> = {
@@ -188,10 +169,6 @@ function retention(ageYears: number, fuel: Fuel, make: string): number {
   const lambda = LAMBDA[fuel] * (BRAND_STRENGTH[make] ?? 1);
   const t = Math.max(0, ageYears);
   return Math.exp(-lambda * Math.pow(t, 0.7));
-}
-
-function featureValue(features: string[]): number {
-  return features.reduce((sum, f) => sum + (FEATURE_VALUE[f] ?? 150), 0);
 }
 
 /**
@@ -305,9 +282,9 @@ export function valuate(vehicle: Vehicle, asOf?: string): Valuation {
   const fv = Math.round(featureValue(vehicle.features) * retention(ageYears, vehicle.fuel, vehicle.make));
   if (fv > 0) {
     breakdown.push({
-      label: `Ausstattung (${vehicle.features.length} Positionen)`,
+      label: `Ausstattung (${normalizeFeatures(vehicle.features).length} Positionen)`,
       amount: fv,
-      hint: vehicle.features.slice(0, 4).join(", "),
+      hint: normalizeFeatures(vehicle.features).slice(0, 4).join(", "),
     });
   }
 

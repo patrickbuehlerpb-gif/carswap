@@ -12,14 +12,9 @@ import { createListingAction, updateListingAction } from "@/app/actions/listings
 import { chf, km, label } from "@/lib/format";
 import type { Body, Condition, Fuel, ServiceHistory, Vehicle, VehiclePhoto } from "@/lib/types";
 import { MAKE_NAMES, modelsFor } from "@/lib/data/catalog";
+import { featuresFor, normalizeFeatures } from "@/lib/data/features";
 import { BODIES, CONDITIONS, DRIVETRAINS, FUELS, SERVICE_HISTORIES } from "@/lib/validation";
 import { valuate, valueHistory } from "@/lib/valuation";
-
-const FEATURE_CHOICES = [
-  "Anhängerkupplung", "Panoramadach", "Luftfederung", "Head-up-Display", "Wärmepumpe",
-  "Standheizung", "Massagesitze", "Harman Kardon", "Bowers & Wilkins", "360°-Kamera",
-  "Winterräder", "Matrix-LED", "Sportfahrwerk", "Pilot Assist", "AHK abnehmbar", "Allrad",
-];
 
 export interface ListingFormValues {
   make: string;
@@ -97,7 +92,10 @@ export function ListingForm({
   uploadsEnabled: boolean;
 }) {
   const router = useRouter();
-  const [v, setV] = useState<ListingFormValues>(initial);
+  const [v, setV] = useState<ListingFormValues>(() => ({
+    ...initial,
+    features: normalizeFeatures(initial.features),
+  }));
   const [error, setError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -117,6 +115,9 @@ export function ListingForm({
    * danach falsch. Nur bei einer tatsächlichen Änderung, damit das Laden eines
    * bestehenden Inserats nichts überschreibt.
    */
+  /** Nur Merkmale zeigen, die zur gewählten Antriebsart passen. */
+  const availableFeatures = useMemo(() => featuresFor(v.fuel), [v.fuel]);
+
   /** Gefilterte Markenliste für die Wunschliste; Ausgewählte bleiben sichtbar. */
   const visibleWishMakes = useMemo(() => {
     const q = makeFilter.trim().toLowerCase();
@@ -125,6 +126,17 @@ export function ListingForm({
       (m) => m.toLowerCase().includes(q) || v.wishMakes.includes(m),
     );
   }, [makeFilter, v.wishMakes]);
+
+  /** Antriebswechsel: Merkmale abwerfen, die es dort nicht gibt. */
+  function changeFuel(fuel: Fuel) {
+    const allowed = new Set(featuresFor(fuel).map((f) => f.name));
+    setV((prev) => ({
+      ...prev,
+      fuel,
+      features: prev.features.filter((f) => allowed.has(f)),
+      batterySoh: fuel === "elektro" ? (prev.batterySoh ?? 95) : prev.batterySoh,
+    }));
+  }
 
   function changeMake(make: string) {
     setV((prev) => (prev.make === make ? prev : { ...prev, make, model: "" }));
@@ -266,12 +278,16 @@ export function ListingForm({
             />
           </div>
 
-          <Field label="Version / Ausführung" className="mt-4">
+          <Field
+            label="Version / Ausführung"
+            className="mt-4"
+            hint="Nur zur Beschreibung. In die Bewertung fliessen Neupreis, Leistung, Reichweite und Batteriezustand ein — trag die Werte deiner Version dort ein."
+          >
             <input
               value={v.trim}
               onChange={(e) => set("trim", e.target.value)}
               className={input}
-              placeholder="z.B. Pro S Long Range"
+              placeholder="z.B. Long Range Dual Motor"
             />
           </Field>
 
@@ -322,7 +338,7 @@ export function ListingForm({
             <Field label="Antrieb">
               <select
                 value={v.fuel}
-                onChange={(e) => set("fuel", e.target.value as Fuel)}
+                onChange={(e) => changeFuel(e.target.value as Fuel)}
                 className={input}
               >
                 {FUELS.map((f) => (
@@ -448,15 +464,20 @@ export function ListingForm({
             Unfallfrei
           </label>
 
-          <FieldGroup label="Ausstattung" className="mt-5">
+          <FieldGroup
+            label="Ausstattung"
+            className="mt-5"
+            hint="Nur aufpreispflichtige Ausstattung — Serienausstattung steckt schon im Neupreis."
+          >
             <div className="flex flex-wrap gap-1.5">
-              {FEATURE_CHOICES.map((f) => (
+              {availableFeatures.map((f) => (
                 <Chip
-                  key={f}
-                  active={v.features.includes(f)}
-                  onClick={() => toggle("features", v.features, f)}
+                  key={f.name}
+                  active={v.features.includes(f.name)}
+                  onClick={() => toggle("features", v.features, f.name)}
+                  title={f.hint}
                 >
-                  {f}
+                  {f.name}
                 </Chip>
               ))}
             </div>
@@ -848,16 +869,19 @@ function Chip({
   children,
   active,
   onClick,
+  title,
 }: {
   children: React.ReactNode;
   active: boolean;
   onClick: () => void;
+  title?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
+      title={title}
       className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
         active
           ? "border-volt-ink/45 bg-volt/30 text-volt-ink"
