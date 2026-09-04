@@ -50,6 +50,11 @@ laufenden Tausche und seine Daten; inserieren, tauschen und bewerten ist
 gesperrt. Eine Sperre ist kein Grund, jemanden von den eigenen Daten
 auszusperren.
 
+Beides ist umkehrbar und bleibt sichtbar: die Admin-Seite listet auf, was
+gerade gesperrt und wer stillgelegt ist, mit einem Knopf zum Aufheben. Beim
+Stilllegen werden die Inserate nur pausiert, nicht gesperrt — sonst käme die
+Person nach der Aufhebung nie wieder an sie heran.
+
 ### Bewertungen
 
 Nach einem abgeschlossenen Tausch bewertet jede Seite die andere einmal — ein

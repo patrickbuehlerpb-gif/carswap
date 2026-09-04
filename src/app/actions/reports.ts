@@ -188,13 +188,49 @@ export async function suspendOwnerAction(
         updatedAt: new Date(),
       })
       .where(eq(users.id, meldung.ownerId));
-    // Alles, was noch offen im Markt steht, verschwindet.
+    // Alles, was noch offen im Markt steht, verschwindet — aber nur pausiert,
+    // nicht gesperrt: wird die Stilllegung aufgehoben, soll die Person ihre
+    // Inserate wieder aktivieren können. Solange sie gilt, verhindert das der
+    // Wächter in setListingStatusAction.
     await tx
       .update(listings)
-      .set({ status: "pausiert", blockedAt: new Date(), updatedAt: new Date() })
+      .set({ status: "pausiert", updatedAt: new Date() })
       .where(and(eq(listings.ownerId, meldung.ownerId), eq(listings.status, "aktiv")));
     await tx.update(reports).set({ status: "geprüft" }).where(eq(reports.id, reportId));
   });
+
+  revalidatePath("/admin/meldungen");
+  revalidatePath("/markt");
+  return { ok: true };
+}
+
+/** Hebt eine Stilllegung wieder auf. */
+export async function unsuspendUserAction(userId: string): Promise<ReportResult> {
+  const me = await requireUser();
+  if (!me.isAdmin) return { error: "Dafür fehlt dir die Berechtigung." };
+
+  const rows = await db
+    .update(users)
+    .set({ suspendedAt: null, suspendedReason: null, updatedAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning({ id: users.id });
+  if (!rows.length) return { error: "Konto nicht gefunden." };
+
+  revalidatePath("/admin/meldungen");
+  return { ok: true };
+}
+
+/** Hebt die Sperre eines Inserats wieder auf. */
+export async function unblockListingAction(listingId: string): Promise<ReportResult> {
+  const me = await requireUser();
+  if (!me.isAdmin) return { error: "Dafür fehlt dir die Berechtigung." };
+
+  const rows = await db
+    .update(listings)
+    .set({ blockedAt: null, blockedReason: null, updatedAt: new Date() })
+    .where(eq(listings.id, listingId))
+    .returning({ id: listings.id });
+  if (!rows.length) return { error: "Inserat nicht gefunden." };
 
   revalidatePath("/admin/meldungen");
   revalidatePath("/markt");

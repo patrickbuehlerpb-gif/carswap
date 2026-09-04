@@ -6,6 +6,8 @@ import {
   blockListingAction,
   resolveReportAction,
   suspendOwnerAction,
+  unblockListingAction,
+  unsuspendUserAction,
 } from "@/app/actions/reports";
 
 /**
@@ -97,6 +99,58 @@ export function ReportActions({ reportId }: { reportId: string }) {
         Konto stilllegen
       </button>
       {error && <p className="text-xs text-bad">{error}</p>}
+    </div>
+  );
+}
+
+/** Hebt die Sperre eines Inserats auf. */
+export function UnblockButton({ listingId }: { listingId: string }) {
+  return (
+    <RueckgaengigKnopf
+      beschriftung="Sperre aufheben"
+      aktion={() => unblockListingAction(listingId)}
+    />
+  );
+}
+
+/** Hebt eine Stilllegung auf. */
+export function UnsuspendButton({ userId }: { userId: string }) {
+  return (
+    <RueckgaengigKnopf
+      beschriftung="Stilllegung aufheben"
+      aktion={() => unsuspendUserAction(userId)}
+    />
+  );
+}
+
+function RueckgaengigKnopf({
+  beschriftung,
+  aktion,
+}: {
+  beschriftung: string;
+  aktion: () => Promise<{ error?: string }>;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <div className="shrink-0 text-right">
+      <button
+        onClick={() => {
+          setError(null);
+          start(async () => {
+            const res = await aktion();
+            if (res.error) setError(res.error);
+            else router.refresh();
+          });
+        }}
+        disabled={pending}
+        className="rounded-md border border-line-strong px-3 py-1.5 text-xs text-ink-2 transition-colors hover:border-ink-3 hover:text-ink disabled:opacity-60"
+      >
+        {pending ? "…" : beschriftung}
+      </button>
+      {error && <p className="mt-1 text-xs text-bad">{error}</p>}
     </div>
   );
 }

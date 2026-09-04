@@ -66,7 +66,15 @@ export function NavLinks({
   );
 }
 
-export function UserMenu({ name, avatarColor }: { name: string; avatarColor: string }) {
+export function UserMenu({
+  name,
+  avatarColor,
+  isAdmin = false,
+}: {
+  name: string;
+  avatarColor: string;
+  isAdmin?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -127,6 +135,11 @@ export function UserMenu({ name, avatarColor }: { name: string; avatarColor: str
             <MenuLink href="/konto" onClick={() => setOpen(false)}>
               Konto und Auszahlung
             </MenuLink>
+            {isAdmin && (
+              <MenuLink href="/admin/meldungen" onClick={() => setOpen(false)}>
+                Gemeldete Inserate
+              </MenuLink>
+            )}
             <form action={signOutAction} className="border-t border-line pt-1">
               <button
                 type="submit"

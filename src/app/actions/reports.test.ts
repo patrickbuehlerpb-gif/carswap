@@ -9,6 +9,8 @@ import {
   reportListingAction,
   resolveReportAction,
   suspendOwnerAction,
+  unblockListingAction,
+  unsuspendUserAction,
 } from "@/app/actions/reports";
 import { proposeSwapAction } from "@/app/actions/deals";
 import { setListingStatusAction } from "@/app/actions/listings";
@@ -134,6 +136,45 @@ describe("Sperren und stilllegen", () => {
     // … die Auskunft über die eigenen Daten nicht
     const auskunft = await exportMyDataAction();
     expect(auskunft.error).toBeUndefined();
+  });
+
+  it("macht die Stilllegung rückgängig — die Inserate lassen sich wieder aktivieren", async () => {
+    const { besitzer, admin, vehicleId, meldungId } = await gemeldet();
+    als(admin);
+    await suspendOwnerAction(meldungId, "Zu prüfen");
+    expect((await unsuspendUserAction(besitzer)).error).toBeUndefined();
+
+    const [konto] = await db.select().from(users).where(eq(users.id, besitzer));
+    expect(konto.suspendedAt).toBeNull();
+
+    // Beim Stilllegen wurde nur pausiert, nicht gesperrt — sonst käme die
+    // Person nach der Aufhebung nie wieder an ihr Inserat.
+    const [inseratRow] = await db.select().from(listings).where(eq(listings.vehicleId, vehicleId));
+    expect(inseratRow.blockedAt).toBeNull();
+    als(besitzer);
+    expect((await setListingStatusAction(vehicleId, "aktiv")).error).toBeUndefined();
+  });
+
+  it("macht eine Sperre rückgängig", async () => {
+    const { besitzer, admin, vehicleId, meldungId } = await gemeldet();
+    als(admin);
+    await blockListingAction(meldungId, "Verdacht");
+    const [gesperrt] = await db.select().from(listings).where(eq(listings.vehicleId, vehicleId));
+    expect((await unblockListingAction(gesperrt.id)).error).toBeUndefined();
+
+    als(besitzer);
+    expect((await setListingStatusAction(vehicleId, "aktiv")).error).toBeUndefined();
+  });
+
+  it("lässt nur die Betreiberin aufheben", async () => {
+    const { besitzer, melder, admin, vehicleId, meldungId } = await gemeldet();
+    als(admin);
+    await blockListingAction(meldungId, "");
+    const [gesperrt] = await db.select().from(listings).where(eq(listings.vehicleId, vehicleId));
+
+    als(melder);
+    expect((await unblockListingAction(gesperrt.id)).error).toMatch(/Berechtigung/);
+    expect((await unsuspendUserAction(besitzer)).error).toMatch(/Berechtigung/);
   });
 
   it("lässt die Betreiberin sich nicht selbst stilllegen", async () => {

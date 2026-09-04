@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, desc, eq, inArray, isNotNull, ne, or, sql as raw } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, ne, or, sql as raw } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
@@ -379,6 +379,10 @@ export async function acceptDealAction(dealId: string): Promise<ActionResult> {
           and(
             inArray(listings.vehicleId, [deal.fromVehicleId, deal.toVehicleId]),
             inArray(listings.status, ["aktiv", "pausiert", "getauscht"]),
+            // Ein gesperrtes Inserat bleibt gesperrt. Heute führt kein Weg
+            // hierher, weil ein Vorschlag ein aktives Inserat verlangt — die
+            // Bedingung hält das auch dann, wenn sich das einmal ändert.
+            isNull(listings.blockedAt),
           ),
         );
     });

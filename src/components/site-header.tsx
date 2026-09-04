@@ -45,7 +45,7 @@ export async function SiteHeader() {
               >
                 Fahrzeug anbieten
               </Link>
-              <UserMenu name={user.name} avatarColor={user.avatarColor} />
+              <UserMenu name={user.name} avatarColor={user.avatarColor} isAdmin={user.isAdmin} />
             </>
           ) : (
             <>
