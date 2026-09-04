@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "preflight": "tsx scripts/preflight.ts",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "admin": "tsx scripts/make-admin.ts"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",

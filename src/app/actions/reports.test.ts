@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { listings, reports } from "@/lib/db/schema";
+import { listings, reports, users } from "@/lib/db/schema";
 import { als, createUser, createVehicle, resetDatabase } from "@/test/fixtures";
-import { reportListingAction } from "@/app/actions/reports";
+import { reportListingAction, resolveReportAction } from "@/app/actions/reports";
 
 beforeEach(async () => {
   await resetDatabase();
@@ -16,6 +16,24 @@ async function inserat() {
   const vehicleId = await createVehicle(besitzer);
   return { besitzer, melder, vehicleId };
 }
+
+describe("Meldung abhaken", () => {
+  it("lässt nur die Betreiberin abhaken", async () => {
+    const { melder, vehicleId } = await inserat();
+    als(melder);
+    await reportListingAction(vehicleId, "anderes", "");
+    const [meldung] = await db.select().from(reports);
+
+    // Normale Konten dürfen nicht
+    expect((await resolveReportAction(meldung.id)).error).toMatch(/Berechtigung/);
+    expect((await db.select().from(reports))[0].status).toBe("offen");
+
+    // Als Betreiberin schon
+    await db.update(users).set({ isAdmin: true }).where(eq(users.id, melder));
+    expect((await resolveReportAction(meldung.id)).error).toBeUndefined();
+    expect((await db.select().from(reports))[0].status).toBe("geprüft");
+  });
+});
 
 describe("Inserat melden", () => {
   it("legt die Meldung an", async () => {

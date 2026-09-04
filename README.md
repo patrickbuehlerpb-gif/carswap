@@ -107,6 +107,14 @@ npm run db:seed -- --confirm   # 10 Konten, 19 Fahrzeuge mit Inseraten
 Weitere Skripte: `npm run build`, `npm run typecheck`, `npm run db:generate`
 (Migration aus dem Schema erzeugen), `npm run db:studio`.
 
+Eine Person zur Betreiberin machen — sie sieht danach unter
+`/admin/meldungen` die gemeldeten Inserate:
+
+```bash
+npm run admin -- anna@example.ch
+npm run admin -- anna@example.ch --entziehen
+```
+
 ### Tests
 
 ```bash
@@ -331,9 +339,9 @@ Nach dem ersten Deployment:
   die Übergabe erneut bestätigt. Ein Hintergrundlauf, der das von selbst
   wiederholt, fehlt.
 - **Missbrauchsschutz**: Prüfung neuer Konten und Betrugserkennung bei
-  auffälligen Wertdifferenzen. Eine Meldefunktion gibt es; sie schreibt in die
-  Tabelle `reports` und schickt eine Mail an `OPERATOR_EMAIL`. Was fehlt, ist
-  eine Oberfläche, um Meldungen abzuarbeiten.
+  auffälligen Wertdifferenzen. Melden, benachrichtigen und abhaken gibt es
+  (`/admin/meldungen`); was fehlt, sind Konsequenzen — ein Inserat sperren
+  oder ein Konto stilllegen geht heute nur von Hand in der Datenbank.
 - **Rückbuchungen** nach abgeschlossenem Tausch werden erkannt und gemeldet,
   aber nicht automatisch geheilt.
 - **Kontolöschung**: Name, Adresse, Kontaktdaten, Sitzungen, Token, Fotos und

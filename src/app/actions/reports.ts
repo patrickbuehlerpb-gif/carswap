@@ -1,5 +1,7 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -86,5 +88,21 @@ export async function reportListingAction(
     );
   }
 
+  return { ok: true };
+}
+
+/** Hakt eine Meldung ab. Nur für die Betreiberin. */
+export async function resolveReportAction(reportId: string): Promise<ReportResult> {
+  const me = await requireUser();
+  if (!me.isAdmin) return { error: "Dafür fehlt dir die Berechtigung." };
+
+  const rows = await db
+    .update(reports)
+    .set({ status: "geprüft" })
+    .where(eq(reports.id, reportId))
+    .returning({ id: reports.id });
+  if (!rows.length) return { error: "Meldung nicht gefunden." };
+
+  revalidatePath("/admin/meldungen");
   return { ok: true };
 }
