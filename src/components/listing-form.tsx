@@ -10,15 +10,9 @@ import { Badge, Card } from "@/components/ui";
 import { createListingAction, updateListingAction } from "@/app/actions/listings";
 import { chf, km, label } from "@/lib/format";
 import type { Body, Condition, Fuel, ServiceHistory, Vehicle, VehiclePhoto } from "@/lib/types";
+import { MAKE_NAMES, modelsFor } from "@/lib/data/catalog";
 import { BODIES, CONDITIONS, DRIVETRAINS, FUELS, SERVICE_HISTORIES } from "@/lib/validation";
 import { valuate, valueHistory } from "@/lib/valuation";
-
-const MAKES = [
-  "Audi", "BMW", "Citroën", "Cupra", "Dacia", "Fiat", "Ford", "Honda", "Hyundai", "Jeep",
-  "Kia", "Mazda", "Mercedes-Benz", "MG", "Mini", "Nissan", "NIO", "Opel", "Peugeot",
-  "Polestar", "Porsche", "Renault", "Seat", "Skoda", "Smart", "Subaru", "Suzuki", "Tesla",
-  "Toyota", "Volvo", "VW", "Zeekr",
-];
 
 const FEATURE_CHOICES = [
   "Anhängerkupplung", "Panoramadach", "Luftfederung", "Head-up-Display", "Wärmepumpe",
@@ -112,6 +106,9 @@ export function ListingForm({
   function set<K extends keyof ListingFormValues>(key: K, value: ListingFormValues[K]) {
     setV((prev) => ({ ...prev, [key]: value }));
   }
+
+  /** Modellvorschläge zur gewählten Marke — nur eine Hilfe, keine Pflicht. */
+  const modelSuggestions = useMemo(() => modelsFor(v.make), [v.make]);
 
   function toggle<T>(key: keyof ListingFormValues, list: T[], item: T) {
     const next = list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
@@ -226,19 +223,33 @@ export function ListingForm({
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <Field label="Marke">
               <select value={v.make} onChange={(e) => set("make", e.target.value)} className={input}>
-                {MAKES.map((m) => (
+                {MAKE_NAMES.map((m) => (
                   <option key={m}>{m}</option>
                 ))}
               </select>
             </Field>
-            <Field label="Modell">
+            <Field
+              label="Modell"
+              hint={
+                modelSuggestions.length
+                  ? `${modelSuggestions.length} Vorschläge für ${v.make} — freie Eingabe bleibt möglich.`
+                  : "Marke nicht im Katalog: trag das Modell einfach von Hand ein."
+              }
+            >
               <input
                 value={v.model}
                 onChange={(e) => set("model", e.target.value)}
                 className={input}
-                placeholder="z.B. ID.7"
+                placeholder="z.B. ID.7 Tourer"
+                list="modell-vorschlaege"
+                autoComplete="off"
                 required
               />
+              <datalist id="modell-vorschlaege">
+                {modelSuggestions.map((m) => (
+                  <option key={m} value={m} />
+                ))}
+              </datalist>
             </Field>
           </div>
 
@@ -562,7 +573,7 @@ export function ListingForm({
 
           <FieldGroup label="Marken" className="mt-5">
             <div className="flex flex-wrap gap-1.5">
-              {MAKES.map((m) => (
+              {MAKE_NAMES.map((m) => (
                 <Chip
                   key={m}
                   active={v.wishMakes.includes(m)}

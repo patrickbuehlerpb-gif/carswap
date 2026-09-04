@@ -8,10 +8,6 @@ import { chf, km, label, vehicleFullTitle } from "@/lib/format";
 import { findMatches, findRingSwaps, type ListingEntry } from "@/lib/matching";
 import type { Body, Fuel, User, Vehicle } from "@/lib/types";
 
-const MAKES = [
-  "Audi", "BMW", "Cupra", "Hyundai", "Kia", "Mercedes-Benz", "Polestar",
-  "Porsche", "Skoda", "Tesla", "Toyota", "VW", "Volvo", "Zeekr",
-];
 const BODIES: Body[] = ["suv", "limousine", "kombi", "kompakt"];
 const FUELS: Fuel[] = ["elektro", "hybrid", "benzin", "diesel"];
 
@@ -31,6 +27,12 @@ export function MatchFinder({
   const [tab, setTab] = useState<"direkt" | "ring">("direkt");
 
   const mine = myVehicles.find((v) => v.id === mineId) ?? myVehicles[0];
+
+  /** Nur Marken anbieten, die im Bestand tatsächlich vorkommen. */
+  const availableMakes = useMemo(
+    () => [...new Set(pool.map((e) => e.vehicle.make))].sort((a, b) => a.localeCompare(b, "de-CH")),
+    [pool],
+  );
   const wish = useMemo(() => ({ makes, bodies, fuels }), [makes, bodies, fuels]);
 
   const matches = useMemo(() => findMatches(mine, pool, { wish }), [mine, pool, wish]);
@@ -83,7 +85,7 @@ export function MatchFinder({
           <div className="space-y-4">
             <p className="text-[11px] uppercase tracking-wider text-ink-3">Du suchst</p>
             <div className="flex flex-wrap gap-1.5">
-              {MAKES.map((m) => (
+              {availableMakes.map((m) => (
                 <Chip key={m} active={makes.includes(m)} onClick={() => toggle(makes, setMakes, m)}>
                   {m}
                 </Chip>

@@ -6,14 +6,11 @@ import { ValueChart } from "@/components/value-chart";
 import { ValuationBreakdown } from "@/components/valuation-breakdown";
 import { VehicleVisual } from "@/components/vehicle-visual";
 import { Badge, Card } from "@/components/ui";
+import { MAKE_NAMES, modelsFor } from "@/lib/data/catalog";
 import { chf, km, label } from "@/lib/format";
 import type { Body, Condition, Fuel, ServiceHistory, Vehicle } from "@/lib/types";
 import { depreciationPerMonth, valuate, valueAt, valueHistory } from "@/lib/valuation";
 
-const MAKES = [
-  "Audi", "BMW", "Cupra", "Ford", "Hyundai", "Kia", "Mercedes-Benz", "NIO", "Peugeot",
-  "Polestar", "Porsche", "Renault", "Skoda", "Tesla", "Toyota", "VW", "Volvo", "Zeekr",
-];
 const FEATURES = [
   "Anhängerkupplung", "Panoramadach", "Luftfederung", "Head-up-Display", "Wärmepumpe",
   "Standheizung", "Massagesitze", "Harman Kardon", "360°-Kamera", "Winterräder",
@@ -205,7 +202,7 @@ export function ValuationStudio({
                 onChange={(e) => set("make", e.target.value)}
                 className={inputClass}
               >
-                {MAKES.map((m) => (
+                {MAKE_NAMES.map((m) => (
                   <option key={m}>{m}</option>
                 ))}
               </select>
@@ -215,7 +212,14 @@ export function ValuationStudio({
                 value={draft.model}
                 onChange={(e) => set("model", e.target.value)}
                 className={inputClass}
+                list="wert-modelle"
+                autoComplete="off"
               />
+              <datalist id="wert-modelle">
+                {modelsFor(draft.make).map((m) => (
+                  <option key={m} value={m} />
+                ))}
+              </datalist>
             </Field>
           </div>
 

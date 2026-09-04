@@ -8,10 +8,6 @@ import { findMatches, type ListingEntry } from "@/lib/matching";
 import type { Body, Fuel, Vehicle } from "@/lib/types";
 import { valueAt } from "@/lib/valuation";
 
-const MAKES = [
-  "Audi", "BMW", "Cupra", "Hyundai", "Kia", "Mercedes-Benz", "Polestar",
-  "Porsche", "Skoda", "Tesla", "Toyota", "VW", "Volvo", "Zeekr",
-];
 const BODIES: Body[] = ["suv", "limousine", "kombi", "kompakt"];
 const FUELS: Fuel[] = ["elektro", "hybrid", "benzin", "diesel"];
 
@@ -38,6 +34,12 @@ export function MarketBrowser({
   const [sort, setSort] = useState<Sort>("score");
 
   const myVehicle = myVehicles.find((v) => v.id === myVehicleId) ?? myVehicles[0] ?? null;
+
+  /** Nur Marken anbieten, die im Bestand tatsächlich vorkommen. */
+  const availableMakes = useMemo(
+    () => [...new Set(pool.map((e) => e.vehicle.make))].sort((a, b) => a.localeCompare(b, "de-CH")),
+    [pool],
+  );
 
   const matches = useMemo(() => {
     // Ohne eigenes Fahrzeug gibt es keine Zuzahlung — dann werden die
@@ -151,7 +153,7 @@ export function MarketBrowser({
 
         <FilterGroup title="Marke">
           <div className="flex flex-wrap gap-1.5">
-            {MAKES.map((m) => (
+            {availableMakes.map((m) => (
               <Chip key={m} active={makes.includes(m)} onClick={() => toggle(makes, setMakes, m)}>
                 {m}
               </Chip>

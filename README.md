@@ -91,6 +91,31 @@ createdb carswap
 export DATABASE_URL=postgresql://localhost:5432/carswap
 ```
 
+## Fahrzeugkatalog
+
+`src/lib/data/catalog.ts` enthält 66 Marken mit 671 Modellen für den Schweizer
+Markt (Neuwagen ab etwa 2012). Er dient als Eingabehilfe: das Formular schlägt
+zur gewählten Marke passende Modelle vor, erlaubt aber weiterhin freie
+Eingaben — Sondermodelle und Importe fallen sonst durchs Raster. Die
+Filterlisten auf Marktplatz und Matches werden dagegen aus dem tatsächlichen
+Bestand abgeleitet, damit dort keine Marke steht, zu der es kein Inserat gibt.
+
+Der Katalog ist bewusst selbst gepflegt und **nicht** von einem Marktplatz
+übernommen. Modelllisten von AutoScout24 und Vergleichbaren sind deren
+Datenbestand und durch die Nutzungsbedingungen geschützt; automatisiertes
+Auslesen wäre für ein konkurrierendes Angebot heikel und technisch fragil.
+
+Für eine vollständige, gepflegte Quelle kommen infrage:
+
+- **Eurotax / Schwacke** — der Branchenstandard in der Schweiz und Deutschland.
+  Liefert Katalog *und* Restwerte und würde damit auch die fehlende empirische
+  Kalibrierung des Bewertungsmodells lösen. Kostenpflichtig, Vertrag nötig.
+- **Typengenehmigungsdaten des ASTRA** beziehungsweise die Fahrzeugdatensätze
+  auf opendata.swiss — offizielle Schweizer Daten, frei nutzbar, dafür ohne
+  Marketingbezeichnungen.
+- **NHTSA vPIC** — frei und ohne Schlüssel, aber auf den US-Markt bezogen; die
+  europäischen Modellbezeichnungen weichen ab.
+
 ## Sicherheit
 
 - **Passwörter** werden mit scrypt gehasht (N=32768, r=8, p=1, 64 Byte Schlüssel,
@@ -178,7 +203,9 @@ siehe `.env.example`. Nach dem ersten Deployment:
   selbst Gelder Dritter hält.
 - **Identitätsprüfung** der Nutzer (`identityVerified` wird heute nirgends
   gesetzt) sowie Abfrage von Fahrzeugausweis und Pfandrecht.
-- **Empirische Kalibrierung** der Restwertkurven an echten Marktdaten.
+- **Empirische Kalibrierung** der Restwertkurven an echten Marktdaten — am
+  ehesten zusammen mit einer Eurotax-Lizenz, die auch den Fahrzeugkatalog
+  mitbringt.
 - **Ringtausch-Abwicklung** als atomarer Vorgang; heute lässt sich ein Ring nur
   als Kette von Einzeltauschen anstossen.
 - **Missbrauchsschutz**: Meldefunktion für Inserate, Prüfung neuer Konten,
