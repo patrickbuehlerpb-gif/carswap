@@ -1,11 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { VehicleCard } from "@/components/vehicle-card";
-import { myVehicleIds, requireVehicle } from "@/lib/data/vehicles";
 import { chf, label } from "@/lib/format";
-import { findMatches } from "@/lib/matching";
-import type { Body, Fuel } from "@/lib/types";
+import { findMatches, type ListingEntry } from "@/lib/matching";
+import type { Body, Fuel, Vehicle } from "@/lib/types";
+import { valueAt } from "@/lib/valuation";
 
 const MAKES = [
   "Audi", "BMW", "Cupra", "Hyundai", "Kia", "Mercedes-Benz", "Polestar",
@@ -16,8 +17,18 @@ const FUELS: Fuel[] = ["elektro", "hybrid", "benzin", "diesel"];
 
 type Sort = "score" | "cash-asc" | "cash-desc" | "value-desc" | "km-asc";
 
-export function MarketBrowser() {
-  const [myVehicleId, setMyVehicleId] = useState(myVehicleIds[0]);
+export function MarketBrowser({
+  pool,
+  myVehicles,
+  watchlist,
+  signedIn,
+}: {
+  pool: ListingEntry[];
+  myVehicles: Vehicle[];
+  watchlist: string[];
+  signedIn: boolean;
+}) {
+  const [myVehicleId, setMyVehicleId] = useState(myVehicles[0]?.id ?? "");
   const [makes, setMakes] = useState<string[]>([]);
   const [bodies, setBodies] = useState<Body[]>([]);
   const [fuels, setFuels] = useState<Fuel[]>([]);
@@ -26,19 +37,30 @@ export function MarketBrowser() {
   const [onlyMutual, setOnlyMutual] = useState(false);
   const [sort, setSort] = useState<Sort>("score");
 
-  const myVehicle = requireVehicle(myVehicleId);
+  const myVehicle = myVehicles.find((v) => v.id === myVehicleId) ?? myVehicles[0] ?? null;
 
   const matches = useMemo(() => {
-    const all = findMatches(myVehicle, {
-      wish: { makes, bodies, fuels, minYear },
-      onlyMutual,
-    });
+    // Ohne eigenes Fahrzeug gibt es keine Zuzahlung — dann werden die
+    // Inserate nur gefiltert und nach Aktualität gezeigt.
+    const all = myVehicle
+      ? findMatches(myVehicle, pool, { wish: { makes, bodies, fuels, minYear }, onlyMutual })
+      : pool.map((e) => ({
+          listing: e.listing,
+          vehicle: e.vehicle,
+          owner: e.owner,
+          score: 0,
+          cashDelta: 0,
+          reasons: [],
+          concerns: [],
+          mutual: false,
+          fitsMyWish: true,
+        }));
     const filtered = all.filter((m) => {
       if (makes.length && !makes.includes(m.vehicle.make)) return false;
       if (bodies.length && !bodies.includes(m.vehicle.body)) return false;
       if (fuels.length && !fuels.includes(m.vehicle.fuel)) return false;
       if (minYear && m.vehicle.year < minYear) return false;
-      if (m.cashDelta > maxCash) return false;
+      if (myVehicle && m.cashDelta > maxCash) return false;
       return true;
     });
     const sorted = [...filtered];
@@ -49,7 +71,7 @@ export function MarketBrowser() {
         case "cash-desc":
           return b.cashDelta - a.cashDelta;
         case "value-desc":
-          return b.vehicle.listPriceNew - a.vehicle.listPriceNew;
+          return valueAt(b.vehicle) - valueAt(a.vehicle);
         case "km-asc":
           return a.vehicle.mileageKm - b.vehicle.mileageKm;
         default:
@@ -57,7 +79,7 @@ export function MarketBrowser() {
       }
     });
     return sorted;
-  }, [myVehicle, makes, bodies, fuels, minYear, maxCash, onlyMutual, sort]);
+  }, [myVehicle, pool, makes, bodies, fuels, minYear, maxCash, onlyMutual, sort]);
 
   const mutualCount = matches.filter((m) => m.mutual).length;
   const activeFilters =
@@ -82,28 +104,49 @@ export function MarketBrowser() {
       <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
         <div>
           <FilterLabel>Dein Tauschobjekt</FilterLabel>
-          <div className="mt-2 space-y-1.5">
-            {myVehicleIds.map((id) => {
-              const v = requireVehicle(id);
-              const active = id === myVehicleId;
-              return (
-                <button
-                  key={id}
-                  onClick={() => setMyVehicleId(id)}
-                  className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
-                    active
-                      ? "border-volt-600/45 bg-volt-500/[0.07]"
-                      : "border-ink-700 bg-ink-850 hover:border-ink-600"
-                  }`}
-                >
-                  <span className="block text-sm font-medium text-mist-100">
-                    {v.make} {v.model}
-                  </span>
-                  <span className="block text-xs text-mist-400">{v.year} · {v.trim}</span>
-                </button>
-              );
-            })}
-          </div>
+          {myVehicles.length === 0 ? (
+            <p className="mt-2 rounded-lg border border-dashed border-line-strong p-3 text-xs text-ink-3">
+              {signedIn ? (
+                <>
+                  Stelle dein Fahrzeug ein, dann rechnen wir jede Zuzahlung direkt dagegen.{" "}
+                  <Link href="/inserat/neu" className="text-volt-ink hover:underline">
+                    Fahrzeug anbieten
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link href="/konto/registrieren" className="text-volt-ink hover:underline">
+                    Konto erstellen
+                  </Link>{" "}
+                  und Fahrzeug einstellen, um Zuzahlungen zu sehen.
+                </>
+              )}
+            </p>
+          ) : (
+            <div className="mt-2 space-y-1.5">
+              {myVehicles.map((v) => {
+                const active = v.id === myVehicleId;
+                return (
+                  <button
+                    key={v.id}
+                    onClick={() => setMyVehicleId(v.id)}
+                    className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                      active
+                        ? "border-volt-ink/40 bg-volt/25"
+                        : "border-line bg-surface-2 hover:border-line-strong"
+                    }`}
+                  >
+                    <span className="block text-sm font-medium text-ink">
+                      {v.make} {v.model}
+                    </span>
+                    <span className="block text-xs text-ink-3">
+                      {v.year} · {v.trim}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <FilterGroup title="Marke">
@@ -150,6 +193,7 @@ export function MarketBrowser() {
           </div>
         </FilterGroup>
 
+        {myVehicle && (
         <FilterGroup title={`Maximale Zuzahlung: ${chf(maxCash)}`}>
           <input
             type="range"
@@ -158,33 +202,36 @@ export function MarketBrowser() {
             step={1_000}
             value={maxCash}
             onChange={(e) => setMaxCash(Number(e.target.value))}
-            className="mt-1 w-full accent-volt-500"
+            className="mt-1 w-full accent-volt-ink"
             aria-label="Maximale Zuzahlung"
           />
-          <p className="mt-1 text-[11px] text-mist-400">
+          <p className="mt-1 text-[11px] text-ink-3">
             Negative Werte heissen: du willst Geld erhalten.
           </p>
         </FilterGroup>
+        )}
 
-        <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-ink-700 bg-ink-850 p-3">
+        {myVehicle && (
+        <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-line bg-surface-2 p-3">
           <input
             type="checkbox"
             checked={onlyMutual}
             onChange={(e) => setOnlyMutual(e.target.checked)}
-            className="mt-0.5 accent-volt-500"
+            className="mt-0.5 accent-volt-ink"
           />
           <span>
-            <span className="block text-sm font-medium text-mist-100">Nur beidseitige Treffer</span>
-            <span className="mt-0.5 block text-xs text-mist-400">
+            <span className="block text-sm font-medium text-ink">Nur beidseitige Treffer</span>
+            <span className="mt-0.5 block text-xs text-ink-3">
               Die Gegenseite sucht ausdrücklich ein Fahrzeug wie deines.
             </span>
           </span>
         </label>
+        )}
 
         {activeFilters > 0 && (
           <button
             onClick={resetFilters}
-            className="w-full rounded-lg border border-ink-700 py-2 text-sm text-mist-300 transition-colors hover:border-ink-600 hover:text-mist-100"
+            className="w-full rounded-lg border border-line py-2 text-sm text-ink-2 transition-colors hover:border-line-strong hover:text-ink"
           >
             Filter zurücksetzen ({activeFilters})
           </button>
@@ -194,21 +241,21 @@ export function MarketBrowser() {
       {/* --------------- Ergebnisse --------------- */}
       <div className="min-w-0">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-mist-400">
-            <span className="font-semibold tabular text-mist-100">{matches.length}</span> Inserate
+          <p className="text-sm text-ink-3">
+            <span className="font-semibold tabular text-ink">{matches.length}</span> Inserate
             {mutualCount > 0 && (
               <>
                 {" · "}
-                <span className="text-volt-400">{mutualCount} beidseitig passend</span>
+                <span className="text-volt-ink">{mutualCount} beidseitig passend</span>
               </>
             )}
           </p>
-          <label className="flex items-center gap-2 text-sm text-mist-400">
+          <label className="flex items-center gap-2 text-sm text-ink-3">
             Sortieren
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as Sort)}
-              className="rounded-md border border-ink-700 bg-ink-850 px-2.5 py-1.5 text-sm text-mist-100 outline-none focus:border-ink-500"
+              className="rounded-md border border-line bg-surface-2 px-2.5 py-1.5 text-sm text-ink outline-none focus:border-ink-3"
             >
               <option value="score">Beste Übereinstimmung</option>
               <option value="cash-asc">Geringste Zuzahlung</option>
@@ -220,11 +267,11 @@ export function MarketBrowser() {
         </div>
 
         {matches.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-ink-700 p-12 text-center">
-            <p className="text-sm text-mist-300">Keine Inserate mit diesen Kriterien.</p>
+          <div className="rounded-xl border border-dashed border-line p-12 text-center">
+            <p className="text-sm text-ink-2">Keine Inserate mit diesen Kriterien.</p>
             <button
               onClick={resetFilters}
-              className="mt-3 text-sm text-volt-400 hover:text-volt-300"
+              className="mt-3 text-sm text-volt-ink hover:text-volt-ink"
             >
               Filter zurücksetzen
             </button>
@@ -236,9 +283,11 @@ export function MarketBrowser() {
                 key={m.vehicle.id}
                 vehicle={m.vehicle}
                 listing={m.listing}
-                cashDelta={m.cashDelta}
-                score={m.score}
+                owner={m.owner}
+                cashDelta={myVehicle ? m.cashDelta : undefined}
+                score={myVehicle ? m.score : undefined}
                 mutual={m.mutual}
+                watched={watchlist.includes(m.listing.id)}
               />
             ))}
           </div>
@@ -259,7 +308,7 @@ function FilterGroup({ title, children }: { title: string; children: React.React
 
 function FilterLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span className="text-[11px] font-medium uppercase tracking-wider text-mist-400">
+    <span className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
       {children}
     </span>
   );
@@ -279,8 +328,8 @@ function Chip({
       onClick={onClick}
       className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
         active
-          ? "border-volt-600/50 bg-volt-500/12 text-volt-400"
-          : "border-ink-700 bg-ink-850 text-mist-300 hover:border-ink-600 hover:text-mist-100"
+          ? "border-volt-ink/45 bg-volt/30 text-volt-ink"
+          : "border-line bg-surface-2 text-ink-2 hover:border-line-strong hover:text-ink"
       }`}
     >
       {children}

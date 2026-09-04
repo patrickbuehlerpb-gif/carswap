@@ -1,32 +1,77 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 import { DealDetail } from "@/components/deal-detail";
 import { SectionHead } from "@/components/ui";
+import { getSessionUser } from "@/lib/auth/session";
+import { getDealForUser } from "@/lib/queries";
+import { db } from "@/lib/db";
+import { payments } from "@/lib/db/schema";
+import { desc, eq } from "drizzle-orm";
+import { currentMonth } from "@/lib/valuation";
+import { stripeConfigured } from "@/lib/payments";
 
 export const metadata: Metadata = { title: "Tauschvorgang" };
+export const dynamic = "force-dynamic";
 
-export default async function DealPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function DealPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ treuhand?: string }>;
+}) {
   const { id } = await params;
+  const { treuhand } = await searchParams;
+
+  const me = await getSessionUser();
+  if (!me) redirect(`/konto/anmelden?next=/deals/${id}`);
+
+  const detail = await getDealForUser(id, me.id);
+  if (!detail) notFound();
+
+  const [payment] = await db
+    .select({
+      status: payments.status,
+      amountMinor: payments.amountMinor,
+      payerId: payments.payerId,
+      payeeId: payments.payeeId,
+    })
+    .from(payments)
+    .where(eq(payments.dealId, id))
+    .orderBy(desc(payments.createdAt))
+    .limit(1);
 
   return (
     <div>
-      <nav className="mb-4 text-sm text-mist-400">
-        <Link href="/deals" className="hover:text-mist-200">
+      <nav className="mb-4 text-sm text-ink-3">
+        <Link href="/deals" className="hover:text-ink">
           Tausche
         </Link>
         <span className="mx-2">/</span>
-        <span className="text-mist-200">Vorgang {id}</span>
+        <span className="text-ink-2">
+          {detail.fromVehicle.make} {detail.fromVehicle.model} ⇄ {detail.toVehicle.make}{" "}
+          {detail.toVehicle.model}
+        </span>
       </nav>
       <SectionHead
         title="Tauschvorgang"
         sub="Verhandlung, Zusage, Treuhand und Übergabe an einem Ort — inklusive Checkliste für den Halterwechsel."
       />
-      <Suspense
-        fallback={<div className="h-96 animate-pulse rounded-xl border border-ink-800 bg-ink-900" />}
-      >
-        <DealDetail id={id} />
-      </Suspense>
+      <DealDetail
+        detail={detail}
+        meId={me.id}
+        payment={payment ?? null}
+        paymentsEnabled={stripeConfigured()}
+        escrowNotice={
+          treuhand === "ok"
+            ? "Einzahlung bestätigt — der Betrag liegt auf dem Treuhandkonto."
+            : treuhand === "abgebrochen"
+              ? "Die Einzahlung wurde abgebrochen. Du kannst es jederzeit erneut versuchen."
+              : null
+        }
+        asOf={currentMonth()}
+      />
     </div>
   );
 }

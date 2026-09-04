@@ -2,11 +2,18 @@ import { group } from "./format";
 import type { Fuel, HistoryPoint, Valuation, ValuationFactor, Vehicle } from "./types";
 
 /**
- * Stichtag der Anwendung. Bewusst als Konstante gehalten, damit Server- und
- * Client-Rendering identische Werte liefern (keine Hydration-Mismatches) und
- * die Demo-Daten reproduzierbar bleiben.
+ * Stichtag der Bewertung. Das Modell arbeitet auf Monatsebene, deshalb reicht
+ * der laufende Monat — in UTC bestimmt, damit Server und Client dasselbe
+ * Ergebnis liefern und keine Hydration-Mismatches entstehen.
  */
-export const TODAY = "2026-09-01";
+export function currentMonth(): string {
+  return new Date().toISOString().slice(0, 7);
+}
+
+/** Erster Tag des Stichtagsmonats, für Datumsarithmetik. */
+export function asOfIso(asOf?: string): string {
+  return `${asOf ?? currentMonth()}-01`;
+}
 
 /** Normale Jahresfahrleistung, an der die km-Korrektur gemessen wird. */
 const NORM_KM_PER_YEAR = 15_000;
@@ -191,14 +198,14 @@ function featureValue(features: string[]): number {
  * Bewertet ein Fahrzeug zu einem beliebigen Stichtag. `atMonth` im Format
  * YYYY-MM; ohne Angabe wird der aktuelle Stichtag verwendet.
  */
-export function valueAt(vehicle: Vehicle, atMonth?: string): number {
-  const month = atMonth ?? TODAY.slice(0, 7);
+export function valueAt(vehicle: Vehicle, atMonth?: string, asOf?: string): number {
+  const month = atMonth ?? asOf ?? currentMonth();
   const ageMonths = monthsBetween(vehicle.firstRegistration, `${month}-01`);
   const ageYears = ageMonths / 12;
   if (ageYears < 0) return vehicle.listPriceNew;
 
   // Kilometerstand zum Stichtag linear interpoliert bzw. fortgeschrieben
-  const ageNowMonths = Math.max(1, monthsBetween(vehicle.firstRegistration, TODAY));
+  const ageNowMonths = Math.max(1, monthsBetween(vehicle.firstRegistration, asOfIso(asOf)));
   const kmPerMonth = vehicle.mileageKm / ageNowMonths;
   const mileageAt = Math.max(0, kmPerMonth * ageMonths);
 
@@ -216,7 +223,7 @@ export function valueAt(vehicle: Vehicle, atMonth?: string): number {
   value *= 1 - Math.min(0.06, Math.max(0, vehicle.previousOwners - 1) * 0.012);
   if (!vehicle.accidentFree) value *= 0.88;
 
-  if (vehicle.fuel === "elektro" && vehicle.batterySoh !== undefined) {
+  if (vehicle.fuel === "elektro" && vehicle.batterySoh != null) {
     value *= 1 + ((vehicle.batterySoh - 95) / 100) * 0.6;
   }
 
@@ -232,10 +239,10 @@ export function valueAt(vehicle: Vehicle, atMonth?: string): number {
 }
 
 /** Volle Bewertung mit Aufschlüsselung für den Stichtag. */
-export function valuate(vehicle: Vehicle): Valuation {
-  const ageYears = monthsBetween(vehicle.firstRegistration, TODAY) / 12;
+export function valuate(vehicle: Vehicle, asOf?: string): Valuation {
+  const ageYears = monthsBetween(vehicle.firstRegistration, asOfIso(asOf)) / 12;
   const base = vehicle.listPriceNew * retention(ageYears, vehicle.fuel, vehicle.make);
-  const value = valueAt(vehicle);
+  const value = valueAt(vehicle, undefined, asOf);
 
   const expectedKm = NORM_KM_PER_YEAR * ageYears;
   const kmDelta = vehicle.mileageKm - expectedKm;
@@ -287,7 +294,7 @@ export function valuate(vehicle: Vehicle): Valuation {
     });
   }
 
-  if (vehicle.fuel === "elektro" && vehicle.batterySoh !== undefined) {
+  if (vehicle.fuel === "elektro" && vehicle.batterySoh != null) {
     breakdown.push({
       label: `Batteriezustand ${vehicle.batterySoh} % SoH`,
       amount: Math.round(base * ((vehicle.batterySoh - 95) / 100) * 0.6),
@@ -351,15 +358,17 @@ export function valueHistory(
   vehicle: Vehicle,
   pastMonths = 30,
   forecastMonths = 24,
+  asOf?: string,
 ): HistoryPoint[] {
   const points: HistoryPoint[] = [];
-  const regMonths = monthsBetween(vehicle.firstRegistration, TODAY);
+  const today = asOfIso(asOf);
+  const regMonths = monthsBetween(vehicle.firstRegistration, today);
   // nicht weiter zurück als bis zur Erstzulassung
   const start = -Math.min(pastMonths, Math.max(0, regMonths));
 
   for (let i = start; i <= forecastMonths; i++) {
-    const month = addMonths(TODAY, i).slice(0, 7);
-    const value = valueAt(vehicle, month);
+    const month = addMonths(today, i).slice(0, 7);
+    const value = valueAt(vehicle, month, asOf);
     if (i <= 0) {
       points.push({ month, value, forecast: false });
     } else {
@@ -378,8 +387,8 @@ export function valueHistory(
 }
 
 /** Bester Verkaufszeitpunkt in den nächsten 24 Monaten, gemessen am Wertverlust pro Monat. */
-export function depreciationPerMonth(vehicle: Vehicle): number {
-  const now = valueAt(vehicle);
-  const in12 = valueAt(vehicle, addMonths(TODAY, 12).slice(0, 7));
+export function depreciationPerMonth(vehicle: Vehicle, asOf?: string): number {
+  const now = valueAt(vehicle, undefined, asOf);
+  const in12 = valueAt(vehicle, addMonths(asOfIso(asOf), 12).slice(0, 7), asOf);
   return Math.round((now - in12) / 12);
 }

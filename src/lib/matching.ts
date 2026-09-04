@@ -1,8 +1,17 @@
-import { getUser } from "./data/users";
 import { group, label } from "./format";
-import { listings, requireVehicle } from "./data/vehicles";
-import type { Match, RingSwap, SwapWish, User, Vehicle } from "./types";
+import type { Listing, Match, RingSwap, SwapWish, User, Vehicle } from "./types";
 import { valueAt } from "./valuation";
+
+/**
+ * Ein Inserat mit Fahrzeug und Besitzer. Die Matching-Funktionen bekommen den
+ * Bestand übergeben, statt ihn selbst zu laden — so bleiben sie rein und
+ * lassen sich ohne Datenbank testen.
+ */
+export interface ListingEntry {
+  listing: Listing;
+  vehicle: Vehicle;
+  owner: User;
+}
 
 /* ------------------------------------------------------------------ */
 /* Wunsch-Abgleich                                                     */
@@ -98,9 +107,9 @@ export interface CashCalc {
  * minus Wert des eigenen Fahrzeugs, zuzüglich eines vom Inserenten
  * geforderten Aufschlags.
  */
-export function cashDelta(give: Vehicle, get: Vehicle, premium = 0): CashCalc {
-  const giveValue = valueAt(give);
-  const getValue = valueAt(get);
+export function cashDelta(give: Vehicle, get: Vehicle, premium = 0, asOf?: string): CashCalc {
+  const giveValue = valueAt(give, undefined, asOf);
+  const getValue = valueAt(get, undefined, asOf);
   return {
     delta: Math.round((getValue - giveValue + premium) / 50) * 50,
     giveValue,
@@ -127,15 +136,17 @@ export interface MatchOptions {
  * Der Score bildet ab, wie wahrscheinlich der Tausch tatsächlich zustande
  * kommt — nicht nur, wie gut das Auto gefällt.
  */
-export function findMatches(myVehicle: Vehicle, opts: MatchOptions = {}): Match[] {
+export function findMatches(
+  myVehicle: Vehicle,
+  pool: ListingEntry[],
+  opts: MatchOptions = {},
+): Match[] {
   const results: Match[] = [];
 
-  for (const listing of listings) {
+  for (const { listing, vehicle, owner } of pool) {
     if (listing.status === "getauscht") continue;
-    const vehicle = requireVehicle(listing.vehicleId);
     if (vehicle.id === myVehicle.id) continue;
-
-    const owner = getUser(listing.ownerId);
+    if (vehicle.ownerId === myVehicle.ownerId) continue;
     const cash = cashDelta(myVehicle, vehicle, listing.askPremium ?? 0);
 
     const reasons: string[] = [];
@@ -211,7 +222,7 @@ export function findMatches(myVehicle: Vehicle, opts: MatchOptions = {}): Match[
           0.34 * (mutual ? 1 : theirFit.quality * 0.5) +
             0.28 * myQuality +
             0.16 * (1 - Math.min(1, relGap / 0.4)) +
-            0.1 * (owner.rating / 5) +
+            0.1 * ratingScore(owner) +
             0.06 * (owner.verified ? 1 : 0.3) +
             0.06 * clamp01(1 - Math.abs(vehicle.mileageKm - 30_000) / 120_000),
         ),
@@ -258,22 +269,27 @@ export interface RingSwapDetail extends RingSwap {
  */
 export function findRingSwaps(
   myVehicle: Vehicle,
+  entries: ListingEntry[],
   myWish: Partial<SwapWish> | undefined,
-  myUserId: string,
+  myUser: User,
   limit = 6,
 ): RingSwapDetail[] {
-  const pool = listings.filter((l) => l.status !== "getauscht");
+  const pool = entries.filter(
+    (e) => e.listing.status !== "getauscht" && e.vehicle.ownerId !== myVehicle.ownerId,
+  );
   const rings: RingSwapDetail[] = [];
   const seen = new Set<string>();
 
-  const wantsMyCar = pool.filter((l) => fitsWish(l.wish, myVehicle).ok);
+  const wantsMyCar = pool.filter((e) => fitsWish(e.listing.wish, myVehicle).ok);
 
-  for (const a of wantsMyCar) {
-    const aVehicle = requireVehicle(a.vehicleId);
-    for (const b of pool) {
+  for (const entryA of wantsMyCar) {
+    const a = entryA.listing;
+    const aVehicle = entryA.vehicle;
+    for (const entryB of pool) {
+      const b = entryB.listing;
+      const bVehicle = entryB.vehicle;
       if (b.id === a.id) continue;
       if (b.ownerId === a.ownerId) continue;
-      const bVehicle = requireVehicle(b.vehicleId);
       if (bVehicle.id === myVehicle.id) continue;
 
       // A muss das Auto von B wollen
@@ -311,16 +327,16 @@ export function findRingSwaps(
       const aCash = round50(vMe - vA);
       const bCash = round50(vA - vB);
 
-      const ownerA = getUser(a.ownerId);
-      const ownerB = getUser(b.ownerId);
+      const ownerA = entryA.owner;
+      const ownerB = entryB.owner;
 
       const score = Math.round(
         100 *
           clamp01(
             0.3 * myQuality +
               0.25 * (1 - Math.min(1, Math.abs(myCash) / (vMe * 0.4))) +
-              0.15 * (ownerA.rating / 5) +
-              0.15 * (ownerB.rating / 5) +
+              0.15 * ratingScore(ownerA) +
+              0.15 * ratingScore(ownerB) +
               0.15 * (ownerA.verified && ownerB.verified ? 1 : 0.4),
           ),
       );
@@ -328,14 +344,14 @@ export function findRingSwaps(
       rings.push({
         id: `ring-${[myVehicle.id, aVehicle.id, bVehicle.id].join("-")}`,
         legs: [
-          { fromUserId: myUserId, toUserId: a.ownerId, vehicleId: myVehicle.id, cash: myCash },
+          { fromUserId: myUser.id, toUserId: a.ownerId, vehicleId: myVehicle.id, cash: myCash },
           { fromUserId: a.ownerId, toUserId: b.ownerId, vehicleId: aVehicle.id, cash: aCash },
-          { fromUserId: b.ownerId, toUserId: myUserId, vehicleId: bVehicle.id, cash: bCash },
+          { fromUserId: b.ownerId, toUserId: myUser.id, vehicleId: bVehicle.id, cash: bCash },
         ],
         userCashDelta: myCash,
         score,
         participants: [
-          { user: getUser(myUserId), gives: myVehicle, gets: bVehicle, cash: myCash },
+          { user: myUser, gives: myVehicle, gets: bVehicle, cash: myCash },
           { user: ownerA, gives: aVehicle, gets: myVehicle, cash: aCash },
           { user: ownerB, gives: bVehicle, gets: aVehicle, cash: bCash },
         ],
@@ -349,6 +365,15 @@ export function findRingSwaps(
 /* ------------------------------------------------------------------ */
 /* Hilfen                                                              */
 /* ------------------------------------------------------------------ */
+
+/**
+ * Ohne Bewertungen bekommt ein Konto einen neutralen Mittelwert statt einer
+ * Null — sonst wären neue Nutzer strukturell benachteiligt.
+ */
+function ratingScore(user: User): number {
+  if (user.rating === null || user.ratingCount === 0) return 0.8;
+  return user.rating / 5;
+}
 
 function clamp01(n: number): number {
   return Math.max(0, Math.min(1, n));

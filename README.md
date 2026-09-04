@@ -6,30 +6,28 @@ Händlermarge — wird direkt Fahrzeug gegen Fahrzeug getauscht. Weil die Werte
 nie exakt gleich sind, berechnet die Plattform die Differenz transparent und
 wickelt sie über ein Treuhandkonto ab.
 
-Der Prototyp läuft vollständig auf Demo-Daten. Es gibt keine Datenbank und
-keinen Login: Der Fahrzeugbestand ist fest hinterlegt, alles, was der Nutzer
-selbst anlegt (Tauschanfragen, Merkliste), liegt im `localStorage` des
-Browsers.
+Die Anwendung läuft gegen eine PostgreSQL-Datenbank mit eigener
+Benutzerverwaltung, echten Inseraten und Stripe-Zahlungen. Demo-Daten gibt es
+nur auf ausdrücklichen Wunsch (`npm run db:seed`).
 
 ## Funktionen
 
 | Bereich | Was es tut |
 | --- | --- |
-| **Marktplatz** (`/markt`) | Alle Inserate mit Filtern. Die Zuzahlung wird laufend gegen das eigene ausgewählte Fahrzeug gerechnet — man sieht immer, was ein Tausch unter dem Strich kostet. |
-| **Matches** (`/matches`) | Sortiert Inserate nach der eigentlichen Frage eines Tauschmarkts: *Wollen beide?* Drei Gruppen — beidseitig, nur ich, nur die Gegenseite. Zusätzlich Ringtausch. |
-| **Wertrechner** (`/wert`) | «Was ist mein Fahrzeug wert» mit Wertverlauf, Prognoseband, vollständiger Aufschlüsselung und Sensitivitätsanalyse. |
-| **Fahrzeugdetail** (`/fahrzeug/[id]`) | Technische Daten, Wertverlauf, Bewertungsherleitung, Wunschliste des Inserenten. |
-| **Tausch-Konfigurator** (`/tausch/[id]`) | Direktvergleich beider Fahrzeuge, Wertkurven übereinander, Ausgleich per Regler anpassbar samt Prüfung gegen den Rahmen der Gegenseite. |
-| **Garage** (`/garage`) | Eigene Fahrzeuge mit Wert, monatlichem Wertverlust und den besten Tauschmöglichkeiten. Plus Merkliste. |
-| **Tausche** (`/deals`) | Verhandlung, Zusage, Treuhand-Einzahlung, Übergabe-Checkliste, Abschluss. |
+| **Konto** (`/konto/*`) | Registrierung, Anmeldung, E-Mail-Bestätigung, Passwort-Reset, Profil, Auszahlungskonto. |
+| **Inserat** (`/inserat/neu`) | Fahrzeug einstellen mit Live-Bewertung während der Eingabe, Fotoupload, Wunschliste. Pausieren und Archivieren inklusive. |
+| **Marktplatz** (`/markt`) | Alle Inserate mit Filtern. Angemeldet wird die Zuzahlung laufend gegen das eigene Fahrzeug gerechnet. |
+| **Matches** (`/matches`) | Drei Gruppen — beide wollen, nur du, nur die Gegenseite — plus Ringtausch über drei Parteien. |
+| **Wertrechner** (`/wert`) | Wertverlauf, Prognoseband, vollständige Aufschlüsselung und Sensitivitätsanalyse. |
+| **Tausch** (`/tausch/[id]`) | Direktvergleich, Wertkurven beider Fahrzeuge, Ausgleich per Regler, Prüfung gegen den Rahmen der Gegenseite. |
+| **Tauschvorgang** (`/deals/[id]`) | Verhandlung, Zusage, Treuhand, Übergabe-Checkliste, Abschluss mit Halterwechsel. |
 
 ### Ringtausch
 
 Das Grundproblem jedes Tauschmarkts ist die doppelte Bedarfskoinzidenz: Du
 willst das Auto von A, aber A will deines nicht. `findRingSwaps()` sucht
 deshalb Dreierkreise — du gibst an A, A gibt an B, B gibt an dich. Die drei
-Ausgleichszahlungen summieren sich zu null, es fliesst also nur Geld zwischen
-den Teilnehmern.
+Ausgleichszahlungen summieren sich zu null.
 
 ## Bewertungsmodell
 
@@ -38,103 +36,151 @@ Box. Der Wert entsteht aus:
 
 1. **Restwertkurve** `r(t) = exp(−λ · t^0.7)`, wobei λ vom Antrieb abhängt
    (Elektro verliert schneller als Diesel) und mit einem Markenfaktor
-   multipliziert wird. Porsche hält den Wert, Polestar und Zeekr deutlich
-   weniger.
+   multipliziert wird.
 2. **Laufleistungskorrektur** gegen eine Norm von 15'000 km/Jahr, gedeckelt
    auf ±18 %.
 3. **Multiplikative Faktoren**: Zustand, Serviceheft, Anzahl Halter,
    Unfallschaden und — beim Stromer — der Batteriezustand (SoH).
 4. **Absolute Zu- und Abschläge**: bewertete Ausstattung, bekannte Mängel.
-5. **Marktindex** je Antriebssegment, auf den Stichtag normiert. Er bildet ab,
-   dass gebrauchte Elektroautos 2024 zusätzlich zur normalen Alterung
-   eingebrochen sind und sich seit 2025 stabilisieren.
+5. **Marktindex** je Antriebssegment, auf den Stichtag normiert.
 
 `valuate()` gibt die Aufschlüsselung so zurück, dass Listenpreis plus alle
-ausgewiesenen Faktoren exakt dem Endwert entsprechen — man kann also über
-jeden einzelnen Posten diskutieren.
-
-`valueHistory()` rechnet dasselbe Modell für vergangene und künftige Monate
-durch. Das Prognoseband wächst mit der Wurzel der Zeit.
+ausgewiesenen Faktoren exakt dem Endwert entsprechen. `valueHistory()` rechnet
+dasselbe Modell rückwirkend und als Prognose mit wachsendem Unsicherheitsband
+durch.
 
 Alle Berechnungen sind deterministisch. Das leichte Marktrauschen stammt aus
-einem Hash über Fahrzeug-ID und Monat, nicht aus `Math.random()`, damit Server-
-und Client-Rendering identische Werte liefern.
+einem Hash über Fahrzeug-ID und Monat, nicht aus `Math.random()`. Der Stichtag
+ist der laufende Monat in UTC, damit Server und Client dasselbe Ergebnis
+liefern.
 
-### Stichtag
+> Die Restwertkurven sind plausibel kalibriert, aber **nicht empirisch an
+> echten Inseraten belegt**. Vor dem Livegang sollten sie gegen reale
+> Marktdaten geprüft werden.
 
-Die Anwendung rechnet gegen den festen Stichtag `TODAY = "2026-09-01"`
-(`src/lib/valuation.ts`). Für einen echten Betrieb wird daraus das aktuelle
-Datum; für die Demo hält die Konstante die Zahlen reproduzierbar.
-
-### Währung
-
-Beträge sind in CHF, Formatierung in `src/lib/format.ts` (`CURRENCY`).
-Zahlen werden bewusst ohne `Intl` formatiert, weil Node und Browser für
-`de-CH` unterschiedliche Tausendertrennzeichen liefern und das zu
-Hydration-Mismatches führt.
-
-## Entwicklung
+## Einrichtung
 
 ```bash
 npm install
-npm run dev        # http://localhost:3000
-npm run build
-npm run typecheck
+cp .env.example .env.local     # DATABASE_URL eintragen
+npm run db:migrate             # Schema anlegen
+npm run dev                    # http://localhost:3000
 ```
 
-Stack: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4. Keine
-Chart-Bibliothek — die Wertverlaufsgrafik ist handgeschriebenes SVG mit
-HTML-Achsenbeschriftungen, damit die Schrift in schmalen wie breiten Spalten
-gleich gross bleibt.
+Für eine gefüllte Entwicklungsumgebung:
 
-### Struktur
+```bash
+npm run db:seed -- --confirm   # 10 Konten, 19 Fahrzeuge mit Inseraten
+```
 
+Weitere Skripte: `npm run build`, `npm run typecheck`, `npm run db:generate`
+(Migration aus dem Schema erzeugen), `npm run db:studio`.
+
+### Datenbank
+
+Jede PostgreSQL-Instanz ab Version 14 genügt; die Anwendung spricht sie über
+`DATABASE_URL` an. Auf Serverless-Plattformen sollte ein Pooler davor liegen
+(die Verbindung ist entsprechend mit `prepare: false` und `max: 1`
+konfiguriert).
+
+Lokal reicht:
+
+```bash
+initdb -D .pgdata && pg_ctl -D .pgdata start
+createdb carswap
+export DATABASE_URL=postgresql://localhost:5432/carswap
 ```
-src/
-  app/                 Routen (App Router)
-    api/checkout/      Stripe-Checkout für die Treuhand-Einzahlung
-  components/          UI, Charts, Konfiguratoren
-  lib/
-    types.ts           Domänenmodell
-    valuation.ts       Bewertungs- und Prognosemodell
-    matching.ts        Wunschabgleich, Scoring, Ringtausch
-    format.ts          Zahlen-, Datums- und Farbformatierung
-    store.tsx          Client-State (Tausche, Merkliste) mit localStorage
-    data/              Demo-Fahrzeuge, Nutzer, Inserate, Tausche
-```
+
+## Sicherheit
+
+- **Passwörter** werden mit scrypt gehasht (N=32768, r=8, p=1, 64 Byte Schlüssel,
+  16 Byte Salt), Vergleich in konstanter Zeit. Keine nativen Abhängigkeiten.
+- **Sitzungen** liegen als Zufallstoken im httpOnly-Cookie; in der Datenbank
+  steht nur der SHA-256-Hash. Laufzeit 30 Tage mit gleitender Verlängerung.
+  Ein Passwortwechsel meldet alle Geräte ab.
+- **Server Actions** prüfen in jedem Aufruf Anmeldung und Eigentum und laden
+  betroffene Objekte frisch aus der Datenbank. Vom Client kommen nur IDs.
+- **Ratenbegrenzung** für Anmeldung (pro IP und pro Adresse), Registrierung,
+  Passwort-Reset, Nachrichten und Inserate.
+- **Aufzählung von Konten** wird beim Passwort-Reset verhindert; die Anmeldung
+  prüft auch bei unbekannter Adresse einen Hash, damit die Antwortzeit nichts
+  verrät.
+- **Sicherheits-Header** inklusive CSP in `next.config.ts`. `script-src`
+  enthält noch `'unsafe-inline'` — eine nonce-basierte Richtlinie ist der
+  nächste Schritt.
 
 ## Zahlungen
 
-`POST /api/checkout` legt eine Stripe-Checkout-Session für die
-Ausgleichszahlung an. `payment_intent_data[capture_method] = manual` sorgt
-dafür, dass der Betrag nur reserviert und erst nach beidseitiger
-Übergabebestätigung eingezogen wird — genau das macht die Treuhandfunktion aus.
+Der Ablauf ist "separate charges and transfers":
 
-Ohne gesetzten `STRIPE_SECRET_KEY` antwortet die Route im Demo-Modus und der
-Client simuliert die Einzahlung lokal. Der komplette Ablauf ist also auch ohne
-Stripe-Konto durchspielbar.
+1. Nach beidseitiger Zusage legt `createEscrowCheckout()` eine
+   Stripe-Checkout-Session mit `capture_method: manual` an. Der Betrag wird
+   **reserviert**, nicht eingezogen.
+2. Der Webhook `/api/stripe/webhook` prüft die Signatur, ist über die Tabelle
+   `webhook_events` idempotent und setzt den Vorgang auf «Treuhand».
+3. Bestätigen beide Seiten die Übergabe, zieht `captureAndPayout()` den Betrag
+   ein und überweist ihn per Stripe Connect an die Gegenseite.
+4. Bricht jemand ab, wird die Autorisierung freigegeben bzw. erstattet.
 
-```bash
-cp .env.example .env.local   # und STRIPE_SECRET_KEY eintragen
+Auszahlungen brauchen ein Stripe-Connect-Express-Konto pro Nutzer; das
+Onboarding läuft über `/konto`. Bankdaten erreichen die Anwendung nie.
+
+Ohne `STRIPE_SECRET_KEY` funktionieren Tausche **ohne** Wertdifferenz
+vollständig; bei einer Differenz meldet die Anwendung, dass Zahlungen nicht
+eingerichtet sind.
+
+> Kartenautorisierungen verfallen nach sieben Tagen. Wird die Übergabe bis
+> dahin nicht von beiden Seiten bestätigt, muss neu eingezahlt werden.
+
+## Struktur
+
 ```
-
-Für den Produktivbetrieb fehlt noch die Freigabe der reservierten Zahlung
-(`capture`) beim Abschluss sowie ein Webhook, der den Zahlungsstatus
-zurückschreibt.
+src/
+  app/
+    actions/           Server Actions (auth, listings, deals, watchlist, account)
+    api/               Stripe-Webhook, Blob-Upload-Token, Health-Check
+    konto/             Registrierung, Anmeldung, Reset, Profil
+    inserat/           Inserat anlegen und bearbeiten
+  components/          UI, Charts, Formulare, Konfiguratoren
+  lib/
+    auth/              Passwort-Hashing, Sitzungen, Token, Ratenbegrenzung
+    db/                Drizzle-Schema und Verbindung
+    queries.ts         Datenzugriff mit Übersetzung in Domänenobjekte
+    valuation.ts       Bewertungs- und Prognosemodell
+    matching.ts        Wunschabgleich, Scoring, Ringtausch
+    payments.ts        Stripe: Treuhand, Capture, Connect-Auszahlung
+    validation.ts      Zod-Schemata für alle Eingaben
+scripts/               Migration, Seed, Demo-Daten
+drizzle/               Erzeugte SQL-Migrationen
+```
 
 ## Deployment
 
-Auf Vercel ohne Konfiguration deploybar (Next.js wird automatisch erkannt).
-Umgebungsvariablen: `STRIPE_SECRET_KEY` und optional `NEXT_PUBLIC_SITE_URL`
-für die Redirect-URLs des Checkouts.
+Auf Vercel ohne Konfiguration deploybar. Erforderliche Umgebungsvariablen
+siehe `.env.example`. Nach dem ersten Deployment:
 
-## Was für einen echten Betrieb fehlt
+1. `DATABASE_URL` setzen und `npm run db:migrate` gegen diese Datenbank laufen
+   lassen.
+2. In Stripe einen Webhook auf `https://<domain>/api/stripe/webhook`
+   einrichten (Ereignisse: `checkout.session.completed`,
+   `checkout.session.expired`, `payment_intent.canceled`,
+   `payment_intent.payment_failed`, `charge.refunded`, `account.updated`) und
+   das Signaturgeheimnis als `STRIPE_WEBHOOK_SECRET` hinterlegen.
+3. Einen Vercel-Blob-Store verbinden, damit Fotouploads funktionieren.
+4. `/api/health` prüfen — die Antwort listet auf, was konfiguriert ist.
 
-- Persistenz und Authentifizierung — aktuell ist alles Demo-Daten plus
-  `localStorage`.
-- Bewertungsdaten aus echten Inseraten statt aus einem parametrisierten Modell;
-  die Restwertkurven sind plausibel kalibriert, aber nicht empirisch belegt.
-- Identitätsprüfung, Fahrzeugausweis-Verifikation und Pfandrecht-Abfrage.
-- Ringtausch-Abwicklung als atomarer Vorgang: alle drei Übergaben müssen
-  zusammen gelten oder gar nicht.
-- Stripe Connect für die Auszahlung an die Gegenseite statt nur Einzug.
+## Was vor dem Livegang noch fehlt
+
+- **Impressum, Datenschutz und AGB** enthalten Platzhalter und müssen mit den
+  echten Firmenangaben gefüllt und juristisch geprüft werden. Insbesondere ist
+  zu klären, ob die Treuhandfunktion unter das Geldwäschereigesetz fällt — die
+  Konstruktion über Stripe Connect ist darauf ausgelegt, dass nie CarSwap
+  selbst Gelder Dritter hält.
+- **Identitätsprüfung** der Nutzer (`identityVerified` wird heute nirgends
+  gesetzt) sowie Abfrage von Fahrzeugausweis und Pfandrecht.
+- **Empirische Kalibrierung** der Restwertkurven an echten Marktdaten.
+- **Ringtausch-Abwicklung** als atomarer Vorgang; heute lässt sich ein Ring nur
+  als Kette von Einzeltauschen anstossen.
+- **Missbrauchsschutz**: Meldefunktion für Inserate, Prüfung neuer Konten,
+  Betrugserkennung bei auffälligen Wertdifferenzen.
+- **Nonce-basierte CSP** statt `'unsafe-inline'` für Skripte.

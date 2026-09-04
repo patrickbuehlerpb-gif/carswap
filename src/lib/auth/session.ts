@@ -1,0 +1,136 @@
+import "server-only";
+import { createHash, randomBytes } from "node:crypto";
+import { cookies } from "next/headers";
+import { cache } from "react";
+import { and, eq, gt, lt } from "drizzle-orm";
+import { db } from "../db";
+import { newId } from "../db/ids";
+import { sessions, users, type UserRow } from "../db/schema";
+
+const COOKIE = "carswap_session";
+const TTL_MS = 30 * 24 * 60 * 60 * 1000;
+/** Ab dieser Restlaufzeit wird die Sitzung beim Zugriff verlängert. */
+const REFRESH_BELOW_MS = 25 * 24 * 60 * 60 * 1000;
+
+function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+/** Legt eine Sitzung an und setzt das Cookie. Gibt das Klartext-Token zurück. */
+export async function createSession(userId: string, userAgent?: string): Promise<void> {
+  const token = randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + TTL_MS);
+
+  await db.insert(sessions).values({
+    id: newId("ses"),
+    userId,
+    tokenHash: hashToken(token),
+    expiresAt,
+    userAgent: userAgent?.slice(0, 300),
+  });
+
+  const store = await cookies();
+  store.set(COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    expires: expiresAt,
+  });
+}
+
+export interface SessionUser {
+  id: string;
+  email: string;
+  name: string;
+  location: string;
+  canton: string;
+  avatarColor: string;
+  emailVerified: boolean;
+  identityVerified: boolean;
+  stripeAccountId: string | null;
+  stripePayoutsEnabled: boolean;
+  isAdmin: boolean;
+  rating: number | null;
+  ratingCount: number;
+  swapsCompleted: number;
+}
+
+function toSessionUser(u: UserRow): SessionUser {
+  return {
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    location: u.location,
+    canton: u.canton,
+    avatarColor: u.avatarColor,
+    emailVerified: u.emailVerifiedAt !== null,
+    identityVerified: u.identityVerified,
+    stripeAccountId: u.stripeAccountId,
+    stripePayoutsEnabled: u.stripePayoutsEnabled,
+    isAdmin: u.isAdmin,
+    rating: u.ratingCount > 0 ? u.ratingSum / u.ratingCount / 10 : null,
+    ratingCount: u.ratingCount,
+    swapsCompleted: u.swapsCompleted,
+  };
+}
+
+/**
+ * Liest die aktuelle Sitzung. Über `cache()` pro Request nur einmal
+ * ausgeführt, auch wenn mehrere Komponenten danach fragen.
+ */
+export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
+  const store = await cookies();
+  const token = store.get(COOKIE)?.value;
+  if (!token) return null;
+
+  const rows = await db
+    .select({ session: sessions, user: users })
+    .from(sessions)
+    .innerJoin(users, eq(users.id, sessions.userId))
+    .where(and(eq(sessions.tokenHash, hashToken(token)), gt(sessions.expiresAt, new Date())))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) return null;
+
+  // Gleitende Verlängerung, aber nicht bei jedem Request schreiben
+  const remaining = row.session.expiresAt.getTime() - Date.now();
+  if (remaining < REFRESH_BELOW_MS) {
+    await db
+      .update(sessions)
+      .set({ expiresAt: new Date(Date.now() + TTL_MS), lastSeenAt: new Date() })
+      .where(eq(sessions.id, row.session.id));
+  }
+
+  return toSessionUser(row.user);
+});
+
+/** Wie getSessionUser, wirft aber, wenn niemand angemeldet ist. */
+export async function requireUser(): Promise<SessionUser> {
+  const user = await getSessionUser();
+  if (!user) throw new Error("Nicht angemeldet.");
+  return user;
+}
+
+export async function destroySession(): Promise<void> {
+  const store = await cookies();
+  const token = store.get(COOKIE)?.value;
+  if (token) {
+    await db.delete(sessions).where(eq(sessions.tokenHash, hashToken(token)));
+  }
+  store.delete(COOKIE);
+}
+
+/** Meldet alle Geräte ab — z.B. nach einem Passwortwechsel. */
+export async function destroyAllSessions(userId: string): Promise<void> {
+  await db.delete(sessions).where(eq(sessions.userId, userId));
+}
+
+/** Räumt abgelaufene Sitzungen auf. Wird vom Health-Check angestossen. */
+export async function pruneExpiredSessions(): Promise<number> {
+  const res = await db.delete(sessions).where(lt(sessions.expiresAt, new Date()));
+  return res.count ?? 0;
+}
+
+export { hashToken };

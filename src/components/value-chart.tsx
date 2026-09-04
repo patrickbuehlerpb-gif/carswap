@@ -16,7 +16,7 @@ const PAD = { top: 16, right: 14, bottom: 12, left: 46 };
 
 export function ValueChart({
   points,
-  accent = "#c2ee3a",
+  accent = "#4f7a12",
   compareLabel,
   comparePoints,
 }: {
@@ -126,7 +126,7 @@ export function ValueChart({
           aria-label="Wertverlauf des Fahrzeugs mit Prognoseband">
           <defs>
             <linearGradient id={`fill-${uid}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={accent} stopOpacity="0.26" />
+              <stop offset="0%" stopColor={accent} stopOpacity="0.18" />
               <stop offset="100%" stopColor={accent} stopOpacity="0" />
             </linearGradient>
           </defs>
@@ -138,7 +138,7 @@ export function ValueChart({
               x2={W - PAD.right}
               y1={y(t)}
               y2={y(t)}
-              stroke="#232a31"
+              stroke="#e6e9e0"
               strokeWidth="1"
             />
           ))}
@@ -150,7 +150,7 @@ export function ValueChart({
             <path
               d={comparePath}
               fill="none"
-              stroke="#5cb6f5"
+              stroke="#2a78d6"
               strokeWidth="2"
               strokeOpacity="0.85"
               strokeDasharray="1 5"
@@ -174,7 +174,7 @@ export function ValueChart({
             x2={x(splitIdx)}
             y1={PAD.top}
             y2={H - PAD.bottom}
-            stroke="#3a444f"
+            stroke="#b9c0ad"
             strokeWidth="1"
             strokeDasharray="3 4"
           />
@@ -187,14 +187,14 @@ export function ValueChart({
                 x2={x(hover)}
                 y1={PAD.top}
                 y2={H - PAD.bottom}
-                stroke="#7c8894"
+                stroke="#656f78"
                 strokeWidth="1"
               />
               <circle
                 cx={x(hover)}
                 cy={y(active.value)}
                 r="5"
-                fill="#0c0e11"
+                fill="#ffffff"
                 stroke={accent}
                 strokeWidth="2.5"
               />
@@ -203,13 +203,13 @@ export function ValueChart({
         </svg>
 
         {/* Y-Achse als HTML, damit die Schriftgrösse nicht mitskaliert */}
-        <span className="absolute left-0 top-0 text-[10px] uppercase tracking-wider text-mist-500">
+        <span className="absolute left-0 top-0 text-[10px] uppercase tracking-wider text-ink-3">
           CHF
         </span>
         {ticks.map((t) => (
           <span
             key={t}
-            className="pointer-events-none absolute -translate-y-1/2 text-[11px] tabular text-mist-400"
+            className="pointer-events-none absolute -translate-y-1/2 text-[11px] tabular text-ink-3"
             style={{ left: 0, top: pct(y(t), H) }}
           >
             {shortAmount(t)}
@@ -217,7 +217,7 @@ export function ValueChart({
         ))}
 
         <span
-          className="pointer-events-none absolute -translate-x-1/2 text-[10px] text-mist-500"
+          className="pointer-events-none absolute -translate-x-1/2 text-[10px] text-ink-3"
           style={{ left: pct(x(splitIdx), W), top: 0 }}
         >
           heute
@@ -225,19 +225,19 @@ export function ValueChart({
 
         {active && hover !== null && (
           <div
-            className="pointer-events-none absolute top-4 z-10 min-w-[150px] rounded-lg border border-ink-600 bg-ink-850/95 p-2.5 shadow-xl backdrop-blur-sm"
+            className="pointer-events-none absolute top-4 z-10 min-w-[150px] rounded-lg border border-line-strong bg-surface/95 p-2.5 shadow-xl backdrop-blur-sm"
             style={{
               left: `calc(${pct(x(hover), W)} + ${hover > points.length / 2 ? -166 : 12}px)`,
             }}
           >
-            <p className="text-[11px] uppercase tracking-wider text-mist-400">
+            <p className="text-[11px] uppercase tracking-wider text-ink-3">
               {monthLabel(active.month)} {active.forecast && "· Prognose"}
             </p>
-            <p className="mt-0.5 text-base font-semibold tabular text-mist-100">
+            <p className="mt-0.5 text-base font-semibold tabular text-ink">
               {chf(active.value)}
             </p>
             {active.forecast && active.low !== undefined && (
-              <p className="mt-0.5 text-[11px] tabular text-mist-400">
+              <p className="mt-0.5 text-[11px] tabular text-ink-3">
                 Band {chf(active.low, { compact: true })} – {chf(active.high!, { compact: true })}
               </p>
             )}
@@ -254,7 +254,7 @@ export function ValueChart({
           return (
             <span
               key={p.month}
-              className="absolute -translate-x-1/2 whitespace-nowrap text-[11px] text-mist-400"
+              className="absolute -translate-x-1/2 whitespace-nowrap text-[11px] text-ink-3"
               style={{ left: pct(x(i), W) }}
             >
               {monthLabel(p.month)}
@@ -263,11 +263,11 @@ export function ValueChart({
         })}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[11px] text-mist-400">
+      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[11px] text-ink-3">
         <Legend color={accent} label="Wertverlauf" />
         <Legend color={accent} dashed label="Prognose" />
         <Legend color={accent} band label="Unsicherheitsband" />
-        {compareLabel && <Legend color="#5cb6f5" dotted label={compareLabel} />}
+        {compareLabel && <Legend color="#2a78d6" dotted label={compareLabel} />}
       </div>
     </div>
   );

@@ -2,6 +2,13 @@ export type Fuel = "elektro" | "hybrid" | "benzin" | "diesel";
 export type Body = "suv" | "limousine" | "kombi" | "kompakt" | "coupe" | "van";
 export type Condition = "neuwertig" | "sehr gut" | "gut" | "gebraucht";
 export type Drivetrain = "heck" | "front" | "allrad";
+export type ServiceHistory = "lückenlos scheckheft" | "teilweise" | "keine";
+
+export interface VehiclePhoto {
+  url: string;
+  width: number;
+  height: number;
+}
 
 /** Ein konkretes Fahrzeug — egal ob im Besitz des Nutzers oder inseriert. */
 export interface Vehicle {
@@ -27,12 +34,14 @@ export interface Vehicle {
   batterySoh?: number;
   /** Freitext-Ausstattungsmerkmale, wertsteigernd */
   features: string[];
-  images: string[];
+  /** Besitzer des Fahrzeugs */
+  ownerId: string;
+  photos: VehiclePhoto[];
   /** Kurzbeschreibung durch den Besitzer */
   notes?: string;
   /** Bekannte Mängel — drücken den Wert */
   defects?: string[];
-  serviceHistory: "lückenlos scheckheft" | "teilweise" | "keine";
+  serviceHistory: ServiceHistory;
   previousOwners: number;
   accidentFree: boolean;
   mfkUntil?: string;
@@ -57,8 +66,11 @@ export interface User {
   location: string;
   canton: string;
   memberSince: string;
-  rating: number;
+  /** Durchschnitt aus abgegebenen Bewertungen, null solange keine vorliegt */
+  rating: number | null;
+  ratingCount: number;
   swapsCompleted: number;
+  /** E-Mail bestätigt und Identität geprüft */
   verified: boolean;
   avatarColor: string;
 }
@@ -82,7 +94,8 @@ export type DealStatus =
   | "angenommen"
   | "treuhand"
   | "abgeschlossen"
-  | "abgelehnt";
+  | "abgelehnt"
+  | "storniert";
 
 export interface DealMessage {
   id: string;
@@ -91,6 +104,8 @@ export interface DealMessage {
   text: string;
   /** Wenn die Nachricht ein Gegenangebot enthält */
   offerCash?: number;
+  /** Vom System erzeugter Statuseintrag statt einer Nutzernachricht */
+  system?: boolean;
 }
 
 /** Ein Tauschvorgang zwischen zwei Parteien. */
@@ -107,6 +122,10 @@ export interface Deal {
   status: DealStatus;
   createdAt: string;
   messages: DealMessage[];
+  /** Anzahl Nachrichten — auch gesetzt, wenn `messages` leer geladen wurde */
+  messageCount?: number;
+  initiatorConfirmed?: boolean;
+  counterpartyConfirmed?: boolean;
 }
 
 /** Ergebnis der Bewertung eines Fahrzeugs zu einem Stichtag. */

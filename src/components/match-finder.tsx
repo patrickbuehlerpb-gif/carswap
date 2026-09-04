@@ -4,11 +4,9 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { VehicleVisual } from "@/components/vehicle-visual";
 import { Badge, Card, ScorePill } from "@/components/ui";
-import { CURRENT_USER_ID } from "@/lib/data/users";
-import { myVehicleIds, requireVehicle } from "@/lib/data/vehicles";
 import { chf, km, label, vehicleFullTitle } from "@/lib/format";
-import { findMatches, findRingSwaps } from "@/lib/matching";
-import type { Body, Fuel } from "@/lib/types";
+import { findMatches, findRingSwaps, type ListingEntry } from "@/lib/matching";
+import type { Body, Fuel, User, Vehicle } from "@/lib/types";
 
 const MAKES = [
   "Audi", "BMW", "Cupra", "Hyundai", "Kia", "Mercedes-Benz", "Polestar",
@@ -17,23 +15,31 @@ const MAKES = [
 const BODIES: Body[] = ["suv", "limousine", "kombi", "kompakt"];
 const FUELS: Fuel[] = ["elektro", "hybrid", "benzin", "diesel"];
 
-export function MatchFinder() {
-  const [mineId, setMineId] = useState(myVehicleIds[0]);
+export function MatchFinder({
+  pool,
+  myVehicles,
+  me,
+}: {
+  pool: ListingEntry[];
+  myVehicles: Vehicle[];
+  me: User;
+}) {
+  const [mineId, setMineId] = useState(myVehicles[0].id);
   const [makes, setMakes] = useState<string[]>(["Zeekr"]);
   const [bodies, setBodies] = useState<Body[]>(["suv"]);
   const [fuels, setFuels] = useState<Fuel[]>(["elektro"]);
   const [tab, setTab] = useState<"direkt" | "ring">("direkt");
 
-  const mine = requireVehicle(mineId);
+  const mine = myVehicles.find((v) => v.id === mineId) ?? myVehicles[0];
   const wish = useMemo(() => ({ makes, bodies, fuels }), [makes, bodies, fuels]);
 
-  const matches = useMemo(() => findMatches(mine, { wish }), [mine, wish]);
+  const matches = useMemo(() => findMatches(mine, pool, { wish }), [mine, pool, wish]);
   // Drei Gruppen, weil genau das den Tauschmarkt beschreibt: beide wollen,
   // nur ich will, oder nur die Gegenseite will.
   const both = matches.filter((m) => m.mutual && m.fitsMyWish);
   const onlyMe = matches.filter((m) => !m.mutual && m.fitsMyWish).slice(0, 6);
   const onlyThem = matches.filter((m) => m.mutual && !m.fitsMyWish).slice(0, 6);
-  const rings = useMemo(() => findRingSwaps(mine, wish, CURRENT_USER_ID, 6), [mine, wish]);
+  const rings = useMemo(() => findRingSwaps(mine, pool, wish, me, 6), [mine, pool, wish, me]);
 
   function toggle<T>(arr: T[], set: (v: T[]) => void, v: T) {
     set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
@@ -45,27 +51,26 @@ export function MatchFinder() {
       <Card className="p-5">
         <div className="grid gap-5 lg:grid-cols-[minmax(0,320px)_1fr]">
           <div>
-            <p className="text-[11px] uppercase tracking-wider text-mist-400">Du gibst</p>
+            <p className="text-[11px] uppercase tracking-wider text-ink-3">Du gibst</p>
             <div className="mt-2 space-y-1.5">
-              {myVehicleIds.map((id) => {
-                const v = requireVehicle(id);
-                const active = id === mineId;
+              {myVehicles.map((v) => {
+                const active = v.id === mineId;
                 return (
                   <button
-                    key={id}
-                    onClick={() => setMineId(id)}
+                    key={v.id}
+                    onClick={() => setMineId(v.id)}
                     className={`flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition-colors ${
                       active
-                        ? "border-volt-600/45 bg-volt-500/[0.07]"
-                        : "border-ink-700 bg-ink-850 hover:border-ink-600"
+                        ? "border-volt-ink/40 bg-volt/25"
+                        : "border-line bg-surface-2 hover:border-line-strong"
                     }`}
                   >
                     <VehicleVisual id={v.id} body={v.body} className="h-11 w-18 shrink-0 rounded-md" />
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-mist-100">
+                      <span className="block truncate text-sm font-medium text-ink">
                         {v.make} {v.model}
                       </span>
-                      <span className="block truncate text-xs text-mist-400 tabular">
+                      <span className="block truncate text-xs text-ink-3 tabular">
                         {v.year} · {km(v.mileageKm)}
                       </span>
                     </span>
@@ -76,7 +81,7 @@ export function MatchFinder() {
           </div>
 
           <div className="space-y-4">
-            <p className="text-[11px] uppercase tracking-wider text-mist-400">Du suchst</p>
+            <p className="text-[11px] uppercase tracking-wider text-ink-3">Du suchst</p>
             <div className="flex flex-wrap gap-1.5">
               {MAKES.map((m) => (
                 <Chip key={m} active={makes.includes(m)} onClick={() => toggle(makes, setMakes, m)}>
@@ -90,7 +95,7 @@ export function MatchFinder() {
                   {label.body(b)}
                 </Chip>
               ))}
-              <span className="mx-1 w-px bg-ink-700" />
+              <span className="mx-1 w-px bg-line-strong" />
               {FUELS.map((f) => (
                 <Chip key={f} active={fuels.includes(f)} onClick={() => toggle(fuels, setFuels, f)}>
                   {label.fuel(f)}
@@ -98,7 +103,7 @@ export function MatchFinder() {
               ))}
             </div>
             {makes.length === 0 && bodies.length === 0 && fuels.length === 0 && (
-              <p className="text-xs text-mist-400">
+              <p className="text-xs text-ink-3">
                 Ohne Auswahl werden alle Inserate berücksichtigt.
               </p>
             )}
@@ -107,14 +112,14 @@ export function MatchFinder() {
       </Card>
 
       {/* Tabs */}
-      <div className="flex gap-1 rounded-lg border border-ink-800 bg-ink-900 p-1">
+      <div className="flex gap-1 rounded-lg border border-line bg-surface p-1">
         <TabButton active={tab === "direkt"} onClick={() => setTab("direkt")}>
           Direkter Tausch
-          <span className="ml-1.5 text-mist-400 tabular">{both.length}</span>
+          <span className="ml-1.5 text-ink-3 tabular">{both.length}</span>
         </TabButton>
         <TabButton active={tab === "ring"} onClick={() => setTab("ring")}>
           Ringtausch
-          <span className="ml-1.5 text-mist-400 tabular">{rings.length}</span>
+          <span className="ml-1.5 text-ink-3 tabular">{rings.length}</span>
         </TabButton>
       </div>
 
@@ -144,8 +149,8 @@ export function MatchFinder() {
         </div>
       ) : (
         <section>
-          <h3 className="mb-1 text-sm font-semibold text-mist-100">Dreiertausch</h3>
-          <p className="mb-4 max-w-3xl text-sm text-mist-400">
+          <h3 className="mb-1 text-sm font-semibold text-ink">Dreiertausch</h3>
+          <p className="mb-4 max-w-3xl text-sm text-ink-3">
             Du gibst dein Fahrzeug an jemanden, der es sucht — und bekommst deines von einer
             dritten Partei. Alle drei Ausgleichszahlungen summieren sich zu null; abgewickelt wird
             über ein gemeinsames Treuhandkonto, sodass keine Partei in Vorleistung geht.
@@ -159,11 +164,11 @@ export function MatchFinder() {
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <ScorePill score={r.score} />
-                      <span className="text-sm text-mist-400">Dreiertausch</span>
+                      <span className="text-sm text-ink-3">Dreiertausch</span>
                     </div>
                     <span
                       className={`text-sm font-semibold tabular ${
-                        r.userCashDelta > 0 ? "text-amber-warn" : "text-good"
+                        r.userCashDelta > 0 ? "text-warn" : "text-good"
                       }`}
                     >
                       {r.userCashDelta > 0 ? "Du zahlst " : "Du erhältst "}
@@ -176,9 +181,9 @@ export function MatchFinder() {
                       <div
                         key={p.user.id}
                         className={`rounded-lg border p-3 ${
-                          p.user.id === CURRENT_USER_ID
-                            ? "border-volt-600/40 bg-volt-500/[0.06]"
-                            : "border-ink-700 bg-ink-850"
+                          p.user.id === me.id
+                            ? "border-volt-ink/40 bg-volt/20"
+                            : "border-line bg-surface-2"
                         }`}
                       >
                         <div className="flex items-center gap-2">
@@ -187,10 +192,10 @@ export function MatchFinder() {
                             style={{ background: p.user.avatarColor }}
                             aria-hidden
                           />
-                          <span className="text-xs text-mist-300">
-                            {p.user.id === CURRENT_USER_ID ? "Du" : p.user.name}
+                          <span className="text-xs text-ink-2">
+                            {p.user.id === me.id ? "Du" : p.user.name}
                           </span>
-                          <span className="ml-auto text-[11px] text-mist-400">
+                          <span className="ml-auto text-[11px] text-ink-3">
                             {p.user.location}
                           </span>
                         </div>
@@ -200,20 +205,20 @@ export function MatchFinder() {
                             body={p.gives.body}
                             className="h-9 w-14 shrink-0 rounded"
                           />
-                          <span className="text-mist-500">→</span>
+                          <span className="text-ink-3">→</span>
                           <VehicleVisual
                             id={p.gets.id}
                             body={p.gets.body}
                             className="h-9 w-14 shrink-0 rounded"
                           />
                         </div>
-                        <p className="mt-2 text-xs text-mist-400">
-                          gibt <span className="text-mist-200">{p.gives.make} {p.gives.model}</span>
-                          , erhält <span className="text-mist-200">{p.gets.make} {p.gets.model}</span>
+                        <p className="mt-2 text-xs text-ink-3">
+                          gibt <span className="text-ink-2">{p.gives.make} {p.gives.model}</span>
+                          , erhält <span className="text-ink-2">{p.gets.make} {p.gets.model}</span>
                         </p>
                         <p
                           className={`mt-1 text-xs font-semibold tabular ${
-                            p.cash > 0 ? "text-amber-warn" : p.cash < 0 ? "text-good" : "text-mist-400"
+                            p.cash > 0 ? "text-warn" : p.cash < 0 ? "text-good" : "text-ink-3"
                           }`}
                         >
                           {p.cash > 0 ? `zahlt ${chf(p.cash)}` : p.cash < 0 ? `erhält ${chf(-p.cash)}` : "kein Ausgleich"}
@@ -222,16 +227,16 @@ export function MatchFinder() {
                     ))}
                   </div>
 
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-ink-800 pt-3">
-                    <p className="text-xs text-mist-400">
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
+                    <p className="text-xs text-ink-3">
                       Summe aller Ausgleichszahlungen:{" "}
-                      <span className="tabular text-mist-200">
+                      <span className="tabular text-ink-2">
                         {chf(r.participants.reduce((s, p) => s + p.cash, 0))}
                       </span>
                     </p>
                     <Link
                       href={`/tausch/${r.participants[0].gets.id}?mine=${mine.id}`}
-                      className="rounded-lg border border-ink-600 px-4 py-1.5 text-sm text-mist-200 transition-colors hover:border-volt-600/50 hover:text-volt-400"
+                      className="rounded-lg border border-line-strong px-4 py-1.5 text-sm text-ink-2 transition-colors hover:border-volt-ink/45 hover:text-volt-ink"
                     >
                       Ring anstossen
                     </Link>
@@ -261,10 +266,10 @@ function MatchGroup({
 }) {
   return (
     <section>
-      <h3 className="mb-1 text-sm font-semibold text-mist-100">
-        {title} <span className="text-mist-400 tabular">({items.length})</span>
+      <h3 className="mb-1 text-sm font-semibold text-ink">
+        {title} <span className="text-ink-3 tabular">({items.length})</span>
       </h3>
-      <p className="mb-4 max-w-3xl text-sm text-mist-400">{sub}</p>
+      <p className="mb-4 max-w-3xl text-sm text-ink-3">{sub}</p>
       {items.length === 0 ? (
         <EmptyBox text={empty} />
       ) : (
@@ -301,11 +306,11 @@ function MatchRow({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <Link href={`/fahrzeug/${vehicle.id}`}>
-                <h4 className="text-[15px] font-semibold text-mist-100 hover:text-volt-400">
+                <h4 className="text-[15px] font-semibold text-ink hover:text-volt-ink">
                   {vehicle.make} {vehicle.model}
                 </h4>
               </Link>
-              <p className="text-xs text-mist-400 tabular">
+              <p className="text-xs text-ink-3 tabular">
                 {vehicle.trim} · {vehicle.year} · {km(vehicle.mileageKm)} · {vehicle.powerPs} PS
               </p>
             </div>
@@ -317,7 +322,7 @@ function MatchRow({
 
           <ul className="mt-3 space-y-1">
             {reasons.map((r) => (
-              <li key={r} className="flex gap-2 text-xs text-mist-300">
+              <li key={r} className="flex gap-2 text-xs text-ink-2">
                 <span className="text-good" aria-hidden>
                   ✓
                 </span>
@@ -325,8 +330,8 @@ function MatchRow({
               </li>
             ))}
             {concerns.map((c) => (
-              <li key={c} className="flex gap-2 text-xs text-mist-400">
-                <span className="text-amber-warn" aria-hidden>
+              <li key={c} className="flex gap-2 text-xs text-ink-3">
+                <span className="text-warn" aria-hidden>
                   !
                 </span>
                 {c}
@@ -334,23 +339,23 @@ function MatchRow({
             ))}
           </ul>
 
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-ink-800 pt-3">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
             <p className="text-sm">
-              <span className="text-mist-400">
+              <span className="text-ink-3">
                 {cash > 0 ? "Du zahlst " : cash < 0 ? "Du erhältst " : "Ausgleich "}
               </span>
               <span
                 className={`font-semibold tabular ${
-                  cash > 0 ? "text-amber-warn" : cash < 0 ? "text-good" : "text-mist-200"
+                  cash > 0 ? "text-warn" : cash < 0 ? "text-good" : "text-ink-2"
                 }`}
               >
                 {chf(Math.abs(cash))}
               </span>
-              <span className="ml-2 text-xs text-mist-400">· {owner.location}</span>
+              <span className="ml-2 text-xs text-ink-3">· {owner.location}</span>
             </p>
             <Link
               href={`/tausch/${vehicle.id}?mine=${mineId}`}
-              className="rounded-lg bg-volt-500 px-4 py-1.5 text-sm font-semibold text-ink-950 transition-colors hover:bg-volt-400"
+              className="rounded-lg bg-volt px-4 py-1.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi"
             >
               Tausch durchrechnen
             </Link>
@@ -374,7 +379,7 @@ function TabButton({
     <button
       onClick={onClick}
       className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors sm:flex-none ${
-        active ? "bg-ink-800 text-mist-100" : "text-mist-400 hover:text-mist-200"
+        active ? "bg-surface-3 text-ink" : "text-ink-3 hover:text-ink-2"
       }`}
     >
       {children}
@@ -396,8 +401,8 @@ function Chip({
       onClick={onClick}
       className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
         active
-          ? "border-volt-600/50 bg-volt-500/12 text-volt-400"
-          : "border-ink-700 bg-ink-850 text-mist-300 hover:border-ink-600 hover:text-mist-100"
+          ? "border-volt-ink/45 bg-volt/30 text-volt-ink"
+          : "border-line bg-surface-2 text-ink-2 hover:border-line-strong hover:text-ink"
       }`}
     >
       {children}
@@ -407,8 +412,8 @@ function Chip({
 
 function EmptyBox({ text }: { text: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-ink-700 p-10 text-center">
-      <p className="mx-auto max-w-md text-sm text-mist-400">{text}</p>
+    <div className="rounded-xl border border-dashed border-line p-10 text-center">
+      <p className="mx-auto max-w-md text-sm text-ink-3">{text}</p>
     </div>
   );
 }

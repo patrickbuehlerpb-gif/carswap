@@ -22,16 +22,16 @@ export function VehicleVisual({
       className={`relative overflow-hidden ${className}`}
       style={{ background: `linear-gradient(${g.angle}deg, ${g.from}, ${g.to})` }}
     >
-      <div className="absolute inset-0 grid-noise opacity-50" />
+      <div className="absolute inset-0 grid-noise opacity-70" />
       <svg
         viewBox="0 0 200 80"
-        className="absolute bottom-[10%] left-1/2 h-auto w-[78%] -translate-x-1/2 text-mist-100/90"
+        className="absolute bottom-[10%] left-1/2 h-auto w-[78%] -translate-x-1/2 text-ink/75"
         fill="none"
       >
         <Silhouette body={body} />
       </svg>
       {label && (
-        <span className="absolute left-3 top-3 rounded-md bg-ink-950/55 px-2 py-0.5 text-[11px] font-medium text-mist-100 backdrop-blur-sm">
+        <span className="absolute left-3 top-3 rounded-md bg-surface/85 px-2 py-0.5 text-[11px] font-medium text-ink backdrop-blur-sm">
           {label}
         </span>
       )}
@@ -113,13 +113,13 @@ function Silhouette({ body }: { body: string }) {
       <path
         d={s.body}
         fill="currentColor"
-        fillOpacity="0.1"
+        fillOpacity="0.07"
         stroke="currentColor"
         strokeWidth="2.1"
         strokeLinejoin="round"
       />
       {/* Verglasung */}
-      <path d={s.glass} fill="currentColor" fillOpacity="0.2" />
+      <path d={s.glass} fill="currentColor" fillOpacity="0.14" />
       {/* Gürtellinie und Türfuge */}
       <path
         d={`M${s.beltline[0]} ${s.beltline[2]} L${s.beltline[1]} ${s.beltline[2]}`}
@@ -136,7 +136,7 @@ function Silhouette({ body }: { body: string }) {
       {/* Räder */}
       {s.wheels.map((x) => (
         <g key={x}>
-          <circle cx={x} cy={62} r={s.wheelR} fill="#0b0d0f" fillOpacity="0.55" />
+          <circle cx={x} cy={62} r={s.wheelR} fill="#ffffff" fillOpacity="0.7" />
           <circle cx={x} cy={62} r={s.wheelR} stroke="currentColor" strokeWidth="2.1" />
           <circle cx={x} cy={62} r={s.wheelR * 0.42} fill="currentColor" fillOpacity="0.75" />
         </g>

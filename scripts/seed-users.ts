@@ -1,124 +1,148 @@
-import type { User } from "../types";
+/** Demo-Konten für die Entwicklungsumgebung. */
+export interface SeedUser {
+  id: string;
+  email: string;
+  name: string;
+  location: string;
+  canton: string;
+  memberSince: string;
+  rating: number;
+  ratingCount: number;
+  swapsCompleted: number;
+  verified: boolean;
+  avatarColor: string;
+}
 
-export const CURRENT_USER_ID = "u-me";
-
-export const users: User[] = [
+export const seedUsers: SeedUser[] = [
   {
-    id: "u-me",
-    name: "Patrick B.",
+    id: "u-001",
+    email: "lenah@demo.carswap.ch",
+    name: "Lena H.",
     location: "Zürich",
     canton: "ZH",
     memberSince: "2025-11-04",
     rating: 4.9,
+    ratingCount: 2,
     swapsCompleted: 1,
     verified: true,
     avatarColor: "#7dd3fc",
   },
   {
     id: "u-002",
+    email: "michelel@demo.carswap.ch",
     name: "Michèle L.",
     location: "Winterthur",
     canton: "ZH",
     memberSince: "2025-06-18",
     rating: 4.8,
+    ratingCount: 6,
     swapsCompleted: 3,
     verified: true,
     avatarColor: "#fca5a5",
   },
   {
     id: "u-003",
+    email: "danielk@demo.carswap.ch",
     name: "Daniel K.",
     location: "Zug",
     canton: "ZG",
     memberSince: "2026-01-22",
     rating: 4.6,
+    ratingCount: 2,
     swapsCompleted: 1,
     verified: true,
     avatarColor: "#fcd34d",
   },
   {
     id: "u-004",
+    email: "sandrar@demo.carswap.ch",
     name: "Sandra R.",
     location: "Bern",
     canton: "BE",
     memberSince: "2025-03-09",
     rating: 5.0,
+    ratingCount: 10,
     swapsCompleted: 5,
     verified: true,
     avatarColor: "#86efac",
   },
   {
     id: "u-005",
+    email: "tobiasm@demo.carswap.ch",
     name: "Tobias M.",
     location: "Luzern",
     canton: "LU",
     memberSince: "2026-04-30",
     rating: 4.4,
+    ratingCount: 1,
     swapsCompleted: 0,
     verified: false,
     avatarColor: "#c4b5fd",
   },
   {
     id: "u-006",
+    email: "annas@demo.carswap.ch",
     name: "Anna S.",
     location: "St. Gallen",
     canton: "SG",
     memberSince: "2025-09-12",
     rating: 4.7,
+    ratingCount: 4,
     swapsCompleted: 2,
     verified: true,
     avatarColor: "#f9a8d4",
   },
   {
     id: "u-007",
+    email: "marcob@demo.carswap.ch",
     name: "Marco B.",
     location: "Basel",
     canton: "BS",
     memberSince: "2025-12-01",
     rating: 4.9,
+    ratingCount: 8,
     swapsCompleted: 4,
     verified: true,
     avatarColor: "#5eead4",
   },
   {
     id: "u-008",
+    email: "juliaw@demo.carswap.ch",
     name: "Julia W.",
     location: "Aarau",
     canton: "AG",
     memberSince: "2026-02-14",
     rating: 4.5,
+    ratingCount: 2,
     swapsCompleted: 1,
     verified: true,
     avatarColor: "#fdba74",
   },
   {
     id: "u-009",
+    email: "retof@demo.carswap.ch",
     name: "Reto F.",
     location: "Chur",
     canton: "GR",
     memberSince: "2025-07-25",
     rating: 4.8,
+    ratingCount: 4,
     swapsCompleted: 2,
     verified: true,
     avatarColor: "#a5b4fc",
   },
   {
     id: "u-010",
+    email: "elenav@demo.carswap.ch",
     name: "Elena V.",
     location: "Lugano",
     canton: "TI",
     memberSince: "2026-03-03",
     rating: 4.6,
+    ratingCount: 2,
     swapsCompleted: 1,
     verified: true,
     avatarColor: "#bef264",
   },
 ];
 
-export function getUser(id: string): User {
-  const u = users.find((x) => x.id === id);
-  if (!u) throw new Error(`Unbekannter Nutzer: ${id}`);
-  return u;
-}
-
-export const currentUser = getUser(CURRENT_USER_ID);

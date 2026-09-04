@@ -1,14 +1,56 @@
-import type { Listing, Vehicle } from "../types";
+import type { Body, Condition, Drivetrain, Fuel, ServiceHistory } from "../src/lib/types";
 
 /**
- * Demo-Fahrzeugbestand. Preise in CHF, Kilometerstände und Ausstattung sind so
- * gewählt, dass die Bewertungs- und Matching-Logik realistische Ergebnisse
- * liefert. Erstzulassungen beziehen sich auf den Stichtag 2026-09-01.
+ * Demo-Fahrzeugbestand für die Entwicklungsumgebung. Preise in CHF.
+ * Erstzulassungen sind relativ zum Stichtag 2026-09 gewählt.
  */
-export const vehicles: Vehicle[] = [
-  /* ---------------- Fahrzeuge des angemeldeten Nutzers ---------------- */
+export interface SeedVehicle {
+  id: string;
+  make: string;
+  model: string;
+  trim: string;
+  year: number;
+  firstRegistration: string;
+  mileageKm: number;
+  fuel: Fuel;
+  body: Body;
+  drivetrain: Drivetrain;
+  powerPs: number;
+  listPriceNew: number;
+  condition: Condition;
+  color: string;
+  rangeKm?: number;
+  batterySoh?: number;
+  features: string[];
+  notes?: string;
+  defects?: string[];
+  serviceHistory: ServiceHistory;
+  previousOwners: number;
+  accidentFree: boolean;
+  mfkUntil?: string;
+}
+
+export interface SeedListing {
+  id: string;
+  vehicleId: string;
+  ownerId: string;
+  createdAt: string;
+  wish: {
+    makes: string[];
+    bodies: Body[];
+    fuels: Fuel[];
+    minYear?: number;
+    maxMileageKm?: number;
+    maxCashOut?: number;
+    notes?: string;
+  };
+  askPremium?: number;
+  views: number;
+}
+
+export const seedVehicles: SeedVehicle[] = [
   {
-    id: "v-me-1",
+    id: "v-001",
     make: "Polestar",
     model: "4",
     trim: "Long Range Dual Motor",
@@ -25,7 +67,6 @@ export const vehicles: Vehicle[] = [
     rangeKm: 580,
     batterySoh: 96,
     features: ["Panoramadach", "Harman Kardon", "Pilot Assist", "Wärmepumpe", "360°-Kamera", "Winterräder"],
-    images: [],
     notes:
       "Erstbesitz, immer garagiert, Nichtraucher. Performance-Paket mit Öhlins-Dämpfern nachgerüstet. Winterräder auf Original-Alu dabei.",
     serviceHistory: "lückenlos scheckheft",
@@ -34,7 +75,7 @@ export const vehicles: Vehicle[] = [
     mfkUntil: "2027-06-14",
   },
   {
-    id: "v-me-2",
+    id: "v-019",
     make: "Skoda",
     model: "Octavia Combi",
     trim: "2.0 TDI Style DSG",
@@ -49,7 +90,6 @@ export const vehicles: Vehicle[] = [
     condition: "gut",
     color: "Graphitgrau",
     features: ["Anhängerkupplung", "Matrix-LED", "Standheizung", "Winterräder"],
-    images: [],
     notes: "Zuverlässiger Zweitwagen, Anhängerkupplung für den Pferdeanhänger.",
     serviceHistory: "lückenlos scheckheft",
     previousOwners: 1,
@@ -57,7 +97,6 @@ export const vehicles: Vehicle[] = [
     mfkUntil: "2027-03-02",
   },
 
-  /* ---------------- Inserierte Fahrzeuge anderer Nutzer ---------------- */
   {
     id: "v-002",
     make: "Zeekr",
@@ -76,7 +115,6 @@ export const vehicles: Vehicle[] = [
     rangeKm: 480,
     batterySoh: 98,
     features: ["Panoramadach", "Luftfederung", "Massagesitze", "Head-up-Display", "360°-Kamera", "Wärmepumpe"],
-    images: [],
     notes:
       "Direktimport, in der Schweiz verzollt und ab MFK. 800-V-Architektur, lädt an HPC in 13 Minuten von 10 auf 80 %. Ich suche etwas mit mehr Reichweite für Langstrecke.",
     serviceHistory: "lückenlos scheckheft",
@@ -102,7 +140,6 @@ export const vehicles: Vehicle[] = [
     rangeKm: 445,
     batterySoh: 97,
     features: ["Panoramadach", "Wärmepumpe", "360°-Kamera", "Winterräder"],
-    images: [],
     notes:
       "Familienauto, das uns eine Nummer zu gross geworden ist. Suche einen Kombi mit Anhängerkupplung.",
     serviceHistory: "lückenlos scheckheft",
@@ -128,7 +165,6 @@ export const vehicles: Vehicle[] = [
     rangeKm: 533,
     batterySoh: 91,
     features: ["Panoramadach", "Anhängerkupplung", "Winterräder"],
-    images: [],
     notes: "Vielfahrer-Auto, Supercharger-Historie lückenlos. Neue Bremsen im Mai 2026.",
     serviceHistory: "teilweise",
     previousOwners: 1,
@@ -153,7 +189,6 @@ export const vehicles: Vehicle[] = [
     rangeKm: 460,
     batterySoh: 95,
     features: ["Head-up-Display", "Harman Kardon", "Panoramadach", "Matrix-LED", "Anhängerkupplung"],
-    images: [],
     notes: "Leasingrückläufer aus Erstbesitz. Ich will zurück zum Verbrenner für die Alpenpässe.",
     serviceHistory: "lückenlos scheckheft",
     previousOwners: 1,
@@ -178,7 +213,6 @@ export const vehicles: Vehicle[] = [
     rangeKm: 488,
     batterySoh: 93,
     features: ["Matrix-LED", "Sportfahrwerk", "360°-Kamera", "Winterräder"],
-    images: [],
     defects: ["Steinschlag Frontscheibe, reparaturfähig"],
     serviceHistory: "lückenlos scheckheft",
     previousOwners: 2,
@@ -203,7 +237,6 @@ export const vehicles: Vehicle[] = [
     rangeKm: 685,
     batterySoh: 96,
     features: ["Anhängerkupplung", "Wärmepumpe", "Head-up-Display", "Massagesitze", "Panoramadach"],
-    images: [],
     notes:
       "Der beste Langstrecken-Kombi, den ich je hatte — aber ich brauche jetzt einen SUV mit Allrad fürs Berggebiet.",
     serviceHistory: "lückenlos scheckheft",
@@ -227,7 +260,6 @@ export const vehicles: Vehicle[] = [
     condition: "sehr gut",
     color: "Kreide",
     features: ["Luftfederung", "Sportfahrwerk", "Bowers & Wilkins", "Panoramadach", "Winterräder", "AHK abnehmbar"],
-    images: [],
     notes:
       "Ungern, aber der Verbrauch in der Stadt geht nicht mehr. Suche einen souveränen Stromer mit Ladeleistung.",
     serviceHistory: "lückenlos scheckheft",
@@ -252,7 +284,6 @@ export const vehicles: Vehicle[] = [
     color: "Denim Blue",
     rangeKm: 78,
     features: ["Anhängerkupplung", "Harman Kardon", "Panoramadach", "Pilot Assist", "Winterräder"],
-    images: [],
     serviceHistory: "lückenlos scheckheft",
     previousOwners: 1,
     accidentFree: true,
@@ -276,7 +307,6 @@ export const vehicles: Vehicle[] = [
     rangeKm: 506,
     batterySoh: 92,
     features: ["Wärmepumpe", "Head-up-Display", "360°-Kamera", "Winterräder"],
-    images: [],
     serviceHistory: "lückenlos scheckheft",
     previousOwners: 1,
     accidentFree: true,
@@ -300,7 +330,6 @@ export const vehicles: Vehicle[] = [
     rangeKm: 448,
     batterySoh: 94,
     features: ["Sportfahrwerk", "Bowers & Wilkins", "Head-up-Display", "Winterräder"],
-    images: [],
     notes: "Trackday-Auto, aber nie im Renneinsatz. Bremsen und Reifen frisch.",
     serviceHistory: "lückenlos scheckheft",
     previousOwners: 1,
@@ -325,7 +354,6 @@ export const vehicles: Vehicle[] = [
     rangeKm: 552,
     batterySoh: 93,
     features: ["Luftfederung", "Massagesitze", "Burmester", "Panoramadach", "Head-up-Display", "360°-Kamera"],
-    images: [],
     serviceHistory: "lückenlos scheckheft",
     previousOwners: 2,
     accidentFree: false,
@@ -347,7 +375,6 @@ export const vehicles: Vehicle[] = [
     condition: "gut",
     color: "Dynamic Grey",
     features: ["Anhängerkupplung", "Winterräder", "360°-Kamera"],
-    images: [],
     serviceHistory: "lückenlos scheckheft",
     previousOwners: 1,
     accidentFree: true,
@@ -369,7 +396,6 @@ export const vehicles: Vehicle[] = [
     condition: "sehr gut",
     color: "Petrol Blue",
     features: ["Sportfahrwerk", "Matrix-LED", "Panoramadach", "Winterräder"],
-    images: [],
     serviceHistory: "teilweise",
     previousOwners: 1,
     accidentFree: true,
@@ -393,7 +419,6 @@ export const vehicles: Vehicle[] = [
     rangeKm: 510,
     batterySoh: 92,
     features: ["Head-up-Display", "Harman Kardon", "Sportfahrwerk", "Matrix-LED"],
-    images: [],
     serviceHistory: "lückenlos scheckheft",
     previousOwners: 1,
     accidentFree: true,
@@ -417,7 +442,6 @@ export const vehicles: Vehicle[] = [
     rangeKm: 545,
     batterySoh: 97,
     features: ["Anhängerkupplung", "Wärmepumpe", "Panoramadach", "Winterräder", "360°-Kamera"],
-    images: [],
     serviceHistory: "lückenlos scheckheft",
     previousOwners: 1,
     accidentFree: true,
@@ -441,7 +465,6 @@ export const vehicles: Vehicle[] = [
     rangeKm: 592,
     batterySoh: 93,
     features: ["Harman Kardon", "Pilot Assist", "Wärmepumpe", "Winterräder"],
-    images: [],
     serviceHistory: "lückenlos scheckheft",
     previousOwners: 2,
     accidentFree: true,
@@ -463,7 +486,6 @@ export const vehicles: Vehicle[] = [
     condition: "gut",
     color: "Pine Grey",
     features: ["Anhängerkupplung", "Luftfederung", "Panoramadach", "Standheizung", "Winterräder"],
-    images: [],
     serviceHistory: "lückenlos scheckheft",
     previousOwners: 2,
     accidentFree: true,
@@ -475,7 +497,36 @@ export const vehicles: Vehicle[] = [
  * Inserate. Jedes Inserat verknüpft ein Fahrzeug mit dem Tauschwunsch seines
  * Besitzers — genau daraus entsteht das Matching.
  */
-export const listings: Listing[] = [
+export const seedListings: SeedListing[] = [
+  {
+    id: "l-001",
+    vehicleId: "v-001",
+    ownerId: "u-001",
+    createdAt: "2026-08-20",
+    wish: {
+      makes: ["Zeekr", "BMW", "Skoda", "VW"],
+      bodies: ["suv"],
+      fuels: ["elektro"],
+      minYear: 2024,
+      maxCashOut: 9_000,
+      notes: "Suche etwas mit schnellerem Laden.",
+    },
+    views: 233,
+  },
+  {
+    id: "l-019",
+    vehicleId: "v-019",
+    ownerId: "u-001",
+    createdAt: "2026-08-22",
+    wish: {
+      makes: ["Toyota", "VW", "Skoda"],
+      bodies: ["kombi", "suv"],
+      fuels: ["hybrid", "benzin"],
+      minYear: 2020,
+      maxCashOut: 8_000,
+    },
+    views: 71,
+  },
   {
     id: "l-002",
     vehicleId: "v-002",
@@ -492,7 +543,6 @@ export const listings: Listing[] = [
     },
     askPremium: 0,
     views: 412,
-    status: "aktiv",
   },
   {
     id: "l-003",
@@ -510,7 +560,6 @@ export const listings: Listing[] = [
     },
     askPremium: 500,
     views: 197,
-    status: "aktiv",
   },
   {
     id: "l-004",
@@ -526,7 +575,6 @@ export const listings: Listing[] = [
       notes: "Ich will neuere Software und schnelleres Laden. Zahle die Differenz.",
     },
     views: 288,
-    status: "aktiv",
   },
   {
     id: "l-005",
@@ -541,7 +589,6 @@ export const listings: Listing[] = [
       maxCashOut: 25_000,
     },
     views: 156,
-    status: "aktiv",
   },
   {
     id: "l-006",
@@ -556,7 +603,6 @@ export const listings: Listing[] = [
       maxCashOut: 12_000,
     },
     views: 94,
-    status: "aktiv",
   },
   {
     id: "l-007",
@@ -573,7 +619,6 @@ export const listings: Listing[] = [
       notes: "Allrad ist Bedingung, wir wohnen auf 1'200 m.",
     },
     views: 331,
-    status: "aktiv",
   },
   {
     id: "l-008",
@@ -590,7 +635,6 @@ export const listings: Listing[] = [
     },
     askPremium: 1_500,
     views: 523,
-    status: "aktiv",
   },
   {
     id: "l-009",
@@ -605,7 +649,6 @@ export const listings: Listing[] = [
       maxCashOut: -12_000,
     },
     views: 143,
-    status: "aktiv",
   },
   {
     id: "l-010",
@@ -620,7 +663,6 @@ export const listings: Listing[] = [
       maxCashOut: 8_000,
     },
     views: 76,
-    status: "aktiv",
   },
   {
     id: "l-011",
@@ -635,7 +677,6 @@ export const listings: Listing[] = [
       maxCashOut: 20_000,
     },
     views: 264,
-    status: "aktiv",
   },
   {
     id: "l-012",
@@ -650,7 +691,6 @@ export const listings: Listing[] = [
       maxCashOut: -5_000,
     },
     views: 209,
-    status: "aktiv",
   },
   {
     id: "l-013",
@@ -666,7 +706,6 @@ export const listings: Listing[] = [
       notes: "Mein RAV4 ist mehr wert, ich erwarte einen entsprechenden Ausgleich.",
     },
     views: 61,
-    status: "aktiv",
   },
   {
     id: "l-014",
@@ -681,7 +720,6 @@ export const listings: Listing[] = [
       maxCashOut: 10_000,
     },
     views: 118,
-    status: "aktiv",
   },
   {
     id: "l-015",
@@ -696,7 +734,6 @@ export const listings: Listing[] = [
       maxCashOut: 12_000,
     },
     views: 187,
-    status: "aktiv",
   },
   {
     id: "l-016",
@@ -711,7 +748,6 @@ export const listings: Listing[] = [
       maxCashOut: 14_000,
     },
     views: 132,
-    status: "aktiv",
   },
   {
     id: "l-017",
@@ -726,7 +762,6 @@ export const listings: Listing[] = [
       maxCashOut: 2_000,
     },
     views: 88,
-    status: "aktiv",
   },
   {
     id: "l-018",
@@ -742,33 +777,5 @@ export const listings: Listing[] = [
       notes: "Anhängerkupplung wird gebraucht, wir ziehen einen Wohnwagen.",
     },
     views: 174,
-    status: "aktiv",
   },
 ];
-
-const vehicleById = new Map(vehicles.map((v) => [v.id, v]));
-
-export function getVehicle(id: string): Vehicle | undefined {
-  return vehicleById.get(id);
-}
-
-export function requireVehicle(id: string): Vehicle {
-  const v = vehicleById.get(id);
-  if (!v) throw new Error(`Unbekanntes Fahrzeug: ${id}`);
-  return v;
-}
-
-export function getListing(id: string): Listing | undefined {
-  return listings.find((l) => l.id === id);
-}
-
-export function getListingByVehicle(vehicleId: string): Listing | undefined {
-  return listings.find((l) => l.vehicleId === vehicleId);
-}
-
-/** Fahrzeuge, die dem angemeldeten Nutzer gehören. */
-export const myVehicleIds = ["v-me-1", "v-me-2"];
-
-export function vehicleTitle(v: { make: string; model: string; trim?: string }): string {
-  return `${v.make} ${v.model}${v.trim ? ` ${v.trim}` : ""}`;
-}

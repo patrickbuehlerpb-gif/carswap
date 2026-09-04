@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { SiteHeader } from "@/components/site-header";
-import { StoreProvider } from "@/lib/store";
 import "./globals.css";
 
 const inter = Inter({
@@ -22,20 +21,31 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="de-CH" className={inter.variable}>
-      <body className="min-h-screen bg-ink-950 font-sans antialiased">
-        <StoreProvider>
-          <SiteHeader />
-          <main className="mx-auto w-full max-w-7xl px-5 pb-24 pt-8 sm:px-8">{children}</main>
-          <footer className="border-t border-ink-800 bg-ink-900/60">
-            <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-5 py-8 text-xs text-mist-400 sm:flex-row sm:items-center sm:justify-between sm:px-8">
-              <p>
-                CarSwap — Prototyp mit Demo-Daten. Bewertungen sind Modellrechnungen, keine
-                verbindlichen Angebote.
-              </p>
-              <p className="tabular">Stichtag der Bewertungen: 01.09.2026</p>
-            </div>
-          </footer>
-        </StoreProvider>
+      <body className="flex min-h-screen flex-col bg-canvas font-sans antialiased">
+        <a
+          href="#inhalt"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-volt focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-ink"
+        >
+          Zum Inhalt springen
+        </a>
+        <SiteHeader />
+        <main id="inhalt" className="mx-auto w-full max-w-7xl flex-1 px-5 pb-24 pt-8 sm:px-8">
+          {children}
+        </main>
+        <footer className="mt-auto border-t border-line bg-surface">
+          <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-5 py-8 text-xs text-ink-3 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+            <p>
+              CarSwap — Fahrzeugtausch zwischen Privatpersonen. Bewertungen sind
+              Modellrechnungen und keine verbindlichen Angebote.
+            </p>
+            <nav className="flex flex-wrap gap-x-5 gap-y-2">
+              <a href="/impressum" className="hover:text-ink">Impressum</a>
+              <a href="/datenschutz" className="hover:text-ink">Datenschutz</a>
+              <a href="/agb" className="hover:text-ink">AGB</a>
+              <a href="/so-funktionierts" className="hover:text-ink">So funktioniert es</a>
+            </nav>
+          </div>
+        </footer>
       </body>
     </html>
   );

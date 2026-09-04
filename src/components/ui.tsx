@@ -10,7 +10,7 @@ export function Card({
   as?: "div" | "section" | "article" | "li";
 }) {
   return (
-    <As className={`rounded-xl border border-ink-800 bg-ink-900 ${className}`}>{children}</As>
+    <As className={`rounded-xl border border-line bg-surface card-shadow ${className}`}>{children}</As>
   );
 }
 
@@ -24,12 +24,12 @@ export function Badge({
   className?: string;
 }) {
   const tones: Record<string, string> = {
-    neutral: "border-ink-600 bg-ink-800 text-mist-300",
-    volt: "border-volt-600/40 bg-volt-500/10 text-volt-400",
-    good: "border-good/30 bg-good/10 text-good",
-    bad: "border-bad/30 bg-bad/10 text-bad",
-    warn: "border-amber-warn/30 bg-amber-warn/10 text-amber-warn",
-    info: "border-sky-ice/30 bg-sky-ice/10 text-sky-ice",
+    neutral: "border-line-strong bg-surface-3 text-ink-2",
+    volt: "border-volt-ink/40 bg-volt/25 text-volt-ink",
+    good: "border-good/35 bg-good/12 text-good",
+    bad: "border-bad/35 bg-bad/12 text-bad",
+    warn: "border-warn/35 bg-warn/12 text-warn",
+    info: "border-info/35 bg-info/12 text-info",
   };
   return (
     <span
@@ -57,13 +57,13 @@ export function Stat({
       : tone === "bad"
         ? "text-bad"
         : tone === "volt"
-          ? "text-volt-400"
-          : "text-mist-100";
+          ? "text-volt-ink"
+          : "text-ink";
   return (
     <div>
-      <dt className="text-[11px] uppercase tracking-wider text-mist-400">{label}</dt>
+      <dt className="text-[11px] uppercase tracking-wider text-ink-3">{label}</dt>
       <dd className={`mt-1 text-xl font-semibold tabular ${toneClass}`}>{value}</dd>
-      {hint && <p className="mt-0.5 text-xs text-mist-400">{hint}</p>}
+      {hint && <p className="mt-0.5 text-xs text-ink-3">{hint}</p>}
     </div>
   );
 }
@@ -80,8 +80,8 @@ export function SectionHead({
   return (
     <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h2 className="text-lg font-semibold tracking-tight text-mist-100">{title}</h2>
-        {sub && <p className="mt-1 max-w-2xl text-sm text-mist-400">{sub}</p>}
+        <h2 className="text-lg font-semibold tracking-tight text-ink">{title}</h2>
+        {sub && <p className="mt-1 max-w-2xl text-sm text-ink-3">{sub}</p>}
       </div>
       {action}
     </div>
@@ -90,20 +90,20 @@ export function SectionHead({
 
 export function SpecRow({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-ink-800 py-2 last:border-0">
-      <span className="text-sm text-mist-400">{label}</span>
-      <span className="text-sm font-medium tabular text-mist-100">{value}</span>
+    <div className="flex items-baseline justify-between gap-4 border-b border-line py-2 last:border-0">
+      <span className="text-sm text-ink-3">{label}</span>
+      <span className="text-sm font-medium tabular text-ink">{value}</span>
     </div>
   );
 }
 
 export function ScorePill({ score }: { score: number }) {
-  const tone = score >= 75 ? "text-volt-400" : score >= 55 ? "text-mist-200" : "text-mist-400";
+  const tone = score >= 75 ? "text-volt-ink" : score >= 55 ? "text-ink-2" : "text-ink-3";
   return (
     <div className="flex items-center gap-2">
-      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-ink-700">
+      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-line-strong">
         <div
-          className="h-full rounded-full bg-volt-500"
+          className="h-full rounded-full bg-volt"
           style={{ width: `${Math.max(4, score)}%` }}
         />
       </div>
