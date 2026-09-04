@@ -233,12 +233,10 @@ export function valueAt(vehicle: Vehicle, atMonth?: string): number {
 
 /** Volle Bewertung mit Aufschlüsselung für den Stichtag. */
 export function valuate(vehicle: Vehicle): Valuation {
-  const month = TODAY.slice(0, 7);
   const ageYears = monthsBetween(vehicle.firstRegistration, TODAY) / 12;
   const base = vehicle.listPriceNew * retention(ageYears, vehicle.fuel, vehicle.make);
   const value = valueAt(vehicle);
 
-  const ageNowMonths = Math.max(1, monthsBetween(vehicle.firstRegistration, TODAY));
   const expectedKm = NORM_KM_PER_YEAR * ageYears;
   const kmDelta = vehicle.mileageKm - expectedKm;
   const mileageAdj = Math.max(
