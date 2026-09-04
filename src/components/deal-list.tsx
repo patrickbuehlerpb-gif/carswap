@@ -13,6 +13,7 @@ export const STATUS_META: Record<
   verhandlung: { text: "In Verhandlung", tone: "warn" },
   angenommen: { text: "Angenommen", tone: "volt" },
   treuhand: { text: "Geld im Treuhandkonto", tone: "volt" },
+  abwicklung: { text: "Auszahlung läuft", tone: "volt" },
   abgeschlossen: { text: "Abgeschlossen", tone: "good" },
   abgelehnt: { text: "Abgelehnt", tone: "bad" },
   storniert: { text: "Storniert", tone: "bad" },

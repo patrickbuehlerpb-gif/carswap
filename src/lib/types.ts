@@ -85,7 +85,7 @@ export interface Listing {
   /** Vom Inserenten gewünschter Ausgleich zusätzlich zur reinen Wertdifferenz. */
   askPremium?: number;
   views: number;
-  status: "aktiv" | "in verhandlung" | "getauscht";
+  status: "aktiv" | "pausiert" | "in verhandlung" | "getauscht";
 }
 
 export type DealStatus =
@@ -93,6 +93,7 @@ export type DealStatus =
   | "verhandlung"
   | "angenommen"
   | "treuhand"
+  | "abwicklung"
   | "abgeschlossen"
   | "abgelehnt"
   | "storniert";

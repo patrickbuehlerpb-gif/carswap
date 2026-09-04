@@ -84,7 +84,7 @@ export function toListing(row: ListingRow): Listing {
     },
     askPremium: row.askPremium,
     views: row.views,
-    status: row.status === "pausiert" ? "aktiv" : row.status,
+    status: row.status,
   };
 }
 

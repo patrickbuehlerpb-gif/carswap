@@ -179,6 +179,8 @@ export type DealStatusDb =
   | "verhandlung"
   | "angenommen"
   | "treuhand"
+  /** Beide haben bestätigt, das Geld wird gerade eingezogen und weitergeleitet. */
+  | "abwicklung"
   | "abgeschlossen"
   | "abgelehnt"
   | "storniert";
@@ -216,6 +218,9 @@ export const deals = pgTable(
     index("deals_initiator_idx").on(t.initiatorId),
     index("deals_counterparty_idx").on(t.counterpartyId),
     index("deals_status_idx").on(t.status),
+    // Abschluss, Zusage und Inseratsprüfung filtern nach Fahrzeug
+    index("deals_from_vehicle_idx").on(t.fromVehicleId),
+    index("deals_to_vehicle_idx").on(t.toVehicleId),
   ],
 );
 
@@ -260,13 +265,17 @@ export const payments = pgTable(
     payeeId: text("payee_id")
       .notNull()
       .references(() => users.id),
-    /** Betrag in Rappen, wie er an Stripe geht */
+    /** Betrag in Rappen, der beim Empfänger ankommt */
     amountMinor: integer("amount_minor").notNull(),
+    /** Aufschlag in Rappen, den der Zahlende zusätzlich trägt (Stripe-Gebühr) */
+    feeMinor: integer("fee_minor").notNull().default(0),
     currency: text("currency").notNull().default("chf"),
     status: text("status").$type<PaymentStatus>().notNull().default("erstellt"),
     stripeSessionId: text("stripe_session_id"),
     stripePaymentIntentId: text("stripe_payment_intent_id"),
     stripeTransferId: text("stripe_transfer_id"),
+    /** Zeitpunkt der Reservierung — Stripe lässt sie nach sieben Tagen verfallen. */
+    authorizedAt: timestamp("authorized_at", { withTimezone: true }),
     lastError: text("last_error"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -274,7 +283,27 @@ export const payments = pgTable(
   (t) => [
     index("payments_deal_idx").on(t.dealId),
     uniqueIndex("payments_session_key").on(t.stripeSessionId),
+    uniqueIndex("payments_intent_key").on(t.stripePaymentIntentId),
   ],
+);
+
+/**
+ * Ein Fahrzeug darf nur in einem einzigen verbindlichen Tausch stecken. Der
+ * Primärschlüssel auf der Fahrzeug-ID erzwingt das in der Datenbank — zwei
+ * gleichzeitige Zusagen können sich damit nicht gegenseitig überholen.
+ */
+export const dealVehicleLocks = pgTable(
+  "deal_vehicle_locks",
+  {
+    vehicleId: text("vehicle_id")
+      .primaryKey()
+      .references(() => vehicles.id, { onDelete: "cascade" }),
+    dealId: text("deal_id")
+      .notNull()
+      .references(() => deals.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("deal_vehicle_locks_deal_idx").on(t.dealId)],
 );
 
 /** Verarbeitete Stripe-Ereignisse, damit Webhooks idempotent bleiben. */
@@ -325,3 +354,4 @@ export type ListingRow = typeof listings.$inferSelect;
 export type DealRow = typeof deals.$inferSelect;
 export type DealMessageRow = typeof dealMessages.$inferSelect;
 export type PaymentRow = typeof payments.$inferSelect;
+export type DealVehicleLockRow = typeof dealVehicleLocks.$inferSelect;

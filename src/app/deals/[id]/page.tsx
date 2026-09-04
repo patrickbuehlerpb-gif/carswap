@@ -9,7 +9,7 @@ import { db } from "@/lib/db";
 import { payments } from "@/lib/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { currentMonth } from "@/lib/valuation";
-import { stripeConfigured } from "@/lib/payments";
+import { platformFee, stripeConfigured } from "@/lib/payments";
 
 export const metadata: Metadata = { title: "Tauschvorgang" };
 export const dynamic = "force-dynamic";
@@ -34,6 +34,7 @@ export default async function DealPage({
     .select({
       status: payments.status,
       amountMinor: payments.amountMinor,
+      feeMinor: payments.feeMinor,
       payerId: payments.payerId,
       payeeId: payments.payeeId,
     })
@@ -62,6 +63,7 @@ export default async function DealPage({
         detail={detail}
         meId={me.id}
         payment={payment ?? null}
+        escrowFeeMinor={platformFee(Math.round(Math.abs(detail.deal.cashDelta) * 100))}
         paymentsEnabled={stripeConfigured()}
         escrowNotice={
           treuhand === "ok"

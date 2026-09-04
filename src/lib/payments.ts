@@ -1,6 +1,6 @@
 import "server-only";
 import Stripe from "stripe";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "./db";
 import { newId } from "./db/ids";
 import { payments, users, type DealRow, type PaymentRow } from "./db/schema";
@@ -20,6 +20,51 @@ export const CURRENCY = "chf";
 
 /** Autorisierungen verfallen bei Stripe nach sieben Tagen. */
 export const AUTHORIZATION_DAYS = 7;
+
+/**
+ * Die Kartengebühr trägt der Zahlende, nicht die Plattform. Voreingestellt
+ * sind die Schweizer Stripe-Standardsätze; Karten von ausserhalb Europas
+ * kosten mehr — die Differenz bleibt an der Plattform hängen und lässt sich
+ * über die beiden Umgebungsvariablen nachziehen.
+ */
+function feeSetting(name: string, fallback: number): number {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+/**
+ * Aufschlag in Rappen, damit beim Empfänger exakt `amountMinor` ankommt.
+ * Stripe rechnet prozentual auf den Gesamtbetrag, deshalb wird hochgerechnet
+ * statt einfach ein Prozentsatz addiert.
+ */
+export function platformFee(amountMinor: number): number {
+  const percent = Math.min(20, feeSetting("PLATFORM_FEE_PERCENT", 2.9)) / 100;
+  const fixed = Math.round(feeSetting("PLATFORM_FEE_FIXED_MINOR", 30));
+  const gross = Math.ceil((amountMinor + fixed) / (1 - percent));
+  return gross - amountMinor;
+}
+
+/** Die Auszahlung ist nicht möglich, weil das Empfängerkonto fehlt. */
+export class PayoutBlockedError extends Error {
+  constructor(readonly payeeId: string) {
+    super("Das Auszahlungskonto der Gegenseite ist noch nicht freigeschaltet.");
+    this.name = "PayoutBlockedError";
+  }
+}
+
+/** Die Zahlung steht in einem Zustand, in dem sie nicht abgewickelt werden darf. */
+export class PaymentStateError extends Error {
+  constructor(readonly status: string) {
+    super(`Die hinterlegte Zahlung steht auf "${status}" und lässt sich nicht abwickeln.`);
+    this.name = "PaymentStateError";
+  }
+}
+
+/** Verfällt die Reservierung dieser Zahlung demnächst? */
+export function authorizationExpiresAt(payment: Pick<PaymentRow, "authorizedAt">): Date | null {
+  if (!payment.authorizedAt) return null;
+  return new Date(payment.authorizedAt.getTime() + AUTHORIZATION_DAYS * 24 * 60 * 60 * 1000);
+}
 
 let cached: Stripe | null = null;
 
@@ -150,6 +195,8 @@ export async function createEscrowCheckout(
 
   const paymentId = newId("pay");
   const amountMinor = toMinor(parties.amount);
+  const feeMinor = platformFee(amountMinor);
+  const chargeMinor = amountMinor + feeMinor;
   // Der Versuchszähler hält den Idempotenzschlüssel eindeutig, wenn ein
   // früherer Anlauf abgelaufen ist.
   const attempt = existing.length + 1;
@@ -163,10 +210,10 @@ export async function createEscrowCheckout(
           quantity: 1,
           price_data: {
             currency: CURRENCY,
-            unit_amount: amountMinor,
+            unit_amount: chargeMinor,
             product_data: {
               name: "CarSwap Treuhand-Einzahlung",
-              description,
+              description: `${description} — davon ${(feeMinor / 100).toFixed(2)} CHF Zahlungsgebühr`,
             },
           },
         },
@@ -186,19 +233,38 @@ export async function createEscrowCheckout(
     { idempotencyKey: `escrow:${deal.id}:${deal.cashDelta}:${attempt}` },
   );
 
-  await db.insert(payments).values({
-    id: paymentId,
-    dealId: deal.id,
-    payerId: parties.payerId,
-    payeeId: parties.payeeId,
-    amountMinor,
-    currency: CURRENCY,
-    status: "erstellt",
-    stripeSessionId: session.id,
-  });
+  // Zwei gleichzeitige Klicks bekommen über den Idempotenzschlüssel dieselbe
+  // Stripe-Session zurück. Der Unique-Index auf der Session-ID entscheidet,
+  // welcher der beiden die Zeile anlegt; der andere übernimmt sie.
+  const insertedRows = await db
+    .insert(payments)
+    .values({
+      id: paymentId,
+      dealId: deal.id,
+      payerId: parties.payerId,
+      payeeId: parties.payeeId,
+      amountMinor,
+      feeMinor,
+      currency: CURRENCY,
+      status: "erstellt",
+      stripeSessionId: session.id,
+    })
+    .onConflictDoNothing({ target: payments.stripeSessionId })
+    .returning({ id: payments.id });
+
+  let storedId = insertedRows[0]?.id;
+  if (!storedId) {
+    const [existingRow] = await db
+      .select({ id: payments.id })
+      .from(payments)
+      .where(eq(payments.stripeSessionId, session.id))
+      .limit(1);
+    storedId = existingRow?.id;
+  }
+  if (!storedId) throw new Error("Die Zahlung konnte nicht gespeichert werden.");
 
   if (!session.url) throw new Error("Stripe hat keine Checkout-URL geliefert.");
-  return { url: session.url, paymentId };
+  return { url: session.url, paymentId: storedId };
 }
 
 /**
@@ -209,13 +275,30 @@ export async function captureAndPayout(payment: PaymentRow): Promise<PaymentRow>
   const s = stripe();
 
   if (payment.status === "ausgezahlt") return payment;
+  if (payment.status !== "autorisiert" && payment.status !== "eingezogen") {
+    // Storniert, erstattet, fehlgeschlagen oder noch gar nicht bezahlt: hier
+    // darf nichts stillschweigend durchgehen, sonst wechselt das Auto den
+    // Besitzer, ohne dass Geld geflossen ist.
+    throw new PaymentStateError(payment.status);
+  }
   if (!payment.stripePaymentIntentId) {
     throw new Error("Zu dieser Zahlung ist keine Stripe-Transaktion hinterlegt.");
   }
 
+  // Erst prüfen, ob die Gegenseite das Geld überhaupt annehmen kann. Solange
+  // das nicht steht, bleibt der Betrag reserviert statt eingezogen — eine
+  // Reservierung verfällt von selbst, eingezogenes Geld müsste erstattet
+  // werden.
+  const ready = await payoutReady(payment.payeeId);
+  if (!ready) throw new PayoutBlockedError(payment.payeeId);
+
   // 1) Einziehen
   if (payment.status === "autorisiert") {
-    const intent = await s.paymentIntents.capture(payment.stripePaymentIntentId);
+    const intent = await s.paymentIntents.capture(
+      payment.stripePaymentIntentId,
+      {},
+      { idempotencyKey: `capture:${payment.id}` },
+    );
     if (intent.status !== "succeeded") {
       await markPayment(payment.id, "fehlgeschlagen", `Capture-Status ${intent.status}`);
       throw new Error("Der Betrag konnte nicht eingezogen werden.");
@@ -223,29 +306,35 @@ export async function captureAndPayout(payment: PaymentRow): Promise<PaymentRow>
     payment = await markPayment(payment.id, "eingezogen");
   }
 
-  // 2) Weiterleiten
-  if (payment.status === "eingezogen") {
-    const payeeRows = await db.select().from(users).where(eq(users.id, payment.payeeId)).limit(1);
-    const payee = payeeRows[0];
-    if (!payee?.stripeAccountId || !payee.stripePayoutsEnabled) {
-      // Das Geld liegt sicher auf dem Plattformkonto — die Auszahlung folgt,
-      // sobald die Gegenseite ihr Auszahlungskonto eingerichtet hat.
-      return payment;
-    }
-    const transfer = await s.transfers.create(
-      {
-        amount: payment.amountMinor,
-        currency: payment.currency,
-        destination: payee.stripeAccountId,
-        transfer_group: payment.dealId,
-        metadata: { carswap_payment_id: payment.id, carswap_deal_id: payment.dealId },
-      },
-      { idempotencyKey: `payout:${payment.id}` },
-    );
-    payment = await markPayment(payment.id, "ausgezahlt", null, { stripeTransferId: transfer.id });
-  }
+  // 2) Weiterleiten — nur der Nettobetrag, die Gebühr deckt Stripes Anteil.
+  const payeeRows = await db.select().from(users).where(eq(users.id, payment.payeeId)).limit(1);
+  const payee = payeeRows[0];
+  if (!payee?.stripeAccountId) throw new PayoutBlockedError(payment.payeeId);
 
-  return payment;
+  const transfer = await s.transfers.create(
+    {
+      amount: payment.amountMinor,
+      currency: payment.currency,
+      destination: payee.stripeAccountId,
+      transfer_group: payment.dealId,
+      metadata: { carswap_payment_id: payment.id, carswap_deal_id: payment.dealId },
+    },
+    { idempotencyKey: `payout:${payment.id}` },
+  );
+  return await markPayment(payment.id, "ausgezahlt", null, { stripeTransferId: transfer.id });
+}
+
+/**
+ * Kann dieser Nutzer Geld empfangen? Der gespeicherte Stand wird bei Bedarf
+ * an Stripe nachgefragt, damit ein zwischenzeitlich abgeschlossenes
+ * Onboarding nicht übersehen wird.
+ */
+export async function payoutReady(userId: string): Promise<boolean> {
+  const rows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const user = rows[0];
+  if (!user?.stripeAccountId) return false;
+  if (user.stripePayoutsEnabled) return true;
+  return await refreshPayoutStatus(userId);
 }
 
 /** Gibt eine reservierte, aber nicht eingezogene Zahlung wieder frei. */
@@ -261,6 +350,28 @@ export async function releaseAuthorization(payment: PaymentRow): Promise<void> {
     );
     await markPayment(payment.id, "erstattet");
   }
+}
+
+/**
+ * Setzt einen Zahlungsstatus nur, wenn die Zahlung noch in einem der
+ * erlaubten Ausgangszustände steht. Verspätete oder doppelt zugestellte
+ * Stripe-Ereignisse können damit keinen weiter fortgeschrittenen Zustand
+ * überschreiben — ein nachgereichtes „payment_failed“ darf eine längst
+ * autorisierte Zahlung nicht entwerten.
+ */
+export async function markPaymentIfIn(
+  id: string,
+  from: PaymentRow["status"][],
+  status: PaymentRow["status"],
+  lastError: string | null = null,
+  extra: Partial<PaymentRow> = {},
+): Promise<PaymentRow | null> {
+  const rows = await db
+    .update(payments)
+    .set({ status, lastError, updatedAt: new Date(), ...extra })
+    .where(and(eq(payments.id, id), inArray(payments.status, from)))
+    .returning();
+  return rows[0] ?? null;
 }
 
 export async function markPayment(

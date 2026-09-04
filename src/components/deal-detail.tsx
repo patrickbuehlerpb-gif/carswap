@@ -33,6 +33,7 @@ const HANDOVER_TASKS = [
 interface PaymentSummary {
   status: string;
   amountMinor: number;
+  feeMinor: number;
   payerId: string;
   payeeId: string;
 }
@@ -41,6 +42,7 @@ export function DealDetail({
   detail,
   meId,
   payment,
+  escrowFeeMinor,
   paymentsEnabled,
   escrowNotice,
   asOf,
@@ -48,6 +50,8 @@ export function DealDetail({
   detail: DealDetailData;
   meId: string;
   payment: PaymentSummary | null;
+  /** Zahlungsgebühr in Rappen, die beim Hinterlegen dazukommt */
+  escrowFeeMinor: number;
   paymentsEnabled: boolean;
   escrowNotice: string | null;
   asOf: string;
@@ -69,7 +73,9 @@ export function DealDetail({
   const fair = cashDelta(fromVehicle, toVehicle, 0, asOf);
   const spread = deal.cashDelta - fair.delta;
   const meta = STATUS_META[deal.status];
-  const stepIndex = STEPS.indexOf(deal.status);
+  // Die Abwicklung ist ein Zwischenschritt der Treuhandphase, kein eigener Punkt
+  // in der Fortschrittsleiste.
+  const stepIndex = STEPS.indexOf(deal.status === "abwicklung" ? "treuhand" : deal.status);
   const active = !["abgeschlossen", "abgelehnt", "storniert"].includes(deal.status);
   const allTasksDone = tasks.length === HANDOVER_TASKS.length;
 
@@ -365,9 +371,18 @@ export function DealDetail({
               )}
               {deal.cashDelta !== 0 && (
                 <p className="mt-2 text-center text-[11px] text-ink-3">
-                  {paymentsEnabled
-                    ? "Zahlung über Stripe · Betrag wird reserviert, nicht sofort belastet"
-                    : "Zahlungen sind auf dieser Installation noch nicht eingerichtet."}
+                  {paymentsEnabled ? (
+                    iPay ? (
+                      <>
+                        Zahlung über Stripe · Betrag wird reserviert, nicht sofort belastet ·
+                        zzgl. {chf(escrowFeeMinor / 100)} Zahlungsgebühr
+                      </>
+                    ) : (
+                      "Zahlung über Stripe · Betrag wird reserviert, nicht sofort belastet"
+                    )
+                  ) : (
+                    "Zahlungen sind auf dieser Installation noch nicht eingerichtet."
+                  )}
                 </p>
               )}
               <button
@@ -437,6 +452,23 @@ export function DealDetail({
                 </p>
               )}
 
+              {myConfirmed && otherConfirmed && (
+                <>
+                  <p className="mt-4 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm text-ink-2">
+                    Beide Bestätigungen liegen vor, die Auszahlung ist aber noch nicht
+                    durchgelaufen. Die Fahrzeuge sind bewusst noch nicht umgeschrieben — sie
+                    wechseln erst, wenn das Geld beim Empfänger ist.
+                  </p>
+                  <button
+                    onClick={() => run(() => confirmHandoverAction(deal.id))}
+                    disabled={pending}
+                    className="mt-3 w-full rounded-lg bg-volt py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi disabled:opacity-50"
+                  >
+                    {pending ? "Wird abgewickelt …" : "Auszahlung erneut anstossen"}
+                  </button>
+                </>
+              )}
+
               <button
                 onClick={() => run(() => cancelDealAction(deal.id))}
                 disabled={pending}
@@ -444,6 +476,27 @@ export function DealDetail({
               >
                 Tausch abbrechen und Zahlung freigeben
               </button>
+            </>
+          )}
+
+          {deal.status === "abwicklung" && (
+            <>
+              <p className="mt-3 rounded-lg border border-line bg-surface-2 p-3 text-sm text-ink-2">
+                Beide haben die Übergabe bestätigt. Der Ausgleich wird eingezogen und
+                weitergeleitet — danach werden die Fahrzeuge umgeschrieben. Das dauert nur einen
+                Moment.
+              </p>
+              <button
+                onClick={() => run(() => confirmHandoverAction(deal.id))}
+                disabled={pending}
+                className="mt-3 w-full rounded-lg border border-line-strong py-2.5 text-sm text-ink-2 transition-colors hover:border-ink-3 hover:text-ink disabled:opacity-60"
+              >
+                {pending ? "Wird geprüft …" : "Stand prüfen und fortsetzen"}
+              </button>
+              <p className="mt-2 text-center text-[11px] text-ink-3">
+                Bleibt es länger als ein paar Minuten hier stehen, setzt dieser Knopf die
+                Abwicklung fort.
+              </p>
             </>
           )}
 

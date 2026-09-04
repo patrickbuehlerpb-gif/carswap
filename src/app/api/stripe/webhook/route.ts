@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { deals, payments, users, webhookEvents } from "@/lib/db/schema";
-import { markPayment, stripe, stripeConfigured } from "@/lib/payments";
+import { dealMessages, deals, payments, users, webhookEvents } from "@/lib/db/schema";
+import { newId } from "@/lib/db/ids";
+import { markPayment, markPaymentIfIn, stripe, stripeConfigured } from "@/lib/payments";
+import { sendMail, siteUrl } from "@/lib/mail";
 
 /** Der Rohtext wird für die Signaturprüfung gebraucht, also kein Body-Parsing. */
 export const dynamic = "force-dynamic";
@@ -66,7 +68,8 @@ export async function POST(request: Request) {
   return NextResponse.json({ received: true });
 }
 
-async function handleEvent(event: Stripe.Event): Promise<void> {
+/** Exportiert, damit die Ereignisbehandlung ohne Signaturprüfung testbar ist. */
+export async function handleEvent(event: Stripe.Event): Promise<void> {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object;
@@ -81,6 +84,7 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
 
       await markPayment(paymentId, "autorisiert", null, {
         stripePaymentIntentId: intentId ?? null,
+        authorizedAt: new Date(),
       });
 
       // Der Betrag ist reserviert — der Tausch geht in die Treuhandphase.
@@ -114,14 +118,23 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
 
     case "checkout.session.expired": {
       const paymentId = event.data.object.metadata?.carswap_payment_id;
-      if (paymentId) await markPayment(paymentId, "storniert", "Checkout abgelaufen");
+      if (paymentId) {
+        await markPaymentIfIn(paymentId, ["erstellt"], "storniert", "Checkout abgelaufen");
+      }
       break;
     }
 
     case "payment_intent.canceled": {
       const intent = event.data.object;
       const paymentId = intent.metadata?.carswap_payment_id;
-      if (paymentId) await markPayment(paymentId, "storniert");
+      const dealId = intent.metadata?.carswap_deal_id;
+      if (paymentId) {
+        await markPaymentIfIn(paymentId, ["erstellt", "autorisiert"], "storniert");
+      }
+      // Eine Reservierung verfällt nach sieben Tagen. Ohne hinterlegtes Geld
+      // darf der Tausch nicht in der Treuhandphase stehen bleiben, sonst
+      // führt ein späteres Bestätigen der Übergabe ins Leere.
+      if (dealId) await reopenEscrow(dealId, "Die Reservierung des Ausgleichs ist verfallen.");
       break;
     }
 
@@ -129,8 +142,11 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
       const intent = event.data.object;
       const paymentId = intent.metadata?.carswap_payment_id;
       if (paymentId) {
-        await markPayment(
+        // Nur aus «erstellt»: ein nachgereichtes Fehlschlag-Ereignis darf eine
+        // bereits reservierte oder eingezogene Zahlung nicht entwerten.
+        await markPaymentIfIn(
           paymentId,
+          ["erstellt"],
           "fehlgeschlagen",
           intent.last_payment_error?.message ?? "Zahlung fehlgeschlagen",
         );
@@ -147,7 +163,25 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
         .from(payments)
         .where(eq(payments.stripePaymentIntentId, intentId))
         .limit(1);
-      if (rows[0]) await markPayment(rows[0].id, "erstattet");
+      if (!rows[0]) break;
+      // Teilerstattungen ändern den Zustand nicht — nur eine vollständige
+      // Rückabwicklung entwertet die Zahlung.
+      const voll = charge.amount_refunded >= charge.amount;
+      if (!voll) {
+        await markPayment(rows[0].id, rows[0].status, `Teilerstattung über ${charge.amount_refunded}`);
+        break;
+      }
+      await markPayment(rows[0].id, "erstattet");
+      const zurueck = await reopenEscrow(
+        rows[0].dealId,
+        "Der hinterlegte Ausgleich wurde erstattet.",
+      );
+      if (!zurueck) {
+        // Der Tausch ist nicht mehr in der Treuhandphase — bei einem bereits
+        // abgeschlossenen Tausch ist das Geld zurück, die Fahrzeuge aber
+        // umgeschrieben. Das braucht einen Menschen.
+        await flagRefundAfterCompletion(rows[0].dealId, rows[0].id);
+      }
       break;
     }
 
@@ -169,5 +203,72 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
     default:
       // Kann nicht eintreten, solange HANDLED und dieses switch übereinstimmen.
       break;
+  }
+}
+
+/**
+ * Nimmt einen Tausch aus der Treuhandphase zurück, wenn das hinterlegte Geld
+ * verschwunden ist. Die Bestätigungen werden zurückgesetzt, damit die Übergabe
+ * nicht mit einer toten Zahlung abgeschlossen werden kann.
+ */
+async function reopenEscrow(dealId: string, reason: string): Promise<boolean> {
+  const rows = await db
+    .update(deals)
+    .set({
+      status: "angenommen",
+      escrowAt: null,
+      initiatorConfirmed: false,
+      counterpartyConfirmed: false,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(deals.id, dealId), eq(deals.status, "treuhand")))
+    .returning({ id: deals.id, initiatorId: deals.initiatorId });
+  if (!rows.length) return false;
+
+  await db.insert(dealMessages).values({
+    id: newId("msg"),
+    dealId,
+    authorId: rows[0].initiatorId,
+    body: `${reason} Der Ausgleich muss neu eingezahlt werden.`,
+    system: true,
+  });
+  return true;
+}
+
+/**
+ * Eine Erstattung zu einem Tausch, der die Treuhandphase schon verlassen hat.
+ * Das lässt sich nicht automatisch heilen: die Fahrzeuge sind unter Umständen
+ * bereits umgeschrieben. Beide Seiten werden informiert, der Vorgang bleibt im
+ * Verlauf sichtbar und im Log als Warnung stehen.
+ */
+async function flagRefundAfterCompletion(dealId: string, paymentId: string): Promise<void> {
+  const [row] = await db.select().from(deals).where(eq(deals.id, dealId)).limit(1);
+  if (!row) return;
+
+  console.warn(
+    `Erstattung zu Zahlung ${paymentId} betrifft Tausch ${dealId} im Zustand ${row.status} — Handeingriff nötig.`,
+  );
+  await db.insert(dealMessages).values({
+    id: newId("msg"),
+    dealId,
+    authorId: row.initiatorId,
+    body:
+      "Der Ausgleich wurde zurückerstattet, obwohl der Tausch die Treuhandphase bereits " +
+      "verlassen hat. Bitte meldet euch beim Support — das muss von Hand geklärt werden.",
+    system: true,
+  });
+
+  const empfaenger = await db
+    .select({ email: users.email })
+    .from(users)
+    .where(inArray(users.id, [row.initiatorId, row.counterpartyId]));
+  for (const person of empfaenger) {
+    await sendMail({
+      to: person.email,
+      subject: "CarSwap: Rückerstattung zu einem abgeschlossenen Tausch",
+      text:
+        "Zu eurem Tausch wurde der Ausgleich zurückerstattet, obwohl der Vorgang bereits " +
+        `abgeschlossen war. Bitte meldet euch beim Support.\n\n${siteUrl()}/deals/${dealId}\n`,
+    });
   }
 }

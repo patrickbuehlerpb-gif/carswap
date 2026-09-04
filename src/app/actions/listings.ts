@@ -56,6 +56,25 @@ function wishRow(input: ListingInput) {
   };
 }
 
+/** Steckt das Fahrzeug in einem verbindlich zugesagten Tausch? */
+async function inVerbindlichemTausch(vehicleId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: deals.id })
+    .from(deals)
+    .where(
+      and(
+        or(eq(deals.fromVehicleId, vehicleId), eq(deals.toVehicleId, vehicleId)),
+        or(
+          eq(deals.status, "angenommen"),
+          eq(deals.status, "treuhand"),
+          eq(deals.status, "abwicklung"),
+        ),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
 export async function createListingAction(raw: unknown): Promise<SaveResult> {
   const me = await requireUser();
 
@@ -91,6 +110,16 @@ export async function updateListingAction(vehicleId: string, raw: unknown): Prom
     .where(and(eq(vehicles.id, vehicleId), eq(vehicles.ownerId, me.id)))
     .limit(1);
   if (!owned) return { error: "Dieses Fahrzeug gehört nicht zu deinem Konto." };
+
+  // Sobald zugesagt ist, sind die Fahrzeugdaten Vertragsgrundlage — die
+  // Gegenseite hat auf genau diesen Stand hin zugesagt.
+  if (await inVerbindlichemTausch(vehicleId)) {
+    return {
+      error:
+        "Zu diesem Fahrzeug läuft ein verbindlich zugesagter Tausch. Die Angaben lassen sich " +
+        "erst wieder ändern, wenn er abgeschlossen oder abgebrochen ist.",
+    };
+  }
 
   const parsed = listingSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Eingaben unvollständig." };
@@ -128,6 +157,20 @@ export async function setListingStatusAction(
   status: "aktiv" | "pausiert",
 ): Promise<SaveResult> {
   const me = await requireUser();
+  if (status !== "aktiv" && status !== "pausiert") {
+    return { error: "Unbekannter Inseratsstatus." };
+  }
+  if (await inVerbindlichemTausch(vehicleId)) {
+    return {
+      error:
+        "Zu diesem Fahrzeug läuft ein verbindlich zugesagter Tausch. Das Inserat lässt sich " +
+        "erst danach wieder ändern.",
+    };
+  }
+
+  // «getauscht» ist mit erlaubt: wer ein Fahrzeug eingetauscht hat, muss es
+  // wieder einstellen können. Ein Inserat, das gerade in einem zugesagten
+  // Tausch steckt, bleibt gesperrt.
   const rows = await db
     .update(listings)
     .set({ status, updatedAt: new Date() })
@@ -135,7 +178,11 @@ export async function setListingStatusAction(
       and(
         eq(listings.vehicleId, vehicleId),
         eq(listings.ownerId, me.id),
-        or(eq(listings.status, "aktiv"), eq(listings.status, "pausiert")),
+        or(
+          eq(listings.status, "aktiv"),
+          eq(listings.status, "pausiert"),
+          eq(listings.status, "getauscht"),
+        ),
       ),
     )
     .returning({ id: listings.id });
@@ -164,6 +211,7 @@ export async function archiveVehicleAction(vehicleId: string): Promise<SaveResul
           eq(deals.status, "verhandlung"),
           eq(deals.status, "angenommen"),
           eq(deals.status, "treuhand"),
+          eq(deals.status, "abwicklung"),
         ),
       ),
     )

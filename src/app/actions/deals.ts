@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, desc, eq, isNotNull, or, sql as raw } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, ne, or, sql as raw } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import {
   dealMessages,
+  dealVehicleLocks,
   deals,
   listings,
   payments,
@@ -19,9 +20,14 @@ import { checkRateLimit } from "@/lib/auth/rate-limit";
 import {
   captureAndPayout,
   createEscrowCheckout,
+  markPayment,
   paymentParties,
+  payoutReady,
   releaseAuthorization,
   stripeConfigured,
+  authorizationExpiresAt,
+  PaymentStateError,
+  PayoutBlockedError,
 } from "@/lib/payments";
 import { sendMail, siteUrl } from "@/lib/mail";
 
@@ -33,6 +39,23 @@ export interface ActionResult {
 }
 
 const OPEN: DealRow["status"][] = ["vorschlag", "verhandlung"];
+
+/** Der Tausch hat den Zustand gewechselt, während die Aktion lief. */
+class DealConflict extends Error {}
+
+/**
+ * Postgres meldet eine verletzte Eindeutigkeit mit SQLSTATE 23505. Drizzle
+ * verpackt den Treiberfehler in einen eigenen, deshalb wird die Kette der
+ * Ursachen durchgesehen statt nur die oberste Ebene.
+ */
+function isUniqueViolation(err: unknown): boolean {
+  for (let cur: unknown = err, depth = 0; cur && depth < 5; depth++) {
+    if (typeof cur !== "object") break;
+    if ((cur as { code?: unknown }).code === "23505") return true;
+    cur = (cur as { cause?: unknown }).cause;
+  }
+  return false;
+}
 
 /** Lädt einen Tausch und stellt sicher, dass der Aufrufer beteiligt ist. */
 async function loadDeal(dealId: string, userId: string): Promise<DealRow | null> {
@@ -157,7 +180,6 @@ export async function proposeSwapAction(input: {
 /* ------------------------------------------------------------------ */
 /* Nachricht und Gegenangebot                                          */
 /* ------------------------------------------------------------------ */
-
 export async function sendDealMessageAction(
   dealId: string,
   text: string,
@@ -184,23 +206,42 @@ export async function sendDealMessageAction(
   const limit = await checkRateLimit(`msg:${me.id}`, 60, 60 * 60);
   if (!limit.ok) return { error: "Zu viele Nachrichten in kurzer Zeit." };
 
-  await db.transaction(async (tx) => {
-    await tx.insert(dealMessages).values({
-      id: newId("msg"),
-      dealId,
-      authorId: me.id,
-      body: body || "Neues Angebot.",
-      offerCash: hasOffer ? offerCash : null,
+  try {
+    await db.transaction(async (tx) => {
+      await tx.insert(dealMessages).values({
+        id: newId("msg"),
+        dealId,
+        authorId: me.id,
+        body: body || "Neues Angebot.",
+        offerCash: hasOffer ? offerCash : null,
+      });
+
+      if (hasOffer) {
+        // Der Betrag darf nur wechseln, solange der Tausch offen ist. Die
+        // Bedingung steht in der Abfrage, nicht in einer vorher gelesenen
+        // Kopie — sonst überschreibt eine gleichzeitige Zusage den Zustand.
+        const changed = await tx
+          .update(deals)
+          .set({ cashDelta: offerCash!, status: "verhandlung", updatedAt: new Date() })
+          .where(and(eq(deals.id, dealId), inArray(deals.status, OPEN)))
+          .returning({ id: deals.id });
+        if (!changed.length) {
+          throw new DealConflict(
+            "Der Tausch hat inzwischen den Zustand gewechselt — bitte die Seite neu laden.",
+          );
+        }
+      } else {
+        await tx
+          .update(deals)
+          .set({ status: "verhandlung", updatedAt: new Date() })
+          .where(and(eq(deals.id, dealId), eq(deals.status, "vorschlag")));
+        await tx.update(deals).set({ updatedAt: new Date() }).where(eq(deals.id, dealId));
+      }
     });
-    await tx
-      .update(deals)
-      .set({
-        cashDelta: hasOffer ? offerCash! : deal.cashDelta,
-        status: deal.status === "vorschlag" ? "verhandlung" : deal.status,
-        updatedAt: new Date(),
-      })
-      .where(eq(deals.id, dealId));
-  });
+  } catch (err) {
+    if (err instanceof DealConflict) return { error: err.message };
+    throw err;
+  }
 
   const otherId = deal.initiatorId === me.id ? deal.counterpartyId : deal.initiatorId;
   await notify(
@@ -234,21 +275,98 @@ export async function acceptDealAction(dealId: string): Promise<ActionResult> {
     return { error: "Du hast das aktuelle Angebot selbst gemacht — die Gegenseite ist am Zug." };
   }
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(deals)
-      .set({ status: "angenommen", acceptedAt: new Date(), updatedAt: new Date() })
-      .where(eq(deals.id, dealId));
-    // Beide Inserate aus dem Markt nehmen, solange der Tausch läuft
-    await tx
-      .update(listings)
-      .set({ status: "in verhandlung", updatedAt: new Date() })
-      .where(eq(listings.vehicleId, deal.toVehicleId));
-    await tx
-      .update(listings)
-      .set({ status: "in verhandlung", updatedAt: new Date() })
-      .where(eq(listings.vehicleId, deal.fromVehicleId));
-  });
+  // Gehören beide Fahrzeuge noch den Personen, über die hier verhandelt wird?
+  const owners = await db
+    .select({ id: vehicles.id, ownerId: vehicles.ownerId })
+    .from(vehicles)
+    .where(inArray(vehicles.id, [deal.fromVehicleId, deal.toVehicleId]));
+  const fromOwner = owners.find((v) => v.id === deal.fromVehicleId)?.ownerId;
+  const toOwner = owners.find((v) => v.id === deal.toVehicleId)?.ownerId;
+  if (fromOwner !== deal.initiatorId || toOwner !== deal.counterpartyId) {
+    return { error: "Eines der Fahrzeuge hat inzwischen den Besitzer gewechselt." };
+  }
+
+  // Steckt eines der Fahrzeuge schon in einem verbindlichen Tausch? Die
+  // Sperrtabelle fängt das ohnehin ab; diese Abfrage gilt zusätzlich für
+  // Tausche, die vor der Einführung der Sperren zugesagt wurden.
+  const gebunden = await db
+    .select({ id: deals.id })
+    .from(deals)
+    .where(
+      and(
+        ne(deals.id, dealId),
+        inArray(deals.status, ["angenommen", "treuhand", "abwicklung"]),
+        or(
+          inArray(deals.fromVehicleId, [deal.fromVehicleId, deal.toVehicleId]),
+          inArray(deals.toVehicleId, [deal.fromVehicleId, deal.toVehicleId]),
+        ),
+      ),
+    )
+    .limit(1);
+  if (gebunden.length) {
+    return {
+      error:
+        "Eines der beiden Fahrzeuge steckt bereits in einem anderen zugesagten Tausch. " +
+        "Dieser muss zuerst abgeschlossen oder abgebrochen werden.",
+    };
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      // Der angenommene Betrag muss der sein, der beim Laden der Seite galt.
+      // Ein gleichzeitig eintreffendes Gegenangebot darf die Zusage nicht
+      // stillschweigend auf einen anderen Betrag umbiegen. (Auf updatedAt
+      // lässt sich nicht vergleichen: Postgres speichert Mikrosekunden,
+      // die JS-Seite sieht nur Millisekunden.)
+      const moved = await tx
+        .update(deals)
+        .set({ status: "angenommen", acceptedAt: new Date(), updatedAt: new Date() })
+        .where(
+          and(
+            eq(deals.id, dealId),
+            inArray(deals.status, OPEN),
+            eq(deals.cashDelta, deal.cashDelta),
+          ),
+        )
+        .returning({ id: deals.id });
+      if (!moved.length) {
+        throw new DealConflict(
+          "Der Vorschlag hat sich inzwischen geändert. Bitte die Seite neu laden und den " +
+            "aktuellen Stand ansehen.",
+        );
+      }
+
+      // Fahrzeugsperre: der Primärschlüssel auf der Fahrzeug-ID lässt eine
+      // zweite, gleichzeitige Zusage für dasselbe Auto auflaufen.
+      await tx.insert(dealVehicleLocks).values([
+        { vehicleId: deal.fromVehicleId, dealId },
+        { vehicleId: deal.toVehicleId, dealId },
+      ]);
+
+      // Beide Inserate aus dem Markt nehmen, solange der Tausch läuft
+      await tx
+        .update(listings)
+        .set({ status: "in verhandlung", updatedAt: new Date() })
+        .where(
+          and(
+            inArray(listings.vehicleId, [deal.fromVehicleId, deal.toVehicleId]),
+            inArray(listings.status, ["aktiv", "pausiert", "getauscht"]),
+          ),
+        );
+    });
+  } catch (err) {
+    if (err instanceof DealConflict) return { error: err.message };
+    if (isUniqueViolation(err)) {
+      return {
+        error:
+          "Eines der beiden Fahrzeuge steckt bereits in einem anderen zugesagten Tausch. " +
+          "Dieser muss zuerst abgeschlossen oder abgebrochen werden.",
+      };
+    }
+    console.error("Zusage fehlgeschlagen:", err);
+    return { error: "Die Zusage hat nicht geklappt. Bitte die Seite neu laden und erneut versuchen." };
+  }
+
   await addSystemMessage(dealId, me.id, `${me.name} hat das Angebot angenommen.`);
 
   const otherId = deal.initiatorId === me.id ? deal.counterpartyId : deal.initiatorId;
@@ -269,10 +387,13 @@ export async function rejectDealAction(dealId: string): Promise<ActionResult> {
   if (!deal) return { error: "Tausch nicht gefunden." };
   if (!OPEN.includes(deal.status)) return { error: "Dieser Vorschlag ist nicht mehr offen." };
 
-  await db
+  const rejected = await db
     .update(deals)
     .set({ status: "abgelehnt", updatedAt: new Date() })
-    .where(eq(deals.id, dealId));
+    .where(and(eq(deals.id, dealId), inArray(deals.status, OPEN)))
+    .returning({ id: deals.id });
+  if (!rejected.length) return { error: "Dieser Vorschlag ist nicht mehr offen." };
+
   await addSystemMessage(dealId, me.id, `${me.name} hat den Vorschlag abgelehnt.`);
 
   revalidatePath(`/deals/${dealId}`);
@@ -287,9 +408,46 @@ export async function cancelDealAction(dealId: string): Promise<ActionResult> {
   const me = await requireUser();
   const deal = await loadDeal(dealId, me.id);
   if (!deal) return { error: "Tausch nicht gefunden." };
+  if (deal.status === "abwicklung") {
+    return { error: "Der Ausgleich wird gerade ausgezahlt — ein Abbruch ist jetzt nicht mehr möglich." };
+  }
   if (deal.status !== "angenommen" && deal.status !== "treuhand") {
     return { error: "In diesem Zustand ist kein Abbruch nötig." };
   }
+
+  // Statuswechsel, Sperren und Inserate gehören in dieselbe Transaktion:
+  // bricht der Vorgang dazwischen ab, wären die Fahrzeuge sonst dauerhaft
+  // gesperrt, ohne dass ein zweiter Abbruch noch möglich wäre.
+  try {
+    await db.transaction(async (tx) => {
+      const cancelled = await tx
+        .update(deals)
+        .set({ status: "storniert", updatedAt: new Date() })
+        .where(and(eq(deals.id, dealId), inArray(deals.status, ["angenommen", "treuhand"])))
+        .returning({ id: deals.id });
+      if (!cancelled.length) {
+        throw new DealConflict(
+          "Der Tausch lässt sich gerade nicht abbrechen. Bitte die Seite neu laden.",
+        );
+      }
+      await tx.delete(dealVehicleLocks).where(eq(dealVehicleLocks.dealId, dealId));
+      await tx
+        .update(listings)
+        .set({ status: "aktiv", updatedAt: new Date() })
+        .where(
+          and(
+            inArray(listings.vehicleId, [deal.fromVehicleId, deal.toVehicleId]),
+            eq(listings.status, "in verhandlung"),
+          ),
+        );
+    });
+  } catch (err) {
+    if (err instanceof DealConflict) return { error: err.message };
+    throw err;
+  }
+  await addSystemMessage(dealId, me.id, `${me.name} hat den Tausch abgebrochen.`);
+  revalidatePath(`/deals/${dealId}`);
+  revalidatePath("/markt");
 
   const [payment] = await db
     .select()
@@ -303,30 +461,16 @@ export async function cancelDealAction(dealId: string): Promise<ActionResult> {
       await releaseAuthorization(payment);
     } catch (err) {
       console.error("Freigabe der Zahlung fehlgeschlagen:", err);
+      await markPayment(payment.id, payment.status, `Freigabe nach Abbruch fehlgeschlagen: ${err}`);
       return {
         error:
-          "Die hinterlegte Zahlung konnte nicht freigegeben werden. Bitte melde dich beim Support, " +
-          "bevor du es erneut versuchst.",
+          "Der Tausch ist abgebrochen. Die hinterlegte Zahlung liess sich dabei nicht sofort " +
+          "freigeben — eine Reservierung verfällt von selbst, bei einem bereits eingezogenen " +
+          "Betrag meldet sich der Support.",
       };
     }
   }
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(deals)
-      .set({ status: "storniert", updatedAt: new Date() })
-      .where(eq(deals.id, dealId));
-    for (const vehicleId of [deal.fromVehicleId, deal.toVehicleId]) {
-      await tx
-        .update(listings)
-        .set({ status: "aktiv", updatedAt: new Date() })
-        .where(and(eq(listings.vehicleId, vehicleId), eq(listings.status, "in verhandlung")));
-    }
-  });
-  await addSystemMessage(dealId, me.id, `${me.name} hat den Tausch abgebrochen.`);
-
-  revalidatePath(`/deals/${dealId}`);
-  revalidatePath("/markt");
   return { ok: true };
 }
 
@@ -346,10 +490,12 @@ export async function startEscrowAction(dealId: string): Promise<ActionResult> {
 
   // Ohne Wertdifferenz gibt es nichts zu hinterlegen
   if (!parties) {
-    await db
+    const moved = await db
       .update(deals)
       .set({ status: "treuhand", escrowAt: new Date(), updatedAt: new Date() })
-      .where(eq(deals.id, dealId));
+      .where(and(eq(deals.id, dealId), eq(deals.status, "angenommen")))
+      .returning({ id: deals.id });
+    if (!moved.length) return { error: "Der Tausch ist nicht mehr im Zustand «angenommen»." };
     await addSystemMessage(dealId, me.id, "Kein Ausgleich nötig — weiter zur Übergabe.");
     revalidatePath(`/deals/${dealId}`);
     return { ok: true };
@@ -362,6 +508,22 @@ export async function startEscrowAction(dealId: string): Promise<ActionResult> {
     return {
       error:
         "Zahlungen sind auf dieser Installation noch nicht eingerichtet (STRIPE_SECRET_KEY fehlt).",
+    };
+  }
+
+  // Die Gegenseite muss das Geld auch empfangen können. Wird das erst beim
+  // Einzug geprüft, liegt der Betrag hinterher auf dem Plattformkonto fest.
+  if (!(await payoutReady(parties.payeeId))) {
+    await notify(
+      parties.payeeId,
+      "CarSwap: Auszahlungskonto einrichten",
+      "Für euren Tausch steht die Treuhand-Einzahlung an. Damit der Ausgleich bei dir ankommt, " +
+        `richte bitte zuerst dein Auszahlungskonto ein.\n\n${siteUrl()}/konto\n`,
+    );
+    return {
+      error:
+        "Die Gegenseite hat ihr Auszahlungskonto noch nicht eingerichtet. Wir haben sie eben " +
+        "benachrichtigt — sobald das erledigt ist, kannst du einzahlen.",
     };
   }
 
@@ -388,21 +550,38 @@ export async function confirmHandoverAction(dealId: string): Promise<ActionResul
   const me = await requireUser();
   const deal = await loadDeal(dealId, me.id);
   if (!deal) return { error: "Tausch nicht gefunden." };
-  if (deal.status !== "treuhand") {
+  // «abwicklung» heisst: beide haben bestätigt und die Auszahlung läuft oder
+  // ist steckengeblieben. Ein erneuter Aufruf setzt dort fort, statt den
+  // Tausch in diesem Zustand einzusperren.
+  if (deal.status !== "treuhand" && deal.status !== "abwicklung") {
     return { error: "Die Übergabe lässt sich erst nach der Treuhand-Einzahlung bestätigen." };
   }
 
   const iAmInitiator = deal.initiatorId === me.id;
-  const updated = await db
+
+  // Nur setzen, wenn die eigene Bestätigung wirklich noch fehlt. Ein zweiter
+  // Klick läuft damit ins Leere, statt den Abschluss ein zweites Mal zu starten.
+  const confirmed = await db
     .update(deals)
     .set({
       ...(iAmInitiator ? { initiatorConfirmed: true } : { counterpartyConfirmed: true }),
       updatedAt: new Date(),
     })
-    .where(eq(deals.id, dealId))
-    .returning();
-  const fresh = updated[0];
-  await addSystemMessage(dealId, me.id, `${me.name} hat die Übergabe bestätigt.`);
+    .where(
+      and(
+        eq(deals.id, dealId),
+        eq(deals.status, "treuhand"),
+        eq(iAmInitiator ? deals.initiatorConfirmed : deals.counterpartyConfirmed, false),
+      ),
+    )
+    .returning({ id: deals.id });
+
+  if (confirmed.length) {
+    await addSystemMessage(dealId, me.id, `${me.name} hat die Übergabe bestätigt.`);
+  }
+
+  const [fresh] = await db.select().from(deals).where(eq(deals.id, dealId)).limit(1);
+  if (!fresh) return { error: "Tausch nicht gefunden." };
 
   if (!fresh.initiatorConfirmed || !fresh.counterpartyConfirmed) {
     const otherId = iAmInitiator ? deal.counterpartyId : deal.initiatorId;
@@ -415,60 +594,236 @@ export async function confirmHandoverAction(dealId: string): Promise<ActionResul
     return { ok: true };
   }
 
-  // Beide haben bestätigt: Geld einziehen und weiterleiten
+  const result = await settleDeal(fresh, me.id);
+  revalidatePath(`/deals/${dealId}`);
+  revalidatePath("/garage");
+  return result;
+}
+
+/**
+ * Wickelt einen beidseitig bestätigten Tausch ab: Geld einziehen, weiterleiten,
+ * danach die Fahrzeuge umschreiben. Schlägt ein Schritt fehl, bleibt der Tausch
+ * in der Treuhandphase und lässt sich erneut anstossen — die Fahrzeuge wechseln
+ * erst, wenn das Geld tatsächlich beim Empfänger ist.
+ */
+async function settleDeal(deal: DealRow, actorId: string): Promise<ActionResult> {
+  const parties = paymentParties(deal);
+
+  if (!parties) {
+    const claimed = await claimForSettlement(deal.id);
+    if (!claimed) return { ok: true };
+    try {
+      await completeDeal(claimed);
+    } catch (err) {
+      await releaseSettlement(deal.id);
+      console.error(`Abschluss von Tausch ${deal.id} fehlgeschlagen:`, err);
+      return { error: "Der Abschluss hat nicht geklappt. Bitte die Seite neu laden." };
+    }
+    return { ok: true };
+  }
+
   const [payment] = await db
     .select()
     .from(payments)
-    .where(eq(payments.dealId, dealId))
+    .where(eq(payments.dealId, deal.id))
     .orderBy(desc(payments.createdAt))
     .limit(1);
 
-  if (payment && stripeConfigured()) {
-    try {
-      await captureAndPayout(payment);
-    } catch (err) {
-      console.error("Auszahlung fehlgeschlagen:", err);
-      return {
-        error:
-          "Die Übergabe ist vermerkt, aber die Auszahlung ist fehlgeschlagen. " +
-          "Der Support kümmert sich darum — der Betrag ist sicher hinterlegt.",
-      };
+  // Eine Reservierung, die älter als die Stripe-Frist ist, gilt als verfallen —
+  // auch wenn das Stornierungsereignis noch nicht angekommen ist.
+  const abgelaufen =
+    payment?.status === "autorisiert" &&
+    (authorizationExpiresAt(payment)?.getTime() ?? Infinity) < Date.now();
+
+  const usable =
+    payment &&
+    !abgelaufen &&
+    (payment.status === "autorisiert" ||
+      payment.status === "eingezogen" ||
+      payment.status === "ausgezahlt");
+
+  if (!usable) {
+    // Reservierung verfallen, storniert oder gar nie bezahlt: zurück in die
+    // Zusage, damit der Ausgleich neu hinterlegt werden kann. Auf keinen Fall
+    // die Fahrzeuge umschreiben.
+    const zurueck = await db
+      .update(deals)
+      .set({
+        status: "angenommen",
+        escrowAt: null,
+        initiatorConfirmed: false,
+        counterpartyConfirmed: false,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(deals.id, deal.id), eq(deals.status, "treuhand")))
+      .returning({ id: deals.id });
+    if (!zurueck.length) {
+      // Die Gegenseite war schneller — der Tausch wird gerade abgewickelt
+      // oder wurde abgebrochen. Dann ist hier nichts zu melden.
+      return { ok: true };
     }
+    await addSystemMessage(
+      deal.id,
+      actorId,
+      "Die hinterlegte Zahlung ist nicht mehr gültig. Der Ausgleich muss neu eingezahlt werden, " +
+        "bevor der Tausch abgeschlossen werden kann.",
+    );
+    return {
+      error:
+        "Die hinterlegte Zahlung ist nicht mehr gültig — eine Reservierung verfällt nach sieben " +
+        "Tagen. Bitte den Ausgleich erneut einzahlen.",
+    };
   }
 
-  await completeDeal(fresh);
-  revalidatePath(`/deals/${dealId}`);
-  revalidatePath("/garage");
+  if (!stripeConfigured()) {
+    return { error: "Zahlungen sind auf dieser Installation nicht eingerichtet." };
+  }
+
+  const claimed = await claimForSettlement(deal.id);
+  if (!claimed) {
+    // Die Gegenseite hat die Abwicklung im selben Moment angestossen.
+    return { ok: true };
+  }
+
+  let settled;
+  try {
+    settled = await captureAndPayout(payment);
+  } catch (err) {
+    await releaseSettlement(deal.id);
+    if (err instanceof PayoutBlockedError) {
+      await notify(
+        payment.payeeId,
+        "CarSwap: Auszahlungskonto fehlt noch",
+        "Euer Tausch ist übergeben und der Ausgleich liegt bereit. Sobald du dein " +
+          `Auszahlungskonto eingerichtet hast, wird er ausgezahlt.\n\n${siteUrl()}/konto\n`,
+      );
+      return {
+        error:
+          "Der Ausgleich kann noch nicht ausgezahlt werden, weil das Auszahlungskonto der " +
+          "Gegenseite fehlt. Wir haben sie benachrichtigt — danach lässt sich die Übergabe " +
+          "erneut bestätigen.",
+      };
+    }
+    if (err instanceof PaymentStateError) {
+      console.error(`Zahlung zu Tausch ${deal.id} nicht abwickelbar:`, err);
+      return { error: err.message + " Bitte den Ausgleich neu einzahlen." };
+    }
+    console.error("Auszahlung fehlgeschlagen:", err);
+    return {
+      error:
+        "Die Auszahlung ist fehlgeschlagen. Der Betrag ist sicher hinterlegt und die Fahrzeuge " +
+        "sind noch nicht umgeschrieben — bitte in ein paar Minuten erneut bestätigen.",
+    };
+  }
+
+  if (settled.status !== "ausgezahlt") {
+    await releaseSettlement(deal.id);
+    return {
+      error:
+        "Die Auszahlung ist nicht vollständig durchgelaufen. Die Fahrzeuge sind noch nicht " +
+        "umgeschrieben — bitte erneut bestätigen.",
+    };
+  }
+
+  try {
+    await completeDeal(claimed);
+  } catch (err) {
+    // Das Geld ist bereits beim Empfänger. Der Tausch bleibt in «abwicklung»
+    // und lässt sich erneut anstossen — freigeben wäre hier falsch.
+    console.error(`Abschluss von Tausch ${deal.id} nach erfolgter Auszahlung fehlgeschlagen:`, err);
+    return {
+      error:
+        "Der Ausgleich ist ausgezahlt, das Umschreiben der Fahrzeuge hat aber nicht geklappt. " +
+        "Bitte gleich erneut bestätigen — hilft das nicht, meldet sich der Support.",
+    };
+  }
   return { ok: true };
 }
 
-/** Schliesst den Tausch ab: Halterwechsel, Inserate schliessen, Zähler hoch. */
+/** Übernimmt einen beidseitig bestätigten Tausch exklusiv zur Abwicklung. */
+async function claimForSettlement(dealId: string): Promise<DealRow | null> {
+  const rows = await db
+    .update(deals)
+    .set({ status: "abwicklung", updatedAt: new Date() })
+    .where(
+      and(
+        eq(deals.id, dealId),
+        inArray(deals.status, ["treuhand", "abwicklung"]),
+        eq(deals.initiatorConfirmed, true),
+        eq(deals.counterpartyConfirmed, true),
+      ),
+    )
+    .returning();
+  return rows[0] ?? null;
+}
+
+/** Gibt einen zur Abwicklung übernommenen Tausch wieder frei. */
+async function releaseSettlement(dealId: string): Promise<void> {
+  await db
+    .update(deals)
+    .set({ status: "treuhand", updatedAt: new Date() })
+    .where(and(eq(deals.id, dealId), eq(deals.status, "abwicklung")));
+}
+
+/** Schliesst den Tausch ab: Halterwechsel, Inserate, Zähler, Sperren lösen. */
 async function completeDeal(deal: DealRow): Promise<void> {
+  const dropped: { id: string; initiatorId: string }[] = [];
+
   await db.transaction(async (tx) => {
-    await tx
+    const done = await tx
       .update(deals)
       .set({ status: "abgeschlossen", completedAt: new Date(), updatedAt: new Date() })
-      .where(eq(deals.id, deal.id));
+      .where(and(eq(deals.id, deal.id), eq(deals.status, "abwicklung")))
+      .returning({ id: deals.id });
+    if (!done.length) return;
 
-    // Die Fahrzeuge wechseln den Besitzer
-    await tx
+    // Die Fahrzeuge wechseln den Besitzer — aber nur, wenn sie noch den
+    // Personen gehören, die den Tausch geschlossen haben.
+    const fromMoved = await tx
       .update(vehicles)
       .set({ ownerId: deal.counterpartyId, updatedAt: new Date() })
-      .where(eq(vehicles.id, deal.fromVehicleId));
-    await tx
+      .where(and(eq(vehicles.id, deal.fromVehicleId), eq(vehicles.ownerId, deal.initiatorId)))
+      .returning({ id: vehicles.id });
+    const toMoved = await tx
       .update(vehicles)
       .set({ ownerId: deal.initiatorId, updatedAt: new Date() })
-      .where(eq(vehicles.id, deal.toVehicleId));
+      .where(and(eq(vehicles.id, deal.toVehicleId), eq(vehicles.ownerId, deal.counterpartyId)))
+      .returning({ id: vehicles.id });
+    if (!fromMoved.length || !toMoved.length) {
+      throw new Error(
+        `Halterwechsel für Tausch ${deal.id} abgebrochen: ein Fahrzeug gehört nicht mehr der erwarteten Person.`,
+      );
+    }
 
-    // Inserate schliessen — das neue Fahrzeug wird bei Bedarf neu eingestellt
+    // Die Inserate wandern mit. Ohne das könnte der neue Halter sein Fahrzeug
+    // nie wieder einstellen — auf listings.vehicle_id liegt ein Unique-Index.
     await tx
       .update(listings)
-      .set({ status: "getauscht", updatedAt: new Date() })
+      .set({ ownerId: deal.counterpartyId, status: "getauscht", updatedAt: new Date() })
       .where(eq(listings.vehicleId, deal.fromVehicleId));
     await tx
       .update(listings)
-      .set({ status: "getauscht", updatedAt: new Date() })
+      .set({ ownerId: deal.initiatorId, status: "getauscht", updatedAt: new Date() })
       .where(eq(listings.vehicleId, deal.toVehicleId));
+
+    // Offene Vorschläge zu denselben Fahrzeugen sind damit hinfällig
+    const others = await tx
+      .update(deals)
+      .set({ status: "storniert", updatedAt: new Date() })
+      .where(
+        and(
+          ne(deals.id, deal.id),
+          inArray(deals.status, ["vorschlag", "verhandlung"]),
+          or(
+            inArray(deals.fromVehicleId, [deal.fromVehicleId, deal.toVehicleId]),
+            inArray(deals.toVehicleId, [deal.fromVehicleId, deal.toVehicleId]),
+          ),
+        ),
+      )
+      .returning({ id: deals.id, initiatorId: deals.initiatorId });
+    dropped.push(...others);
+
+    await tx.delete(dealVehicleLocks).where(eq(dealVehicleLocks.dealId, deal.id));
 
     for (const userId of [deal.initiatorId, deal.counterpartyId]) {
       await tx
@@ -477,4 +832,13 @@ async function completeDeal(deal: DealRow): Promise<void> {
         .where(eq(users.id, userId));
     }
   });
+
+  for (const other of dropped) {
+    await addSystemMessage(
+      other.id,
+      other.initiatorId,
+      "Eines der beiden Fahrzeuge wurde inzwischen anders getauscht — dieser Vorschlag ist hinfällig.",
+    );
+  }
+  if (dropped.length) revalidatePath("/deals");
 }

@@ -76,6 +76,25 @@ npm run db:seed -- --confirm   # 10 Konten, 19 Fahrzeuge mit Inseraten
 Weitere Skripte: `npm run build`, `npm run typecheck`, `npm run db:generate`
 (Migration aus dem Schema erzeugen), `npm run db:studio`.
 
+### Tests
+
+```bash
+createdb carswap_test
+TEST_DATABASE_URL=postgres://…/carswap_test npm run db:migrate
+TEST_DATABASE_URL=postgres://…/carswap_test npm test
+```
+
+Die Tests laufen gegen eine echte Postgres-Datenbank und leeren zwischen den
+Fällen alle Tabellen. Damit das nie die Entwicklungsdatenbank trifft, verlangt
+der Testlauf `TEST_DATABASE_URL` (oder ein `DATABASE_URL`, dessen Datenbankname
+auf `_test` endet) und bricht sonst ab. Wer die Variable nicht jedes Mal setzen
+will, legt eine gitignorierte `.env.test` an. `.github/workflows/ci.yml` führt
+Typprüfung, Migration, Tests und Build bei jedem Push aus.
+
+Abgedeckt sind die Stellen, an denen Fehler Geld kosten: die Zustandsmaschine
+des Tauschs samt gleichzeitiger Zugriffe, `captureAndPayout()` gegen ein
+Stripe-Doppel, die Gebührenrechnung und die Webhook-Ereignisse.
+
 ### Datenbank
 
 Jede PostgreSQL-Instanz ab Version 14 genügt; die Anwendung spricht sie über
@@ -143,9 +162,22 @@ Der Ablauf ist "separate charges and transfers":
    **reserviert**, nicht eingezogen.
 2. Der Webhook `/api/stripe/webhook` prüft die Signatur, ist über die Tabelle
    `webhook_events` idempotent und setzt den Vorgang auf «Treuhand».
-3. Bestätigen beide Seiten die Übergabe, zieht `captureAndPayout()` den Betrag
-   ein und überweist ihn per Stripe Connect an die Gegenseite.
-4. Bricht jemand ab, wird die Autorisierung freigegeben bzw. erstattet.
+3. Bestätigen beide Seiten die Übergabe, geht der Vorgang in den Zustand
+   «Abwicklung»: `captureAndPayout()` zieht den Betrag ein und überweist ihn
+   per Stripe Connect an die Gegenseite. **Erst wenn das Geld beim Empfänger
+   ist, wechseln die Fahrzeuge den Halter.** Ein Abbruch ist ab diesem Punkt
+   gesperrt; bleibt die Abwicklung hängen, setzt ein erneutes Bestätigen sie
+   fort.
+4. Bricht jemand vorher ab, wird die Autorisierung freigegeben bzw. erstattet.
+
+Die Kartengebühr trägt der Zahlende: `platformFee()` rechnet den Betrag hoch,
+sodass beim Empfänger genau der vereinbarte Ausgleich ankommt. Die Sätze lassen
+sich über `PLATFORM_FEE_PERCENT` (Vorgabe 2.9) und `PLATFORM_FEE_FIXED_MINOR`
+(Vorgabe 30 Rappen) anpassen — Karten von ausserhalb Europas kosten Stripe mehr,
+die Differenz bliebe sonst an der Plattform hängen.
+
+Die Gegenseite muss ihr Auszahlungskonto eingerichtet haben, **bevor** eingezahlt
+werden kann. Sonst läge das Geld später auf dem Plattformkonto fest.
 
 Auszahlungen brauchen ein Stripe-Connect-Express-Konto pro Nutzer; das
 Onboarding läuft über `/konto`. Bankdaten erreichen die Anwendung nie.
@@ -215,6 +247,12 @@ Nach dem ersten Deployment:
   mitbringt.
 - **Ringtausch-Abwicklung** als atomarer Vorgang; heute lässt sich ein Ring nur
   als Kette von Einzeltauschen anstossen.
+- **Rückbuchungen** (Chargebacks) und Erstattungen nach abgeschlossenem Tausch
+  werden erkannt und beiden Seiten gemeldet, aber nicht automatisch geheilt —
+  das braucht einen Streitfall-Prozess.
+- **Auszahlungen, die am Empfängerkonto scheitern**, bleiben liegen, bis jemand
+  die Übergabe erneut bestätigt. Ein Hintergrundlauf, der das von selbst
+  wiederholt, fehlt.
 - **Missbrauchsschutz**: Meldefunktion für Inserate, Prüfung neuer Konten,
   Betrugserkennung bei auffälligen Wertdifferenzen.
 - **Nonce-basierte CSP** statt `'unsafe-inline'` für Skripte.
