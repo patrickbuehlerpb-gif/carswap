@@ -19,6 +19,20 @@ const dateSchema = z
   .optional()
   .or(z.literal(""));
 
+/** Erlaubt ausschliesslich https-Adressen aus dem Vercel-Blob-Speicher. */
+export function isBlobUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      (url.hostname.endsWith(".public.blob.vercel-storage.com") ||
+        url.hostname === "public.blob.vercel-storage.com")
+    );
+  } catch {
+    return false;
+  }
+}
+
 export const vehicleSchema = z.object({
   make: z.string().trim().min(1, "Bitte die Marke angeben.").max(40),
   model: z.string().trim().min(1, "Bitte das Modell angeben.").max(60),
@@ -48,7 +62,12 @@ export const vehicleSchema = z.object({
   photos: z
     .array(
       z.object({
-        url: z.string().url().max(500),
+        // Nur Adressen aus dem eigenen Blob-Speicher. Sonst liesse sich über
+        // ein Inserat auf beliebige fremde Server verweisen.
+        url: z
+          .string()
+          .max(500)
+          .refine(isBlobUrl, "Fotos müssen über den Upload dieser Seite hochgeladen werden."),
         width: z.coerce.number().int().min(1).max(20_000),
         height: z.coerce.number().int().min(1).max(20_000),
       }),

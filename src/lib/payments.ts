@@ -1,6 +1,6 @@
 import "server-only";
 import Stripe from "stripe";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "./db";
 import { newId } from "./db/ids";
 import { payments, users, type DealRow, type PaymentRow } from "./db/schema";
@@ -124,10 +124,37 @@ export async function createEscrowCheckout(
   const parties = paymentParties(deal);
   if (!parties) throw new Error("Für diesen Tausch ist keine Ausgleichszahlung nötig.");
 
+  const s = stripe();
+
+  // Bereits angelegte Zahlungen zu diesem Tausch prüfen: eine noch offene
+  // Session wird wiederverwendet, eine abgelaufene entwertet. Ohne das würde
+  // der Idempotenzschlüssel unten eine tote Session zurückgeben.
+  const existing = await db
+    .select()
+    .from(payments)
+    .where(eq(payments.dealId, deal.id))
+    .orderBy(desc(payments.createdAt));
+
+  for (const row of existing) {
+    if (row.status === "autorisiert" || row.status === "eingezogen" || row.status === "ausgezahlt") {
+      throw new Error("Für diesen Tausch ist bereits ein Betrag hinterlegt.");
+    }
+    if (row.status === "erstellt" && row.stripeSessionId) {
+      const session = await s.checkout.sessions.retrieve(row.stripeSessionId);
+      if (session.status === "open" && session.url) {
+        return { url: session.url, paymentId: row.id };
+      }
+      await markPayment(row.id, "storniert", "Checkout-Session nicht mehr offen");
+    }
+  }
+
   const paymentId = newId("pay");
   const amountMinor = toMinor(parties.amount);
+  // Der Versuchszähler hält den Idempotenzschlüssel eindeutig, wenn ein
+  // früherer Anlauf abgelaufen ist.
+  const attempt = existing.length + 1;
 
-  const session = await stripe().checkout.sessions.create(
+  const session = await s.checkout.sessions.create(
     {
       mode: "payment",
       client_reference_id: deal.id,
@@ -156,7 +183,7 @@ export async function createEscrowCheckout(
       expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
     },
     // Idempotenz: ein erneuter Klick erzeugt keine zweite Session
-    { idempotencyKey: `escrow:${deal.id}:${deal.cashDelta}` },
+    { idempotencyKey: `escrow:${deal.id}:${deal.cashDelta}:${attempt}` },
   );
 
   await db.insert(payments).values({

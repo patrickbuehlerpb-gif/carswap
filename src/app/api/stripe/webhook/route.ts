@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { deals, payments, users, webhookEvents } from "@/lib/db/schema";
 import { markPayment, stripe, stripeConfigured } from "@/lib/payments";
@@ -67,10 +67,31 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
       });
 
       // Der Betrag ist reserviert — der Tausch geht in die Treuhandphase.
-      await db
+      // Nur aus «angenommen»: wurde zwischenzeitlich abgebrochen, darf die
+      // Zahlung den Vorgang nicht wiederbeleben. «treuhand» ist mit erlaubt,
+      // damit ein erneut zugestelltes Ereignis nicht als Fehlschlag gilt.
+      const moved = await db
         .update(deals)
         .set({ status: "treuhand", escrowAt: new Date(), updatedAt: new Date() })
-        .where(eq(deals.id, dealId));
+        .where(
+          and(
+            eq(deals.id, dealId),
+            or(eq(deals.status, "angenommen"), eq(deals.status, "treuhand")),
+          ),
+        )
+        .returning({ id: deals.id });
+
+      if (!moved.length && intentId) {
+        // Der Tausch existiert nicht mehr im passenden Zustand — Geld sofort
+        // wieder freigeben, statt es hängen zu lassen.
+        console.warn(`Zahlung ${paymentId} ohne passenden Tausch — Autorisierung wird storniert.`);
+        try {
+          await stripe().paymentIntents.cancel(intentId);
+          await markPayment(paymentId, "storniert", "Tausch war nicht mehr im Zustand angenommen");
+        } catch (err) {
+          console.error("Stornierung fehlgeschlagen:", err);
+        }
+      }
       break;
     }
 
