@@ -2,7 +2,17 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
-import { authTokens, deals, listings, sessions, users, vehicles, watchlist } from "@/lib/db/schema";
+import {
+  authTokens,
+  deals,
+  listings,
+  payments,
+  reviews,
+  sessions,
+  users,
+  vehicles,
+  watchlist,
+} from "@/lib/db/schema";
 import { als, createUser, createVehicle, resetDatabase } from "@/test/fixtures";
 import { deleteAccountAction, exportMyDataAction } from "@/app/actions/account";
 
@@ -31,6 +41,26 @@ async function kontoMitAllem() {
   });
   const [inseratB] = await db.select().from(listings).where(eq(listings.vehicleId, vb));
   await db.insert(watchlist).values({ userId: a, listingId: inseratB.id });
+
+  // Eine Bewertung über Anna — sie gehört in die Auskunft
+  const bewertungsDeal = newId("dl");
+  await db.insert(deals).values({
+    id: bewertungsDeal,
+    fromVehicleId: va,
+    toVehicleId: vb,
+    initiatorId: a,
+    counterpartyId: b,
+    cashDelta: 0,
+    status: "abgeschlossen",
+  });
+  await db.insert(reviews).values({
+    id: newId("rev"),
+    dealId: bewertungsDeal,
+    authorId: b,
+    subjectId: a,
+    stars: 5,
+    body: "Alles bestens",
+  });
   return { a, b, va, vb };
 }
 
@@ -46,6 +76,7 @@ describe("Auskunft", () => {
     expect(daten.konto.passwordHash).toBeUndefined();
     expect(daten.fahrzeuge).toHaveLength(1);
     expect(daten.merkliste).toHaveLength(1);
+    expect(daten.bewertungen).toHaveLength(1);
   });
 
   it("verlangt eine Anmeldung", async () => {
@@ -102,6 +133,45 @@ describe("Kontolöschung", () => {
     expect(res.error).toMatch(/verbindlich zugesagter Tausch/);
     const [row] = await db.select().from(users).where(eq(users.id, a));
     expect(row.deletedAt).toBeNull();
+  });
+
+  it("verweigert die Löschung, solange Geld unterwegs ist", async () => {
+    const { a, b, va, vb } = await kontoMitAllem();
+    const dealId = newId("dl");
+    await db.insert(deals).values({
+      id: dealId,
+      fromVehicleId: va,
+      toVehicleId: vb,
+      initiatorId: a,
+      counterpartyId: b,
+      cashDelta: 3000,
+      // Der Tausch ist abgebrochen — die Zahlung kann trotzdem offen sein,
+      // etwa wenn die Freigabe bei Stripe gescheitert ist.
+      status: "storniert",
+    });
+    await db.insert(payments).values({
+      id: newId("pay"),
+      dealId,
+      payerId: a,
+      payeeId: b,
+      amountMinor: 300_000,
+      status: "autorisiert",
+    });
+
+    als(a);
+    const res = await deleteAccountAction("LÖSCHEN");
+    expect(res.error).toMatch(/hinterlegt oder unterwegs/);
+    const [row] = await db.select().from(users).where(eq(users.id, a));
+    expect(row.deletedAt).toBeNull();
+  });
+
+  it("löst den Verweis auf das Auszahlungskonto", async () => {
+    const a = await createUser("Anna", { stripeAccountId: "acct_x", stripePayoutsEnabled: true });
+    als(a);
+    expect((await deleteAccountAction("LÖSCHEN")).error).toBeUndefined();
+    const [row] = await db.select().from(users).where(eq(users.id, a));
+    expect(row.stripeAccountId).toBeNull();
+    expect(row.stripePayoutsEnabled).toBe(false);
   });
 
   it("zieht offene Vorschläge zurück", async () => {

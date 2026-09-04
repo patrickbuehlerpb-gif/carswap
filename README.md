@@ -34,17 +34,19 @@ Ausgleichszahlungen summieren sich zu null.
 `src/lib/valuation.ts` enthält ein nachvollziehbares Modell statt einer Black
 Box. Der Wert entsteht aus:
 
-1. **Restwertkurve** `r(t) = exp(−λ · t^0.7)`, wobei λ vom Antrieb abhängt
+1. **Zulassungsverlust** von 12 %: ein Fahrzeug wird in dem Moment vom Neu-
+   zum Gebrauchtwagen, in dem es eingelöst wird.
+2. **Restwertkurve** `r(t) = exp(−λ · t^0.7)`, wobei λ vom Antrieb abhängt
    (Elektro verliert schneller als Diesel) und mit einem Markenfaktor
    multipliziert wird.
-2. **Laufleistungskorrektur** gegen eine Norm von 15'000 km/Jahr, gedeckelt
+3. **Laufleistungskorrektur** gegen eine Norm von 15'000 km/Jahr, gedeckelt
    auf ±18 %.
-3. **Multiplikative Faktoren**: Zustand, Serviceheft, Anzahl Halter,
+4. **Multiplikative Faktoren**: Zustand, Serviceheft, Anzahl Halter,
    Unfallschaden und — beim Stromer — der Batteriezustand (SoH).
-4. **Absolute Abschläge** für bekannte Mängel.
-5. **Marktindex** je Antriebssegment, auf den Stichtag normiert.
-6. **Deckel** auf den Neupreis — ein gebrauchtes Fahrzeug ist nie mehr wert
-   als ein neues.
+5. **Absolute Abschläge** für bekannte Mängel.
+6. **Marktindex** je Antriebssegment, auf den Stichtag normiert.
+7. **Deckel** auf den Neupreis als Sicherung — er gilt für den Wert, die
+   Spanne und das Prognoseband gleichermassen.
 
 Die **Ausstattung geht nicht als eigener Posten ein**. Der eingetragene
 Neupreis ist der Preis der konfigurierten Version, die Sonderausstattung steckt

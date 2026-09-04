@@ -14,7 +14,7 @@ import type { Body, Condition, Fuel, ServiceHistory, Vehicle, VehiclePhoto } fro
 import { MAKE_NAMES, modelsFor } from "@/lib/data/catalog";
 import { featuresFor, normalizeFeatures } from "@/lib/data/features";
 import { BODIES, CONDITIONS, DRIVETRAINS, FUELS, SERVICE_HISTORIES } from "@/lib/validation";
-import { valuate, valueHistory } from "@/lib/valuation";
+import { hasValuationInput, valuate, valueHistory } from "@/lib/valuation";
 
 export interface ListingFormValues {
   make: string;
@@ -179,8 +179,11 @@ export function ListingForm({
     };
   }, [v, vehicleId, asOf]);
 
-  const valuation = preview ? valuate(preview, asOf) : null;
-  const history = preview ? valueHistory(preview, 18, 12, asOf) : null;
+  // Ohne brauchbare Erstzulassung und Neupreis gibt es keine Vorschau —
+  // sonst zeigte das Formular einen Wert, der auf nichts beruht.
+  const bewertbar = preview !== null && hasValuationInput(preview);
+  const valuation = bewertbar ? valuate(preview!, asOf) : null;
+  const history = bewertbar ? valueHistory(preview!, 18, 12, asOf) : null;
 
   async function handleFiles(files: FileList | null) {
     if (!files?.length) return;

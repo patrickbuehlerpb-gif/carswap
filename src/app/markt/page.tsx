@@ -49,7 +49,7 @@ export default async function MarktPage() {
           {gesamt > pool.length && (
             <p className="mb-4 rounded-lg border border-line bg-surface-2 px-4 py-2.5 text-xs text-ink-2">
               Es stehen {gesamt} Fahrzeuge zum Tausch. Angezeigt werden die {MARKTPOOL_LIMIT}{" "}
-              neuesten — grenze die Suche über die Filter ein, um die übrigen zu erreichen.
+              neuesten; die Filter arbeiten innerhalb dieser Auswahl.
             </p>
           )}
           <MarketBrowser

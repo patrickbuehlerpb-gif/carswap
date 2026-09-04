@@ -159,21 +159,24 @@ const ICE_INDEX: Array<[string, number]> = [
 ];
 
 function marketIndex(month: string, fuel: Fuel): number {
-  const table = fuel === "elektro" ? EV_INDEX : fuel === "hybrid" ? EV_INDEX : ICE_INDEX;
+  const table = fuel === "elektro" || fuel === "hybrid" ? EV_INDEX : ICE_INDEX;
   const t = monthsBetween("2020-01-01", `${month}-01`);
   const pts = table.map(([m, v]) => [monthsBetween("2020-01-01", `${m}-01`), v] as const);
 
+  const roh = interpoliere(t, pts);
+  // Hybride bewegen sich nur halb so stark wie reine Stromer. Die Dämpfung
+  // steht bewusst an einer einzigen Stelle: früher fehlte sie in den beiden
+  // Randfällen, was am Tabellenende eine Stufe mitten in die Kurve setzte.
+  return fuel === "hybrid" ? 1 + (roh - 1) * 0.5 : roh;
+}
+
+function interpoliere(t: number, pts: ReadonlyArray<readonly [number, number]>): number {
   if (t <= pts[0][0]) return pts[0][1];
   if (t >= pts[pts.length - 1][0]) return pts[pts.length - 1][1];
   for (let i = 0; i < pts.length - 1; i++) {
     const [t0, v0] = pts[i];
     const [t1, v1] = pts[i + 1];
-    if (t >= t0 && t <= t1) {
-      const f = (t - t0) / (t1 - t0);
-      const raw = v0 + (v1 - v0) * f;
-      // Hybride bewegen sich nur halb so stark wie reine Stromer
-      return fuel === "hybrid" ? 1 + (raw - 1) * 0.5 : raw;
-    }
+    if (t >= t0 && t <= t1) return v0 + (v1 - v0) * ((t - t0) / (t1 - t0));
   }
   return 1;
 }
@@ -182,11 +185,19 @@ function marketIndex(month: string, fuel: Fuel): number {
 /* Kernbewertung                                                       */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Anteil, der schon mit der Zulassung verloren geht. Ein Fahrzeug wird in dem
+ * Moment vom Neu- zum Gebrauchtwagen, in dem es eingelöst wird — ohne diesen
+ * Sprung stünde ein einen Monat altes, gepflegtes Auto rechnerisch über dem
+ * Listenpreis, und die Restwertkurve begänne waagrecht.
+ */
+const ZULASSUNGSVERLUST = 0.12;
+
 /** Restwertquote nach t Jahren, rein altersbedingt. */
 function retention(ageYears: number, fuel: Fuel, make: string): number {
   const lambda = LAMBDA[fuel] * (BRAND_STRENGTH[make] ?? 1);
   const t = Math.max(0, ageYears);
-  return Math.exp(-lambda * Math.pow(t, 0.7));
+  return (1 - ZULASSUNGSVERLUST) * Math.exp(-lambda * Math.pow(t, 0.7));
 }
 
 /**
@@ -241,11 +252,19 @@ export function valueAt(vehicle: Vehicle, atMonth?: string, asOf?: string): numb
   // leichtes, aber stabiles Marktrauschen (±1.2 %)
   value *= 1 + noise(`${vehicle.id}:${month}`) * 0.012;
 
-  // Ein gebrauchtes Fahrzeug ist höchstens so viel wert wie ein neues. Ohne
-  // diesen Deckel hoben Zustand «neuwertig», lückenloses Serviceheft und
-  // Ausstattung den Schätzwert eines fast neuen Autos über den Listenpreis.
-  const capped = Math.min(value, vehicle.listPriceNew);
-  return Math.max(500, Math.round(capped / 50) * 50);
+  return deckeln(value, vehicle.listPriceNew);
+}
+
+/**
+ * Ein gebrauchtes Fahrzeug ist höchstens so viel wert wie ein neues. Seit die
+ * Kurve den Zulassungsverlust enthält, greift der Deckel praktisch nie — er
+ * bleibt als Sicherung, damit keine Kombination von Faktoren darüber
+ * hinausschiesst. Er gilt für den Wert, die Spanne und das Prognoseband
+ * gleichermassen; sonst stünde unter einem gedeckelten Wert eine Spanne, die
+ * über dem Neupreis liegt.
+ */
+function deckeln(value: number, listPriceNew: number): number {
+  return Math.max(500, Math.round(Math.min(value, listPriceNew) / 50) * 50);
 }
 
 /** Volle Bewertung mit Aufschlüsselung für den Stichtag. */
@@ -348,8 +367,8 @@ export function valuate(vehicle: Vehicle, asOf?: string): Valuation {
   return {
     vehicleId: vehicle.id,
     value,
-    low: Math.round((value * (1 - spread)) / 50) * 50,
-    high: Math.round((value * (1 + spread)) / 50) * 50,
+    low: deckeln(value * (1 - spread), vehicle.listPriceNew),
+    high: deckeln(value * (1 + spread), vehicle.listPriceNew),
     breakdown,
     confidence,
     comparables,
@@ -366,6 +385,11 @@ export function valueHistory(
   forecastMonths = 24,
   asOf?: string,
 ): HistoryPoint[] {
+  // Ohne brauchbare Erstzulassung gäbe monthsBetween 0 zurück und das
+  // Fahrzeug erschiene in jedem Monat als fabrikneu. Lieber gar keine Kurve
+  // als eine erfundene.
+  if (!hasValuationInput(vehicle)) return [];
+
   const points: HistoryPoint[] = [];
   const today = asOfIso(asOf);
   const regMonths = monthsBetween(vehicle.firstRegistration, today);
@@ -383,8 +407,8 @@ export function valueHistory(
       points.push({
         month,
         value,
-        low: Math.round((value * (1 - band)) / 50) * 50,
-        high: Math.round((value * (1 + band)) / 50) * 50,
+        low: deckeln(value * (1 - band), vehicle.listPriceNew),
+        high: deckeln(value * (1 + band), vehicle.listPriceNew),
         forecast: true,
       });
     }

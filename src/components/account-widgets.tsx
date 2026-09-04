@@ -267,7 +267,9 @@ export function DatenUndLoeschung() {
             <p className="text-sm text-ink-2">
               Dein Konto wird gelöscht: Name, Adresse und Kontaktdaten werden entfernt, deine
               Fahrzeuge verschwinden aus dem Markt. Abgeschlossene Tausche bleiben aus
-              buchhalterischen Gründen bestehen, sind danach aber nicht mehr dir zugeordnet. Das
+              buchhalterischen Gründen bestehen, sind danach aber nicht mehr dir zugeordnet.
+              Dein Auszahlungskonto bei Stripe wird von uns getrennt; die Daten dort untersteht
+              deren gesetzlichen Aufbewahrungsfristen und müssen bei Stripe gelöscht werden. Das
               lässt sich nicht rückgängig machen.
             </p>
             <label className="block text-sm text-ink-2">

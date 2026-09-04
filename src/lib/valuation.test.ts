@@ -32,7 +32,7 @@ function fahrzeug(over: Partial<Vehicle> = {}): Vehicle {
 const STICHTAG = "2026-09";
 
 describe("Wertgrenzen", () => {
-  it("liegt nie über dem Neupreis, auch im besten Fall", () => {
+  it("liegt nie über dem Neupreis — auch Spanne und Prognoseband nicht", () => {
     const neuwertig = fahrzeug({
       firstRegistration: "2026-09-15",
       mileageKm: 0,
@@ -41,7 +41,42 @@ describe("Wertgrenzen", () => {
       batterySoh: 100,
       features: ["Panoramadach", "Anhängerkupplung", "Adaptives Fahrwerk"],
     });
-    expect(valueAt(neuwertig, undefined, STICHTAG)).toBeLessThanOrEqual(neuwertig.listPriceNew);
+    const grenze = neuwertig.listPriceNew;
+    expect(valueAt(neuwertig, undefined, STICHTAG)).toBeLessThanOrEqual(grenze);
+
+    // Eine «realistische Spanne» über dem Neupreis würde genau der Zusage
+    // widersprechen, für die der Deckel da ist.
+    const res = valuate(neuwertig, STICHTAG);
+    expect(res.high).toBeLessThanOrEqual(grenze);
+    expect(res.low).toBeLessThanOrEqual(grenze);
+
+    for (const p of valueHistory(neuwertig, 6, 12, STICHTAG)) {
+      expect(p.value, `Wert im Monat ${p.month}`).toBeLessThanOrEqual(grenze);
+      if (p.high !== undefined) expect(p.high, `Band im Monat ${p.month}`).toBeLessThanOrEqual(grenze);
+    }
+  });
+
+  it("verliert schon mit der Zulassung spürbar an Wert", () => {
+    // Ohne diesen Sprung begänne die Kurve waagrecht und der Deckel würde
+    // die ersten Monate flachdrücken.
+    const frisch = fahrzeug({ firstRegistration: "2026-09-15", mileageKm: 500 });
+    const wert = valueAt(frisch, undefined, STICHTAG);
+    expect(wert).toBeLessThan(frisch.listPriceNew * 0.95);
+    expect(wert).toBeGreaterThan(frisch.listPriceNew * 0.75);
+  });
+
+  it("zeichnet auch die ersten Monate als fallende Kurve", () => {
+    const jung = fahrzeug({
+      firstRegistration: "2026-06-15",
+      mileageKm: 3_000,
+      condition: "neuwertig",
+      serviceHistory: "lückenlos scheckheft",
+    });
+    const punkte = valueHistory(jung, 3, 0, STICHTAG);
+    const werte = punkte.map((p) => p.value);
+    // Keine zwei aufeinanderfolgenden Monate mit identischem Wert — genau das
+    // war das Bild, als der Deckel die junge Kurve abgeschnitten hat.
+    expect(new Set(werte).size).toBe(werte.length);
   });
 
   it("bleibt bei sehr alten und sehr abgefahrenen Fahrzeugen positiv", () => {
@@ -56,13 +91,26 @@ describe("Wertgrenzen", () => {
     }
   });
 
-  it("fällt mit dem Alter monoton", () => {
-    const v = fahrzeug({ firstRegistration: "2020-01-15" });
-    let letzter = Infinity;
-    for (const monat of ["2020-06", "2021-06", "2023-06", "2026-06", "2030-06"]) {
-      const wert = valueAt(v, monat, STICHTAG);
-      expect(wert).toBeLessThanOrEqual(letzter);
-      letzter = wert;
+  it("fällt über Jahre hinweg, Monat für Monat höchstens leicht steigend", () => {
+    // Das Marktrauschen (±1.2 %) kann einzelne Monate anheben. Geprüft wird
+    // deshalb beides: der Trend über Jahre streng fallend, und kein einzelner
+    // Monat, der um mehr als das Rauschen nach oben ausbricht.
+    const v = fahrzeug({ firstRegistration: "2019-02-15", fuel: "benzin", make: "BMW" });
+    const punkte = valueHistory(v, 60, 24, STICHTAG);
+    expect(punkte.length).toBeGreaterThan(70);
+
+    for (let i = 1; i < punkte.length; i++) {
+      const anstieg = punkte[i].value - punkte[i - 1].value;
+      expect(anstieg, `Sprung nach oben bei ${punkte[i].month}`).toBeLessThan(
+        punkte[i - 1].value * 0.03,
+      );
+    }
+
+    const jahresschritte = ["2020-06", "2022-06", "2024-06", "2026-06", "2028-06"].map((m) =>
+      valueAt(v, m, STICHTAG),
+    );
+    for (let i = 1; i < jahresschritte.length; i++) {
+      expect(jahresschritte[i]).toBeLessThan(jahresschritte[i - 1]);
     }
   });
 
@@ -98,6 +146,24 @@ describe("Aufschlüsselung", () => {
   it("nennt den Restposten nicht mehr «Aktuelle Marktlage»", () => {
     const res = valuate(fahrzeug(), STICHTAG);
     expect(res.breakdown.map((f) => f.label)).not.toContain("Aktuelle Marktlage");
+  });
+
+  it("hält den Restposten in der Grössenordnung, die sein Name behauptet", () => {
+    // Er darf Marktindex, Streuung (±1.2 %) und Rundung enthalten — mehr
+    // nicht. Sonst versteckt sich dort ein Posten, den niemand benennt.
+    for (const v of [
+      fahrzeug({ firstRegistration: "2026-09-15", condition: "neuwertig", mileageKm: 0 }),
+      fahrzeug({ firstRegistration: "2022-01-15", mileageKm: 80_000 }),
+      fahrzeug({ fuel: "benzin", make: "Porsche", listPriceNew: 150_000, mileageKm: 5_000 }),
+    ]) {
+      const res = valuate(v, STICHTAG);
+      const rest = res.breakdown.find((f) => f.label.startsWith("Marktlage"));
+      if (!rest) continue;
+      // Index kann bis 35 % ausmachen, Rauschen 1.2 %, Rundung 25 Franken.
+      expect(Math.abs(rest.amount), `Restposten bei ${v.make} ${v.model}`).toBeLessThanOrEqual(
+        res.value * 0.37 + 50,
+      );
+    }
   });
 });
 

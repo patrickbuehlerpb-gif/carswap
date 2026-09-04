@@ -10,6 +10,7 @@ import {
   deals,
   listings,
   payments,
+  reviews,
   sessions,
   users,
   vehicles,
@@ -117,20 +118,31 @@ export async function exportMyDataAction(): Promise<{ json?: string; error?: str
   const [konto] = await db.select().from(users).where(eq(users.id, me.id)).limit(1);
   if (!konto) return { error: "Konto nicht gefunden." };
 
-  const [meineFahrzeuge, meineInserate, meineDeals, meineZahlungen, meineMerkliste] =
-    await Promise.all([
-      db.select().from(vehicles).where(eq(vehicles.ownerId, me.id)),
-      db.select().from(listings).where(eq(listings.ownerId, me.id)),
-      db
-        .select()
-        .from(deals)
-        .where(or(eq(deals.initiatorId, me.id), eq(deals.counterpartyId, me.id))),
-      db
-        .select()
-        .from(payments)
-        .where(or(eq(payments.payerId, me.id), eq(payments.payeeId, me.id))),
-      db.select().from(watchlist).where(eq(watchlist.userId, me.id)),
-    ]);
+  const [
+    meineFahrzeuge,
+    meineInserate,
+    meineDeals,
+    meineZahlungen,
+    meineMerkliste,
+    meineBewertungen,
+  ] = await Promise.all([
+    db.select().from(vehicles).where(eq(vehicles.ownerId, me.id)),
+    db.select().from(listings).where(eq(listings.ownerId, me.id)),
+    db
+      .select()
+      .from(deals)
+      .where(or(eq(deals.initiatorId, me.id), eq(deals.counterpartyId, me.id))),
+    db
+      .select()
+      .from(payments)
+      .where(or(eq(payments.payerId, me.id), eq(payments.payeeId, me.id))),
+    db.select().from(watchlist).where(eq(watchlist.userId, me.id)),
+    // Beides gehört dazu: was ich geschrieben habe und was über mich steht.
+    db
+      .select()
+      .from(reviews)
+      .where(or(eq(reviews.authorId, me.id), eq(reviews.subjectId, me.id))),
+  ]);
 
   const dealIds = meineDeals.map((d) => d.id);
   const nachrichten = dealIds.length
@@ -152,6 +164,7 @@ export async function exportMyDataAction(): Promise<{ json?: string; error?: str
         nachrichten,
         zahlungen: meineZahlungen,
         merkliste: meineMerkliste,
+        bewertungen: meineBewertungen,
       },
       null,
       2,
@@ -188,6 +201,28 @@ export async function deleteAccountAction(bestaetigung: string): Promise<Account
       error:
         "Zu deinem Konto läuft noch ein verbindlich zugesagter Tausch. Er muss erst abgeschlossen " +
         "oder abgebrochen sein.",
+    };
+  }
+
+  // Auch eine Zahlung, die noch in der Luft hängt, hält die Löschung auf.
+  // Sie kann einen abgebrochenen Tausch überleben — etwa wenn die Freigabe
+  // bei Stripe scheitert. Danach wäre niemand mehr erreichbar, dem das Geld
+  // gehört.
+  const offeneZahlung = await db
+    .select({ id: payments.id })
+    .from(payments)
+    .where(
+      and(
+        or(eq(payments.payerId, me.id), eq(payments.payeeId, me.id)),
+        inArray(payments.status, ["erstellt", "autorisiert", "eingezogen"]),
+      ),
+    )
+    .limit(1);
+  if (offeneZahlung.length) {
+    return {
+      error:
+        "Zu deinem Konto ist noch ein Betrag hinterlegt oder unterwegs. Bitte melde dich beim " +
+        "Support — sobald die Zahlung abgeschlossen oder freigegeben ist, lässt sich das Konto löschen.",
     };
   }
 
@@ -230,6 +265,11 @@ export async function deleteAccountAction(bestaetigung: string): Promise<Account
         passwordHash: "geloescht",
         emailVerifiedAt: null,
         identityVerified: false,
+        // Der Verweis auf das Auszahlungskonto wird gelöst. Das Konto selbst
+        // liegt bei Stripe und untersteht deren gesetzlichen Aufbewahrungs-
+        // fristen — darauf weist die Oberfläche ausdrücklich hin.
+        stripeAccountId: null,
+        stripePayoutsEnabled: false,
         deletedAt: new Date(),
         updatedAt: new Date(),
       })

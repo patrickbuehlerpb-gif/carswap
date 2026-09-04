@@ -16,6 +16,8 @@ function normalizeKey(key: string): string {
 
 export interface LimitResult {
   ok: boolean;
+  /** Treffer im laufenden Fenster — ungedeckelt, für abgestufte Reaktionen. */
+  count: number;
   remaining: number;
   retryAfterSeconds: number;
 }
@@ -55,6 +57,7 @@ export async function checkRateLimit(
 
   return {
     ok: row.count <= limit,
+    count: row.count,
     remaining: Math.max(0, limit - row.count),
     retryAfterSeconds: retryAfter,
   };
@@ -79,13 +82,14 @@ export async function peekRateLimit(
     .limit(1);
 
   const row = rows[0];
-  if (!row) return { ok: true, remaining: limit, retryAfterSeconds: 0 };
+  if (!row) return { ok: true, count: 0, remaining: limit, retryAfterSeconds: 0 };
 
   const elapsed = (Date.now() - row.windowStart.getTime()) / 1000;
-  if (elapsed >= windowSeconds) return { ok: true, remaining: limit, retryAfterSeconds: 0 };
+  if (elapsed >= windowSeconds) return { ok: true, count: 0, remaining: limit, retryAfterSeconds: 0 };
 
   return {
     ok: row.count <= limit,
+    count: row.count,
     remaining: Math.max(0, limit - row.count),
     retryAfterSeconds: Math.max(0, Math.ceil(windowSeconds - elapsed)),
   };

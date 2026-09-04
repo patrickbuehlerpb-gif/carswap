@@ -144,7 +144,9 @@ export function findMatches(
   const results: Match[] = [];
 
   for (const { listing, vehicle, owner } of pool) {
-    if (listing.status === "getauscht") continue;
+    // Nur aktive Inserate: pausierte und in Verhandlung stehende sind nicht
+    // zu haben, auch wenn sie im übergebenen Bestand stehen.
+    if (listing.status !== "aktiv") continue;
     if (vehicle.id === myVehicle.id) continue;
     if (vehicle.ownerId === myVehicle.ownerId) continue;
     const cash = cashDelta(myVehicle, vehicle, listing.askPremium ?? 0);
@@ -273,11 +275,11 @@ export function findRingSwaps(
   myWish: Partial<SwapWish> | undefined,
   myUser: User,
   limit = 6,
-  /** Aufschlag, den ich selbst auf mein Fahrzeug verlange. */
-  myAskPremium = 0,
 ): RingSwapDetail[] {
+  // Positivliste statt Ausschluss: pausierte und in Verhandlung stehende
+  // Inserate gehören genauso wenig in einen Ring wie getauschte.
   const pool = entries.filter(
-    (e) => e.listing.status !== "getauscht" && e.vehicle.ownerId !== myVehicle.ownerId,
+    (e) => e.listing.status === "aktiv" && e.vehicle.ownerId !== myVehicle.ownerId,
   );
   const rings: RingSwapDetail[] = [];
   const seen = new Set<string>();
@@ -288,7 +290,10 @@ export function findRingSwaps(
   for (const e of pool) {
     askValue.set(e.vehicle.id, valueAt(e.vehicle) + (e.listing.askPremium ?? 0));
   }
-  const vMe = valueAt(myVehicle) + myAskPremium;
+  // Ohne den eigenen Aufschlag — genau wie im Zweiertausch, auf den die
+  // Ringkarte verlinkt. Sonst stünden auf zwei aufeinanderfolgenden Seiten
+  // zwei verschiedene Beträge für denselben Schritt.
+  const vMe = valueAt(myVehicle);
 
   const wantsMyCar = pool.filter((e) => fitsWish(e.listing.wish, myVehicle).ok);
 
@@ -338,10 +343,13 @@ export function findRingSwaps(
       const vA = askValue.get(aVehicle.id) ?? valueAt(aVehicle);
       const vB = askValue.get(bVehicle.id) ?? valueAt(bVehicle);
 
-      // Jeder zahlt die Differenz zwischen erhaltenem und abgegebenem Wert
+      // Jeder zahlt die Differenz zwischen erhaltenem und abgegebenem Wert.
+      // Die dritte Zahlung ergibt sich aus den ersten beiden, statt einzeln
+      // gerundet zu werden: sonst summieren sich drei Rundungsfehler zu 50
+      // Franken, die im Treuhandtopf fehlen würden.
       const myCash = round50(vB - vMe);
       const aCash = round50(vMe - vA);
-      const bCash = round50(vA - vB);
+      const bCash = -(myCash + aCash);
 
       const ownerA = entryA.owner;
       const ownerB = entryB.owner;

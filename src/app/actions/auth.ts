@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -123,14 +124,18 @@ export async function signInAction(_prev: FormState, formData: FormData): Promis
   const password = String(formData.get("password") ?? "");
   const next = String(formData.get("next") ?? "");
 
-  // Die Sperre hängt an der IP, nicht an der Adresse. Ein Zähler pro Adresse,
-  // der schon beim Versuch hochläuft, wäre eine Einladung: damit sperrt jeder
+  // Zwei Riegel, beide an die Herkunft gebunden:
+  //   login-ip     — wie viele Versuche kommen von dieser Verbindung?
+  //   login-paar   — wie oft hat diese Verbindung genau dieses Konto probiert?
+  // Ein Zähler allein auf der Adresse wäre eine Einladung: damit sperrt jeder
   // ein fremdes Konto aus, ohne das Passwort zu kennen.
   const byIp = await checkRateLimit(`login-ip:${ip}`, 20, 15 * 60);
-  if (!byIp.ok) {
+  const paarKey = `login-paar:${ip}|${emailRaw}`;
+  const byPaar = await peekRateLimit(paarKey, 8, 15 * 60);
+  if (!byIp.ok || !byPaar.ok) {
     return {
       error: `Zu viele Anmeldeversuche von dieser Verbindung. Bitte in ${Math.ceil(
-        byIp.retryAfterSeconds / 60,
+        Math.max(byIp.retryAfterSeconds, byPaar.retryAfterSeconds) / 60,
       )} Minuten erneut versuchen.`,
     };
   }
@@ -148,17 +153,21 @@ export async function signInAction(_prev: FormState, formData: FormData): Promis
     : await verifyPassword(password, "scrypt$32768$8$1$AAAAAAAAAAAAAAAAAAAAAA$AAAA");
 
   if (!user || !ok) {
-    // Erst jetzt zählen — und nur den Fehlversuch.
+    // Erst jetzt zählen — und nur den Fehlversuch. Beide Zähler laufen mit:
+    // der auf dem Paar sperrt, der auf der Adresse bremst.
+    await checkRateLimit(paarKey, 8, 15 * 60);
     const stand = await checkRateLimit(mailKey, 8, 15 * 60);
-    // Nach mehreren Fehlversuchen wird jede weitere Antwort für diese Adresse
-    // spürbar langsamer. Das bremst Rateversuche, sperrt aber niemanden aus:
-    // mit dem richtigen Passwort kommt man weiterhin sofort durch.
-    if (!stand.ok) await warte(Math.min(2000, 250 * (8 - stand.remaining)));
+    // Ab dem vierten Fehlversuch wird jede weitere Antwort für diese Adresse
+    // spürbar langsamer, und zwar zunehmend. Das bremst Rateversuche, sperrt
+    // aber niemanden aus: mit dem richtigen Passwort kommt man sofort durch.
+    const bremse = Math.min(3000, Math.max(0, stand.count - 3) * 400);
+    if (bremse > 0) await warte(bremse);
     return { error: "E-Mail-Adresse oder Passwort stimmt nicht." };
   }
 
-  // Erfolg löscht den Zähler, damit ein Tippfehler von gestern nicht nachwirkt.
-  if (!fehlversuche.ok || fehlversuche.remaining < 8) await clearRateLimit(mailKey);
+  // Erfolg löscht beide Zähler, damit ein Tippfehler von gestern nicht nachwirkt.
+  if (fehlversuche.count > 0) await clearRateLimit(mailKey);
+  if (byPaar.count > 0) await clearRateLimit(paarKey);
 
   await createSession(user.id, userAgent);
   redirect(sicheresZiel(next));
@@ -213,15 +222,21 @@ export async function requestPasswordResetAction(
       const user = rows[0];
       if (user) {
         const token = await issueToken(user.id, "reset_password");
-        await sendMail({
-          to: user.email,
-          subject: "CarSwap: Passwort zurücksetzen",
-          text:
-            `Hallo ${user.name}\n\n` +
-            `Setze dein Passwort über diesen Link neu:\n` +
-            `${siteUrl()}/konto/passwort-neu?token=${token}\n\n` +
-            `Der Link ist eine Stunde gültig. Wenn du das nicht angefordert hast, ` +
-            `ändert sich nichts an deinem Konto.\n`,
+        // Der Mailversand läuft NACH der Antwort. Innerhalb der gemessenen
+        // Zeit wäre er ein Netzwerk-Roundtrip von mehreren hundert
+        // Millisekunden — und damit ein verlässliches Signal, dass es das
+        // Konto gibt, trotz gleichlautender Antwort.
+        after(async () => {
+          await sendMail({
+            to: user.email,
+            subject: "CarSwap: Passwort zurücksetzen",
+            text:
+              `Hallo ${user.name}\n\n` +
+              `Setze dein Passwort über diesen Link neu:\n` +
+              `${siteUrl()}/konto/passwort-neu?token=${token}\n\n` +
+              `Der Link ist eine Stunde gültig. Wenn du das nicht angefordert hast, ` +
+              `ändert sich nichts an deinem Konto.\n`,
+          });
         });
       }
       return generic;

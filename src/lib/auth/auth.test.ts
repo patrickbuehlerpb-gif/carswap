@@ -17,14 +17,33 @@ describe("Anmeldeziel", () => {
     expect(sicheresZiel("/deals/dl_1?tab=chat")).toBe("/deals/dl_1?tab=chat");
   });
 
-  it("wehrt den Backslash-Umweg auf eine fremde Domain ab", () => {
-    // Browser behandeln bei http/https den Backslash wie einen Schrägstrich.
-    expect(sicheresZiel("/\\evil.example")).toBe("/garage");
-    expect(sicheresZiel("/\\\\evil.example")).toBe("/garage");
-    expect(sicheresZiel("//evil.example")).toBe("/garage");
-    expect(sicheresZiel("https://evil.example")).toBe("/garage");
-    expect(sicheresZiel("javascript:alert(1)")).toBe("/garage");
-    expect(sicheresZiel("")).toBe("/garage");
+  it("wehrt jeden Weg auf eine fremde Domain ab", () => {
+    const boese = [
+      // Backslash: Browser lesen ihn bei http/https wie einen Schrägstrich
+      "/\\evil.example",
+      "/\\\\evil.example",
+      "/./\\evil.example",
+      // Protokoll-relativ
+      "//evil.example",
+      // Der Parser löst «..» auf, bevor er über den Host entscheidet
+      "/..//evil.example",
+      "/a/../..//evil.example",
+      "/%2e%2e//evil.example",
+      "/..//evil.example/pfad?x=1",
+      // Absolut und andere Schemata
+      "https://evil.example",
+      "javascript:alert(1)",
+      "",
+    ];
+    for (const eingabe of boese) {
+      const ziel = sicheresZiel(eingabe);
+      expect(ziel, `«${eingabe}» durfte nicht durchkommen`).toBe("/garage");
+    }
+  });
+
+  it("lässt harmlose Punkte im Pfad zu", () => {
+    expect(sicheresZiel("/deals/../garage")).toBe("/garage");
+    expect(sicheresZiel("/fahrzeug/veh_1.2")).toBe("/fahrzeug/veh_1.2");
   });
 });
 

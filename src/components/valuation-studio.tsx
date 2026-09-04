@@ -11,7 +11,13 @@ import { Badge, Card } from "@/components/ui";
 import { MAKE_NAMES, modelsFor } from "@/lib/data/catalog";
 import { chf, km, label } from "@/lib/format";
 import type { Body, Condition, Fuel, ServiceHistory, Vehicle } from "@/lib/types";
-import { depreciationPerMonth, valuate, valueAt, valueHistory } from "@/lib/valuation";
+import {
+  depreciationPerMonth,
+  hasValuationInput,
+  valuate,
+  valueAt,
+  valueHistory,
+} from "@/lib/valuation";
 
 
 /** Formularzustand — daraus wird ein vollständiges Vehicle-Objekt gebaut. */
@@ -114,8 +120,15 @@ export function ValuationStudio({
   // Die ID bleibt stabil pro Quelle, damit das Marktrauschen nicht bei jeder
   // Eingabe springt.
   const vehicle = useMemo(() => toVehicle(draft, source), [draft, source]);
+  // Ein leeres Datumsfeld ergibt ein ungültiges Datum. Ohne diese Prüfung
+  // rechnete das Modell so, als wäre das Fahrzeug heute zugelassen worden,
+  // und zeigte eine praktisch waagrechte Kurve als Ergebnis.
+  const bewertbar = hasValuationInput(vehicle);
   const valuation = useMemo(() => valuate(vehicle, asOf), [vehicle, asOf]);
-  const history = useMemo(() => valueHistory(vehicle, 30, 24, asOf), [vehicle, asOf]);
+  const history = useMemo(
+    () => (bewertbar ? valueHistory(vehicle, 30, 24, asOf) : []),
+    [vehicle, asOf, bewertbar],
+  );
   const perMonth = depreciationPerMonth(vehicle, asOf);
 
   const in12 = valueAt(vehicle, shiftMonth(asOf, 12), asOf);

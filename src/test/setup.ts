@@ -53,6 +53,13 @@ vi.mock("next/cache", () => ({
   unstable_cache: <T>(fn: T) => fn,
 }));
 
+// `after()` läuft in der echten Anwendung nach der Antwort; im Test genügt
+// es, die Arbeit sofort zu erledigen.
+vi.mock("next/server", async (importOriginal) => {
+  const original = await importOriginal<Record<string, unknown>>();
+  return { ...original, after: (fn: () => unknown) => void fn() };
+});
+
 vi.mock("next/navigation", () => ({
   redirect: (url: string) => {
     throw new Error(`REDIRECT:${url}`);

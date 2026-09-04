@@ -70,7 +70,10 @@ export default function DatenschutzPage() {
         : «Meine Daten herunterladen» gibt alles aus, was zu dir gespeichert ist, «Konto löschen»
         entfernt Name, Adresse und Kontaktdaten und nimmt deine Fahrzeuge aus dem Markt. Deine
         Angaben berichtigst du direkt im Profil. Abgeschlossene Tauschvorgänge bewahren wir aus
-        buchhalterischen Gründen auf; sie sind danach nicht mehr deinem Konto zugeordnet.
+        buchhalterischen Gründen auf; sie sind danach nicht mehr deinem Konto zugeordnet. Ein
+        Auszahlungskonto bei unserem Zahlungsdienstleister wird dabei von deinem Konto getrennt —
+        die dort gespeicherten Angaben unterstehen dessen eigenen Aufbewahrungsfristen und sind
+        direkt bei ihm zu löschen.
       </p>
     </LegalPage>
   );

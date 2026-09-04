@@ -127,6 +127,54 @@ describe("Ringtausch", () => {
     expect(mit[0].participants.reduce((n, p) => n + p.cash, 0)).toBe(0);
   });
 
+  it("hält die Nullsumme auch bei krummen Aufschlägen", () => {
+    // Drei einzeln gerundete Differenzen summieren sich sonst auf 50 Franken,
+    // die im Treuhandtopf fehlen würden.
+    const meins = fahrzeug("v-me", "u-me", { make: "Polestar" });
+    for (const [premA, premB] of [
+      [25, 0],
+      [0, 75],
+      [25, 25],
+      [149, 999],
+    ]) {
+      const ringe = findRingSwaps(
+        meins,
+        [
+          eintrag(fahrzeug("v-a", "u-a", { make: "Kia" }), wunsch({ makes: ["Polestar"] }), {
+            askPremium: premA,
+          }),
+          eintrag(fahrzeug("v-b", "u-b", { make: "Zeekr" }), wunsch({ makes: ["Kia"] }), {
+            askPremium: premB,
+          }),
+        ],
+        { makes: ["Zeekr"] },
+        nutzer("u-me"),
+      );
+      expect(ringe).toHaveLength(1);
+      expect(
+        ringe[0].participants.reduce((n, p) => n + p.cash, 0),
+        `Aufschläge ${premA}/${premB}`,
+      ).toBe(0);
+    }
+  });
+
+  it("nennt für meinen Schritt denselben Betrag wie der Zweiertausch", () => {
+    // Die Ringkarte verlinkt direkt auf /tausch/<B> — dort darf keine andere
+    // Zahl stehen als auf der Karte.
+    const meins = fahrzeug("v-me", "u-me", { make: "Polestar" });
+    const bAuto = fahrzeug("v-b", "u-b", { make: "Zeekr" });
+    const [ring] = findRingSwaps(
+      meins,
+      [
+        eintrag(fahrzeug("v-a", "u-a", { make: "Kia" }), wunsch({ makes: ["Polestar"] })),
+        eintrag(bAuto, wunsch({ makes: ["Kia"] }), { askPremium: 1500 }),
+      ],
+      { makes: ["Zeekr"] },
+      nutzer("u-me"),
+    );
+    expect(ring.userCashDelta).toBe(cashDelta(meins, bAuto, 1500).delta);
+  });
+
   it("hält Hin- und Gegenrichtung auseinander", () => {
     // Beide Richtungen sind gültig: jeder will von jedem.
     const meins = fahrzeug("v-me", "u-me", { make: "Polestar" });
@@ -152,36 +200,61 @@ describe("Ringtausch", () => {
 
   it("nimmt weder das eigene Fahrzeug noch zweimal denselben Nutzer auf", () => {
     const meins = fahrzeug("v-me", "u-me");
-    const eigenes2 = fahrzeug("v-me2", "u-me");
-    const aAuto = fahrzeug("v-a", "u-a");
-    const aZweites = fahrzeug("v-a2", "u-a");
     const alle = wunsch();
-    const ringe = findRingSwaps(
-      meins,
-      [eintrag(eigenes2, alle), eintrag(aAuto, alle), eintrag(aZweites, alle)],
-      undefined,
-      nutzer("u-me"),
-    );
-    for (const ring of ringe) {
-      const nutzerIds = ring.participants.map((p) => p.user.id);
-      expect(new Set(nutzerIds).size).toBe(3);
-    }
-  });
-
-  it("übergeht getauschte und pausierte Inserate", () => {
-    const meins = fahrzeug("v-me", "u-me", { make: "Polestar" });
-    const aAuto = fahrzeug("v-a", "u-a", { make: "Kia" });
-    const bAuto = fahrzeug("v-b", "u-b", { make: "Zeekr" });
+    // Bestand so gewählt, dass tatsächlich Ringe entstehen: zwei eigene
+    // Fahrzeuge, zwei von u-a und eines von u-b.
     const ringe = findRingSwaps(
       meins,
       [
-        eintrag(aAuto, wunsch({ makes: ["Polestar"] })),
-        eintrag(bAuto, wunsch({ makes: ["Kia"] }), { status: "getauscht" }),
+        eintrag(fahrzeug("v-me2", "u-me", { mileageKm: 10_000 }), alle),
+        eintrag(fahrzeug("v-a", "u-a", { mileageKm: 20_000 }), alle),
+        eintrag(fahrzeug("v-a2", "u-a", { mileageKm: 40_000 }), alle),
+        eintrag(fahrzeug("v-b", "u-b", { mileageKm: 60_000 }), alle),
       ],
-      { makes: ["Zeekr"] },
+      undefined,
       nutzer("u-me"),
     );
-    expect(ringe).toHaveLength(0);
+
+    expect(ringe.length).toBeGreaterThan(0);
+    for (const ring of ringe) {
+      const nutzerIds = ring.participants.map((p) => p.user.id);
+      expect(new Set(nutzerIds).size, "jeder Nutzer nur einmal").toBe(3);
+      const fahrzeugIds = ring.participants.map((p) => p.gives.id);
+      expect(new Set(fahrzeugIds).size, "jedes Fahrzeug nur einmal").toBe(3);
+      expect(fahrzeugIds, "eigenes Zweitfahrzeug gehört nicht in den Ring").not.toContain("v-me2");
+    }
+  });
+
+  it("übergeht alles, was nicht aktiv inseriert ist", () => {
+    const meins = fahrzeug("v-me", "u-me", { make: "Polestar" });
+    const aAuto = fahrzeug("v-a", "u-a", { make: "Kia" });
+    const bAuto = fahrzeug("v-b", "u-b", { make: "Zeekr" });
+
+    for (const status of ["getauscht", "pausiert", "in verhandlung"] as const) {
+      const ringe = findRingSwaps(
+        meins,
+        [
+          eintrag(aAuto, wunsch({ makes: ["Polestar"] })),
+          eintrag(bAuto, wunsch({ makes: ["Kia"] }), { status }),
+        ],
+        { makes: ["Zeekr"] },
+        nutzer("u-me"),
+      );
+      expect(ringe, `Status ${status}`).toHaveLength(0);
+
+      const matches = findMatches(meins, [eintrag(bAuto, wunsch({ makes: ["Polestar"] }), { status })]);
+      expect(matches, `Direktsuche mit Status ${status}`).toHaveLength(0);
+    }
+
+    // Gegenprobe: mit aktivem Inserat entsteht der Ring.
+    expect(
+      findRingSwaps(
+        meins,
+        [eintrag(aAuto, wunsch({ makes: ["Polestar"] })), eintrag(bAuto, wunsch({ makes: ["Kia"] }))],
+        { makes: ["Zeekr"] },
+        nutzer("u-me"),
+      ),
+    ).toHaveLength(1);
   });
 });
 
