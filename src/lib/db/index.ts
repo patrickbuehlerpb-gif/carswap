@@ -6,6 +6,15 @@ import * as schema from "./schema";
 type Db = PostgresJsDatabase<typeof schema>;
 
 /**
+ * Je nach Anbieter heisst die Variable anders: die Neon-Integration von Vercel
+ * setzt POSTGRES_URL mit, andere nur DATABASE_URL. Für den laufenden Betrieb
+ * ist die gepoolte Adresse die richtige.
+ */
+export function databaseUrl(): string | undefined {
+  return process.env.DATABASE_URL || process.env.POSTGRES_URL || undefined;
+}
+
+/**
  * In der Entwicklung überlebt die Verbindung den Hot Reload, sonst entstehen
  * bei jedem Speichern neue Pools. In Serverless-Umgebungen bleibt der Pool
  * bewusst klein, weil jede Instanz eine eigene Verbindung hält.
@@ -28,7 +37,7 @@ function connect(): Db {
     return cached;
   }
 
-  const url = process.env.DATABASE_URL;
+  const url = databaseUrl();
   if (!url) {
     throw new Error(
       "DATABASE_URL ist nicht gesetzt. Ohne Datenbank kann die Anwendung nicht starten — " +

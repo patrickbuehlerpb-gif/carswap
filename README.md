@@ -182,17 +182,24 @@ drizzle/               Erzeugte SQL-Migrationen
 ## Deployment
 
 Auf Vercel ohne Konfiguration deploybar. Erforderliche Umgebungsvariablen
-siehe `.env.example`. Nach dem ersten Deployment:
+siehe `.env.example`.
 
-1. `DATABASE_URL` setzen und `npm run db:migrate` gegen diese Datenbank laufen
-   lassen.
-2. In Stripe einen Webhook auf `https://<domain>/api/stripe/webhook`
+Die Migrationen laufen beim Deployment automatisch mit (`npm run build` ruft
+zuerst `scripts/migrate.ts`). Ohne gesetzte Datenbankadresse wird der Schritt
+übersprungen, damit Vorschau-Builds ohne Datenbank durchlaufen. Für die
+Migration wird die ungepoolte Verbindung bevorzugt (`DATABASE_URL_UNPOOLED`
+beziehungsweise `POSTGRES_URL_NON_POOLING`), weil DDL im Transaction-Mode
+eines Poolers unzuverlässig ist.
+
+Nach dem ersten Deployment:
+
+1. In Stripe einen Webhook auf `https://<domain>/api/stripe/webhook`
    einrichten (Ereignisse: `checkout.session.completed`,
    `checkout.session.expired`, `payment_intent.canceled`,
    `payment_intent.payment_failed`, `charge.refunded`, `account.updated`) und
    das Signaturgeheimnis als `STRIPE_WEBHOOK_SECRET` hinterlegen.
-3. Einen Vercel-Blob-Store verbinden, damit Fotouploads funktionieren.
-4. `/api/health` prüfen — die Antwort listet auf, was konfiguriert ist.
+2. Einen Vercel-Blob-Store verbinden, damit Fotouploads funktionieren.
+3. `/api/health` prüfen — die Antwort listet auf, was konfiguriert ist.
 
 ## Was vor dem Livegang noch fehlt
 
