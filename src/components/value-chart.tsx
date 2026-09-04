@@ -38,6 +38,12 @@ export function ValueChart({
   );
 
   const geom = useMemo(() => {
+    // Ohne Datenpunkte gibt es nichts zu zeichnen. Ohne diese Schranke
+    // greift die Zeichenroutine weiter unten auf points[splitIdx] zu und
+    // die ganze Seite stürzt ab — etwa wenn im Wertrechner das Feld für
+    // die Erstzulassung leer steht.
+    if (!points.length) return null;
+
     const all: number[] = [];
     for (const p of points) {
       all.push(p.value);
@@ -68,7 +74,15 @@ export function ValueChart({
     return { x, y, splitIdx, ticks };
   }, [points, compareByMonth]);
 
-  const { x, y, splitIdx, ticks } = geom;
+  // Hooks müssen vor jedem frühen Ausstieg laufen — deshalb wird hier nur
+  // auf unschädliche Ersatzwerte ausgewichen und erst nach allen Hooks
+  // die Ersatzdarstellung zurückgegeben.
+  const { x, y, splitIdx, ticks } = geom ?? {
+    x: () => 0,
+    y: () => 0,
+    splitIdx: 0,
+    ticks: [] as number[],
+  };
 
   const pastPath = linePath(points.slice(0, splitIdx + 1).map((p, i) => [x(i), y(p.value)]));
   const futurePath = linePath(points.slice(splitIdx).map((p, i) => [x(splitIdx + i), y(p.value)]));
@@ -113,6 +127,14 @@ export function ValueChart({
   }
 
   const pct = (v: number, total: number) => `${(v / total) * 100}%`;
+
+  if (!geom) {
+    return (
+      <div className="grid h-40 w-full place-items-center rounded-lg border border-dashed border-line-strong text-sm text-ink-3">
+        Für den Verlauf fehlen noch Angaben — bitte Erstzulassung und Neupreis ausfüllen.
+      </div>
+    );
+  }
 
   return (
     <div className="w-full select-none">

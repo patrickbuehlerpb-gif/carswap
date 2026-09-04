@@ -1,6 +1,7 @@
 import "server-only";
 import { and, desc, eq, inArray, isNull, ne, or, sql as raw } from "drizzle-orm";
 import { db } from "./db";
+import { normalizeFeatures } from "./data/features";
 import {
   dealMessages,
   deals,
@@ -41,7 +42,9 @@ export function toVehicle(row: VehicleRow): Vehicle {
     color: row.color,
     rangeKm: row.rangeKm ?? undefined,
     batterySoh: row.batterySoh ?? undefined,
-    features: row.features ?? [],
+    // Alte Bezeichnungen werden schon beim Lesen auf die heutigen abgebildet,
+    // damit Anzeige und Bewertung dieselbe Liste sehen.
+    features: normalizeFeatures(row.features ?? []),
     photos: row.photos ?? [],
     notes: row.notes ?? undefined,
     defects: row.defects?.length ? row.defects : undefined,

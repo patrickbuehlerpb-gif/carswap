@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isKnownFeature, normalizeFeatures } from "./data/features";
 
 export const FUELS = ["elektro", "hybrid", "benzin", "diesel"] as const;
 export const BODIES = ["suv", "limousine", "kombi", "kompakt", "coupe", "van"] as const;
@@ -52,7 +53,13 @@ export const vehicleSchema = z.object({
   color: z.string().trim().max(40).default(""),
   rangeKm: z.coerce.number().int().min(0).max(2_000).optional(),
   batterySoh: z.coerce.number().int().min(30).max(100).optional(),
-  features: z.array(z.string().trim().max(60)).max(40).default([]),
+  // Nur bekannte Merkmale: ein frei eingetippter Text hätte sonst einen
+  // Einfluss auf die Bewertung, den niemand nachvollziehen kann.
+  features: z
+    .array(z.string().trim().max(60))
+    .max(40)
+    .default([])
+    .transform((list) => normalizeFeatures(list).filter(isKnownFeature)),
   notes: z.string().trim().max(2_000).optional(),
   defects: z.array(z.string().trim().max(200)).max(20).default([]),
   serviceHistory: z.enum(SERVICE_HISTORIES),

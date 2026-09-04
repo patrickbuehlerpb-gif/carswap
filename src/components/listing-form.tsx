@@ -301,7 +301,7 @@ export function ListingForm({
                 className={input}
               />
             </Field>
-            <Field label="Neupreis (CHF)" hint="Inkl. Ausstattung, wie damals bezahlt.">
+            <Field label="Neupreis (CHF)" hint="Listenpreis deiner Version inklusive Sonderausstattung, wie damals bezahlt.">
               <input
                 type="number"
                 step={500}
@@ -467,7 +467,7 @@ export function ListingForm({
           <FieldGroup
             label="Ausstattung"
             className="mt-5"
-            hint="Nur aufpreispflichtige Ausstattung — Serienausstattung steckt schon im Neupreis."
+            hint="Für Beschreibung und Matching. In den Schätzwert fliesst sie nicht zusätzlich ein — sie steckt bereits im eingetragenen Neupreis."
           >
             <div className="flex flex-wrap gap-1.5">
               {availableFeatures.map((f) => (

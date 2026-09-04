@@ -1,5 +1,5 @@
-import { featureValue, normalizeFeatures } from "./data/features";
-import { group } from "./format";
+
+import { group, label } from "./format";
 import type { Fuel, HistoryPoint, Valuation, ValuationFactor, Vehicle } from "./types";
 
 /**
@@ -78,16 +78,34 @@ const SERVICE_FACTOR: Record<Vehicle["serviceHistory"], number> = {
 /* Hilfsfunktionen für Zeit                                            */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Datumsangaben wie «2024-03-15» liest JavaScript als UTC-Mitternacht. Mit
+ * den lokalen Gettern läge das in westlichen Zeitzonen im Vormonat — Server
+ * und Browser kämen auf verschiedene Werte und React verwürfe die Seite.
+ * Deshalb durchgehend UTC.
+ */
 function monthsBetween(fromIso: string, toIso: string): number {
   const a = new Date(fromIso);
   const b = new Date(toIso);
-  return (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return 0;
+  return (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + (b.getUTCMonth() - a.getUTCMonth());
 }
 
 function addMonths(iso: string, months: number): string {
   const d = new Date(iso);
-  d.setMonth(d.getMonth() + months);
+  if (Number.isNaN(d.getTime())) return iso;
+  d.setUTCMonth(d.getUTCMonth() + months);
   return d.toISOString().slice(0, 10);
+}
+
+/** Ohne brauchbare Erstzulassung lässt sich nichts rechnen. */
+export function hasValuationInput(vehicle: Pick<Vehicle, "firstRegistration" | "listPriceNew">): boolean {
+  return (
+    Boolean(vehicle.firstRegistration) &&
+    !Number.isNaN(new Date(vehicle.firstRegistration).getTime()) &&
+    Number.isFinite(vehicle.listPriceNew) &&
+    vehicle.listPriceNew > 0
+  );
 }
 
 export function monthLabel(month: string): string {
@@ -175,16 +193,28 @@ function retention(ageYears: number, fuel: Fuel, make: string): number {
  * Bewertet ein Fahrzeug zu einem beliebigen Stichtag. `atMonth` im Format
  * YYYY-MM; ohne Angabe wird der aktuelle Stichtag verwendet.
  */
+/**
+ * Die Ausstattung geht NICHT als eigener Posten ein. Der Neupreis, den die
+ * Besitzerin einträgt, ist der damals bezahlte Preis der konfigurierten
+ * Version — die Sonderausstattung steckt also bereits darin. Sie ein zweites
+ * Mal zu addieren, hat den Wert gut ausgestatteter Fahrzeuge doppelt gezählt.
+ * Für Matching und Beschreibung bleibt die Liste erhalten.
+ */
 export function valueAt(vehicle: Vehicle, atMonth?: string, asOf?: string): number {
   const month = atMonth ?? asOf ?? currentMonth();
   const ageMonths = monthsBetween(vehicle.firstRegistration, `${month}-01`);
   const ageYears = ageMonths / 12;
   if (ageYears < 0) return vehicle.listPriceNew;
 
-  // Kilometerstand zum Stichtag linear interpoliert bzw. fortgeschrieben
-  const ageNowMonths = Math.max(1, monthsBetween(vehicle.firstRegistration, asOfIso(asOf)));
-  const kmPerMonth = vehicle.mileageKm / ageNowMonths;
-  const mileageAt = Math.max(0, kmPerMonth * ageMonths);
+  // Kilometerstand zum Stichtag linear interpoliert bzw. fortgeschrieben.
+  // Bei einer Zulassung im laufenden Monat gibt es keine Laufzeit, über die
+  // sich etwas verteilen liesse — dann gilt der eingetragene Stand direkt,
+  // sonst wäre ein Vorführwagen mit 30'000 km so gut wie fabrikneu.
+  const ageNowMonths = monthsBetween(vehicle.firstRegistration, asOfIso(asOf));
+  const mileageAt =
+    ageNowMonths <= 0
+      ? vehicle.mileageKm
+      : Math.max(0, (vehicle.mileageKm / ageNowMonths) * ageMonths);
 
   const base = vehicle.listPriceNew * retention(ageYears, vehicle.fuel, vehicle.make);
 
@@ -204,7 +234,6 @@ export function valueAt(vehicle: Vehicle, atMonth?: string, asOf?: string): numb
     value *= 1 + ((vehicle.batterySoh - 95) / 100) * 0.6;
   }
 
-  value += featureValue(vehicle.features) * retention(ageYears, vehicle.fuel, vehicle.make);
   value -= (vehicle.defects?.length ?? 0) * 1200;
 
   value *= marketIndex(month, vehicle.fuel);
@@ -212,7 +241,11 @@ export function valueAt(vehicle: Vehicle, atMonth?: string, asOf?: string): numb
   // leichtes, aber stabiles Marktrauschen (±1.2 %)
   value *= 1 + noise(`${vehicle.id}:${month}`) * 0.012;
 
-  return Math.max(500, Math.round(value / 50) * 50);
+  // Ein gebrauchtes Fahrzeug ist höchstens so viel wert wie ein neues. Ohne
+  // diesen Deckel hoben Zustand «neuwertig», lückenloses Serviceheft und
+  // Ausstattung den Schätzwert eines fast neuen Autos über den Listenpreis.
+  const capped = Math.min(value, vehicle.listPriceNew);
+  return Math.max(500, Math.round(capped / 50) * 50);
 }
 
 /** Volle Bewertung mit Aufschlüsselung für den Stichtag. */
@@ -230,8 +263,10 @@ export function valuate(vehicle: Vehicle, asOf?: string): Valuation {
 
   const breakdown: ValuationFactor[] = [
     {
+      // Gerundet, damit die Summe aller Posten exakt den Endwert ergibt —
+      // sonst schleppt der Restposten einen Bruchteil mit.
       label: "Altersbedingter Wertverlust",
-      amount: base - vehicle.listPriceNew,
+      amount: Math.round(base - vehicle.listPriceNew),
       hint: `${ageYears.toFixed(1)} Jahre seit Erstzulassung, Restwertquote ${(
         (base / vehicle.listPriceNew) * 100
       ).toFixed(0)} %`,
@@ -279,15 +314,6 @@ export function valuate(vehicle: Vehicle, asOf?: string): Valuation {
     });
   }
 
-  const fv = Math.round(featureValue(vehicle.features) * retention(ageYears, vehicle.fuel, vehicle.make));
-  if (fv > 0) {
-    breakdown.push({
-      label: `Ausstattung (${normalizeFeatures(vehicle.features).length} Positionen)`,
-      amount: fv,
-      hint: normalizeFeatures(vehicle.features).slice(0, 4).join(", "),
-    });
-  }
-
   if (vehicle.defects?.length) {
     breakdown.push({
       label: `Bekannte Mängel (${vehicle.defects.length})`,
@@ -296,17 +322,20 @@ export function valuate(vehicle: Vehicle, asOf?: string): Valuation {
     });
   }
 
-  // Restposten: bündelt Marktlage und Rundung, damit Listenpreis plus alle
-  // ausgewiesenen Faktoren exakt den Endwert ergeben.
+  // Restposten: bündelt Marktindex, Streuung und Rundung, damit Listenpreis
+  // plus alle ausgewiesenen Faktoren exakt den Endwert ergeben. Der Name sagt
+  // das auch — vorher stand hier «Aktuelle Marktlage», obwohl der Index in
+  // vielen Monaten exakt 1.000 ist und der Betrag fast nur aus Rundung bestand.
   const explained = breakdown.reduce((sum, f) => sum + f.amount, 0);
-  breakdown.push({
-    label: "Aktuelle Marktlage",
-    amount: Math.round(value - vehicle.listPriceNew - explained),
-    hint:
-      vehicle.fuel === "elektro"
-        ? "Gebrauchte Stromer haben sich nach dem Preisrutsch 2024 stabilisiert"
-        : "Verbrenner-Gebrauchtmarkt bewegt sich seitwärts",
-  });
+  const rest = Math.round(value - vehicle.listPriceNew - explained);
+  const index = marketIndex(asOf ?? currentMonth(), vehicle.fuel);
+  if (rest !== 0) {
+    breakdown.push({
+      label: "Marktlage, Streuung und Rundung",
+      amount: rest,
+      hint: `Marktindex ${index.toFixed(3)} für ${label.fuel(vehicle.fuel)}, dazu die Streuung des Modells und die Rundung auf 50`,
+    });
+  }
 
   // Je jünger und je gängiger das Fahrzeug, desto sicherer die Schätzung
   const comparables = Math.max(

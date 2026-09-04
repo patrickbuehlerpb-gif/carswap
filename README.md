@@ -41,8 +41,15 @@ Box. Der Wert entsteht aus:
    auf ±18 %.
 3. **Multiplikative Faktoren**: Zustand, Serviceheft, Anzahl Halter,
    Unfallschaden und — beim Stromer — der Batteriezustand (SoH).
-4. **Absolute Zu- und Abschläge**: bewertete Ausstattung, bekannte Mängel.
+4. **Absolute Abschläge** für bekannte Mängel.
 5. **Marktindex** je Antriebssegment, auf den Stichtag normiert.
+6. **Deckel** auf den Neupreis — ein gebrauchtes Fahrzeug ist nie mehr wert
+   als ein neues.
+
+Die **Ausstattung geht nicht als eigener Posten ein**. Der eingetragene
+Neupreis ist der Preis der konfigurierten Version, die Sonderausstattung steckt
+also bereits darin; ein zweites Mal addiert hätte sie gut ausgestattete
+Fahrzeuge doppelt bewertet. Die Liste dient der Beschreibung und dem Matching.
 
 `valuate()` gibt die Aufschlüsselung so zurück, dass Listenpreis plus alle
 ausgewiesenen Faktoren exakt dem Endwert entsprechen. `valueHistory()` rechnet
@@ -51,8 +58,10 @@ durch.
 
 Alle Berechnungen sind deterministisch. Das leichte Marktrauschen stammt aus
 einem Hash über Fahrzeug-ID und Monat, nicht aus `Math.random()`. Der Stichtag
-ist der laufende Monat in UTC, damit Server und Client dasselbe Ergebnis
-liefern.
+ist der laufende Monat in UTC, und auch die Datumsarithmetik rechnet
+durchgehend in UTC — mit den lokalen Gettern läge eine Erstzulassung in
+westlichen Zeitzonen im Vormonat, und Server und Browser kämen auf
+verschiedene Werte.
 
 > Die Restwertkurven sind plausibel kalibriert, aber **nicht empirisch an
 > echten Inseraten belegt**. Vor dem Livegang sollten sie gegen reale

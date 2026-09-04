@@ -77,10 +77,10 @@ export function normalizeFeatures(features: string[]): string[] {
   return out;
 }
 
-/** Summe der Ausstattung als Neupreis-Aufschlag. Unbekanntes zählt gering. */
-export function featureValue(features: string[]): number {
-  return normalizeFeatures(features).reduce(
-    (sum, name) => sum + (valueByName.get(name) ?? 150),
-    0,
-  );
+/** Kennen wir dieses Merkmal? Frei eingetippte Texte sollen nichts wert sein. */
+export function isKnownFeature(name: string): boolean {
+  const mapped = name in LEGACY ? LEGACY[name] : name;
+  return mapped !== null && valueByName.has(mapped);
 }
+
+
