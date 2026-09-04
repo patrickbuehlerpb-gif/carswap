@@ -45,6 +45,8 @@ export interface Vehicle {
   previousOwners: number;
   accidentFree: boolean;
   mfkUntil?: string;
+  /** Gesetzt, sobald das Fahrzeug aus der Garage genommen wurde. */
+  archivedAt?: string;
 }
 
 /** Was ein Inserent im Tausch sucht. */

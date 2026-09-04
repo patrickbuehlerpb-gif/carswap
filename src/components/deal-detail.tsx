@@ -60,7 +60,13 @@ export function DealDetail({
   const { deal, fromVehicle, toVehicle, other, iAmInitiator, authors } = detail;
 
   const [text, setText] = useState("");
-  const [counter, setCounter] = useState<number | null>(null);
+  /**
+   * Der Betrag wird als Text geführt, nicht als Zahl. Ein Zahlenfeld liefert
+   * beim Leeren und bei der Zwischeneingabe «-» den leeren String; Number("")
+   * ist 0, und ein kontrolliertes Feld schriebe daraufhin sofort «0» zurück —
+   * ein negativer Betrag liesse sich gar nicht eintippen.
+   */
+  const [counter, setCounter] = useState<string | null>(null);
   const [tasks, setTasks] = useState<string[]>([]);
   const [notice, setNotice] = useState<string | null>(escrowNotice);
   const [error, setError] = useState<string | null>(null);
@@ -102,10 +108,16 @@ export function DealDetail({
     });
   }
 
+  // Leeres Feld heisst «kein Angebot», nicht «Ausgleich null».
+  const counterZahl =
+    counter !== null && counter.trim() !== "" && Number.isFinite(Number(counter))
+      ? Math.round(Number(counter))
+      : null;
+
   function send() {
-    if (!text.trim() && counter === null) return;
+    if (!text.trim() && counterZahl === null) return;
     run(async () => {
-      const res = await sendDealMessageAction(deal.id, text, counter ?? undefined);
+      const res = await sendDealMessageAction(deal.id, text, counterZahl ?? undefined);
       if (!res.error) {
         setText("");
         setCounter(null);
@@ -256,7 +268,7 @@ export function DealDetail({
                       <input
                         type="checkbox"
                         checked={counter !== null}
-                        onChange={(e) => setCounter(e.target.checked ? deal.cashDelta : null)}
+                        onChange={(e) => setCounter(e.target.checked ? String(deal.cashDelta) : null)}
                         className="accent-volt-ink"
                       />
                       Gegenangebot
@@ -266,7 +278,7 @@ export function DealDetail({
                         type="number"
                         step={100}
                         value={counter}
-                        onChange={(e) => setCounter(Math.round(Number(e.target.value)))}
+                        onChange={(e) => setCounter(e.target.value)}
                         className="w-36 rounded-md border border-line-strong bg-surface px-2.5 py-1.5 text-sm tabular text-ink outline-none focus:border-volt-ink"
                         aria-label="Gegenangebot in CHF"
                       />

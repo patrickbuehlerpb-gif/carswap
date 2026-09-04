@@ -45,6 +45,7 @@ export function toVehicle(row: VehicleRow): Vehicle {
     // Alte Bezeichnungen werden schon beim Lesen auf die heutigen abgebildet,
     // damit Anzeige und Bewertung dieselbe Liste sehen.
     features: normalizeFeatures(row.features ?? []),
+    archivedAt: row.archivedAt?.toISOString(),
     photos: row.photos ?? [],
     notes: row.notes ?? undefined,
     defects: row.defects?.length ? row.defects : undefined,
@@ -104,6 +105,23 @@ export interface ListingView {
 
 export async function getVehicle(id: string): Promise<Vehicle | null> {
   const rows = await db.select().from(vehicles).where(eq(vehicles.id, id)).limit(1);
+  return rows[0] ? toVehicle(rows[0]) : null;
+}
+
+/**
+ * Wie getVehicle, aber nur für Fahrzeuge, die nicht archiviert sind.
+ *
+ * Die öffentliche Fahrzeugseite muss das nehmen: eine Kontolöschung
+ * archiviert die Fahrzeuge, und ihre Adressen standen vorher in der Sitemap.
+ * Ohne diese Prüfung blieben Beschreibung, Mängelliste und Wunschtext
+ * danach unter einer indexierten URL abrufbar.
+ */
+export async function getPublicVehicle(id: string): Promise<Vehicle | null> {
+  const rows = await db
+    .select()
+    .from(vehicles)
+    .where(and(eq(vehicles.id, id), isNull(vehicles.archivedAt)))
+    .limit(1);
   return rows[0] ? toVehicle(rows[0]) : null;
 }
 

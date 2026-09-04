@@ -11,6 +11,7 @@ import {
   countListingView,
   getListingByVehicle,
   getMyVehicles,
+  getPublicVehicle,
   getVehicle,
   getWatchlistIds,
 } from "@/lib/queries";
@@ -32,8 +33,11 @@ export async function generateMetadata({
 
 export default async function VehiclePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [vehicle, me] = await Promise.all([getVehicle(id), getSessionUser()]);
+  const me = await getSessionUser();
+  // Archivierte Fahrzeuge sieht nur noch, wem sie gehören.
+  const vehicle = me ? await getVehicle(id) : await getPublicVehicle(id);
   if (!vehicle) notFound();
+  if (vehicle.archivedAt && vehicle.ownerId !== me?.id) notFound();
 
   const view = await getListingByVehicle(vehicle.id);
   const listing = view?.listing ?? null;

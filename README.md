@@ -269,10 +269,10 @@ Nach dem ersten Deployment:
   Geldwäschereigesetz fällt — die Konstruktion über Stripe Connect ist darauf
   ausgelegt, dass nie CarSwap selbst Gelder Dritter hält. Die Firmenangaben
   kommen aus `OPERATOR_NAME`, `OPERATOR_ADDRESS`, `OPERATOR_EMAIL` und
-  optional `OPERATOR_LEGAL_FORM`, `OPERATOR_UID`, `OPERATOR_REGISTER`,
-  `OPERATOR_PHONE`. Fehlen sie, sagen die Seiten das offen — statt eine
-  vollständige Rechtsseite vorzutäuschen. `/api/health` meldet den Zustand
-  als `impressum`.
+  `OPERATOR_LEGAL_FORM` und `OPERATOR_UID`, optional dazu `OPERATOR_REGISTER`
+  und `OPERATOR_PHONE`. Fehlt eines davon, benennt die Seite es einzeln —
+  statt eine vollständige Rechtsseite vorzutäuschen. `/api/health` meldet den
+  Zustand als `impressum`.
 - **Identitätsprüfung** der Nutzer (`identityVerified` wird heute nirgends
   gesetzt) sowie Abfrage von Fahrzeugausweis und Pfandrecht.
 - **Empirische Kalibrierung** der Restwertkurven an echten Marktdaten — am
@@ -291,6 +291,11 @@ Nach dem ersten Deployment:
 - **Nonce-basierte CSP** statt `'unsafe-inline'` für Skripte.
 - **Rückbuchungen** nach abgeschlossenem Tausch werden erkannt und gemeldet,
   aber nicht automatisch geheilt.
+- **Kontolöschung**: Name, Adresse, Kontaktdaten, Sitzungen, Token, Fotos und
+  die eigenen Nachrichten- und Bewertungstexte werden entfernt, Fahrzeuge
+  archiviert. Was bleibt: die Tauschvorgänge selbst und die Bewertungen, die
+  andere über das Konto geschrieben haben. Das Konto beim Zahlungsdienst-
+  leister wird getrennt, aber nicht dort gelöscht.
 
 ### Umgebungsvariablen
 
@@ -303,6 +308,7 @@ Nach dem ersten Deployment:
 | `RESEND_API_KEY` + `MAIL_FROM` | Mailversand | keine Bestätigungs- und Reset-Mails, und die Pflicht zur bestätigten Adresse entfällt |
 | `BLOB_READ_WRITE_TOKEN` | Fotouploads | Upload antwortet mit 503 |
 | `BLOB_PUBLIC_HOST` | erlaubter Foto-Host | wird aus dem Token abgeleitet |
-| `OPERATOR_*` | Impressum und Datenschutz | Rechtsseiten weisen sich als unvollständig aus |
-| `HEALTH_TOKEN` | Details unter `/api/health` | Details nur ausserhalb der Produktion |
+| `OPERATOR_NAME`, `OPERATOR_LEGAL_FORM`, `OPERATOR_ADDRESS`, `OPERATOR_UID`, `OPERATOR_EMAIL` | Pflichtangaben im Impressum | die Seite benennt die fehlenden Felder einzeln |
+| `OPERATOR_REGISTER`, `OPERATOR_PHONE` | ergänzende Angaben | werden weggelassen |
+| `HEALTH_TOKEN` | Details unter `/api/health` (nur als `Authorization: Bearer …`) | Details nur ausserhalb der Produktion |
 | `PLATFORM_FEE_PERCENT` / `PLATFORM_FEE_FIXED_MINOR` | Zahlungsgebühr | 2.9 % + 30 Rappen |

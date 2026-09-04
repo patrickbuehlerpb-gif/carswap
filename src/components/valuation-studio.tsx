@@ -10,7 +10,13 @@ import { VehicleVisual } from "@/components/vehicle-visual";
 import { Badge, Card } from "@/components/ui";
 import { MAKE_NAMES, modelsFor } from "@/lib/data/catalog";
 import { chf, km, label } from "@/lib/format";
-import type { Body, Condition, Fuel, ServiceHistory, Vehicle } from "@/lib/types";
+import type {
+  Body,
+  Condition,
+  Fuel,
+  ServiceHistory,
+  Vehicle,
+} from "@/lib/types";
 import {
   depreciationPerMonth,
   hasValuationInput,
@@ -18,7 +24,6 @@ import {
   valueAt,
   valueHistory,
 } from "@/lib/valuation";
-
 
 /** Formularzustand — daraus wird ein vollständiges Vehicle-Objekt gebaut. */
 interface Draft {
@@ -139,31 +144,54 @@ export function ValuationStudio({
     const variants: Array<{ label: string; delta: number; hint: string }> = [
       {
         label: "10'000 km mehr",
-        delta: valueAt({ ...vehicle, mileageKm: vehicle.mileageKm + 10_000 }, undefined, asOf) - base,
+        delta:
+          valueAt(
+            { ...vehicle, mileageKm: vehicle.mileageKm + 10_000 },
+            undefined,
+            asOf,
+          ) - base,
         hint: "typisch für acht Monate Normalbetrieb",
       },
       {
         label: "Zustand eine Stufe besser",
-        delta: valueAt({ ...vehicle, condition: upgrade(vehicle.condition) }, undefined, asOf) - base,
+        delta:
+          valueAt(
+            { ...vehicle, condition: upgrade(vehicle.condition) },
+            undefined,
+            asOf,
+          ) - base,
         hint: "Aufbereitung, Smart Repair, Innenreinigung",
       },
       {
         label: "Ein Jahr älter",
         delta:
-          valueAt({ ...vehicle, firstRegistration: shiftYear(vehicle.firstRegistration, -1) }, undefined, asOf) -
-          base,
+          valueAt(
+            {
+              ...vehicle,
+              firstRegistration: shiftYear(vehicle.firstRegistration, -1),
+            },
+            undefined,
+            asOf,
+          ) - base,
         hint: "reiner Alterseffekt ohne Mehrkilometer",
       },
       {
         label: "Ohne Serviceheft",
-        delta: valueAt({ ...vehicle, serviceHistory: "keine" }, undefined, asOf) - base,
+        delta:
+          valueAt({ ...vehicle, serviceHistory: "keine" }, undefined, asOf) -
+          base,
         hint: "fehlende Wartungsnachweise",
       },
     ];
     if (vehicle.fuel === "elektro") {
       variants.push({
         label: "Batterie 5 % schlechter",
-        delta: valueAt({ ...vehicle, batterySoh: (vehicle.batterySoh ?? 95) - 5 }, undefined, asOf) - base,
+        delta:
+          valueAt(
+            { ...vehicle, batterySoh: (vehicle.batterySoh ?? 95) - 5 },
+            undefined,
+            asOf,
+          ) - base,
         hint: "SoH ist beim Stromer der grösste Einzelhebel",
       });
     }
@@ -185,7 +213,9 @@ export function ValuationStudio({
       <Card className="h-fit p-5 lg:sticky lg:top-24">
         {myVehicles.length > 0 && (
           <>
-            <p className="text-[11px] uppercase tracking-wider text-ink-3">Aus deiner Garage</p>
+            <p className="text-[11px] uppercase tracking-wider text-ink-3">
+              Aus deiner Garage
+            </p>
             <div className="mt-2 mb-5 flex flex-wrap gap-2">
               {myVehicles.map((v) => (
                 <button
@@ -210,7 +240,9 @@ export function ValuationStudio({
               label="Marke"
               value={draft.make}
               onChange={(make) =>
-                setDraft((d) => (d.make === make ? d : { ...d, make, model: "" }))
+                setDraft((d) =>
+                  d.make === make ? d : { ...d, make, model: "" },
+                )
               }
               options={MAKE_NAMES}
               placeholder="Marke suchen …"
@@ -247,7 +279,11 @@ export function ValuationStudio({
                 type="number"
                 step={500}
                 value={draft.listPriceNew}
-                onChange={(e) => set("listPriceNew", Math.max(5_000, Number(e.target.value)))}
+                min={5_000}
+                // Keine Klemmung im Handler: das Feld ist kontrolliert, jede
+                // Zwischeneingabe unter der Grenze würde sofort durch 5000
+                // ersetzt und der Nutzer schriebe an diesem Präfix weiter.
+                onChange={(e) => set("listPriceNew", Number(e.target.value))}
                 className={inputClass}
               />
             </Field>
@@ -280,11 +316,13 @@ export function ValuationStudio({
                 }}
                 className={inputClass}
               >
-                {(["elektro", "hybrid", "benzin", "diesel"] as Fuel[]).map((f) => (
-                  <option key={f} value={f}>
-                    {label.fuel(f)}
-                  </option>
-                ))}
+                {(["elektro", "hybrid", "benzin", "diesel"] as Fuel[]).map(
+                  (f) => (
+                    <option key={f} value={f}>
+                      {label.fuel(f)}
+                    </option>
+                  ),
+                )}
               </select>
             </Field>
             <Field label="Karosserie">
@@ -293,7 +331,16 @@ export function ValuationStudio({
                 onChange={(e) => set("body", e.target.value as Body)}
                 className={inputClass}
               >
-                {(["suv", "limousine", "kombi", "kompakt", "coupe", "van"] as Body[]).map((b) => (
+                {(
+                  [
+                    "suv",
+                    "limousine",
+                    "kombi",
+                    "kompakt",
+                    "coupe",
+                    "van",
+                  ] as Body[]
+                ).map((b) => (
                   <option key={b} value={b}>
                     {label.body(b)}
                   </option>
@@ -309,7 +356,9 @@ export function ValuationStudio({
                 onChange={(e) => set("condition", e.target.value as Condition)}
                 className={inputClass}
               >
-                {(["neuwertig", "sehr gut", "gut", "gebraucht"] as Condition[]).map((c) => (
+                {(
+                  ["neuwertig", "sehr gut", "gut", "gebraucht"] as Condition[]
+                ).map((c) => (
                   <option key={c}>{c}</option>
                 ))}
               </select>
@@ -320,7 +369,9 @@ export function ValuationStudio({
                 min={1}
                 max={8}
                 value={draft.previousOwners}
-                onChange={(e) => set("previousOwners", Math.max(1, Number(e.target.value)))}
+                onChange={(e) =>
+                  set("previousOwners", Math.max(1, Number(e.target.value)))
+                }
                 className={inputClass}
               />
             </Field>
@@ -329,7 +380,9 @@ export function ValuationStudio({
           <Field label="Serviceheft">
             <select
               value={draft.serviceHistory}
-              onChange={(e) => set("serviceHistory", e.target.value as Draft["serviceHistory"])}
+              onChange={(e) =>
+                set("serviceHistory", e.target.value as Draft["serviceHistory"])
+              }
               className={inputClass}
             >
               <option value="lückenlos scheckheft">lückenlos scheckheft</option>
@@ -375,7 +428,9 @@ export function ValuationStudio({
                     onClick={() =>
                       set(
                         "features",
-                        active ? draft.features.filter((x) => x !== f) : [...draft.features, f],
+                        active
+                          ? draft.features.filter((x) => x !== f)
+                          : [...draft.features, f],
                       )
                     }
                     className={`rounded-md border px-2 py-0.5 text-[11px] transition-colors ${
@@ -395,114 +450,137 @@ export function ValuationStudio({
 
       {/* --------------- Ergebnis --------------- */}
       <div className="min-w-0 space-y-6">
-        <Card className="overflow-hidden">
-          <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6">
-            <VehicleVisual
-              id={source}
-              body={draft.body}
-              className="aspect-[16/9] w-full shrink-0 rounded-lg sm:w-56"
-            />
-            <div className="flex-1">
-              <p className="text-sm text-ink-3">
-                {draft.make} {draft.model} {draft.trim}
+        {!bewertbar && (
+          <Card className="p-8 text-center">
+            <h2 className="text-base font-semibold text-ink">
+              Noch nichts zu rechnen
+            </h2>
+            <p className="mx-auto mt-2 max-w-md text-sm text-ink-3">
+              Für eine Schätzung braucht es Erstzulassung und Neupreis. Ohne die
+              beiden Angaben zeigen wir lieber nichts als eine Zahl, die auf
+              nichts beruht.
+            </p>
+          </Card>
+        )}
+
+        {bewertbar && (
+          <>
+            <Card className="overflow-hidden">
+              <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6">
+                <VehicleVisual
+                  id={source}
+                  body={draft.body}
+                  className="aspect-[16/9] w-full shrink-0 rounded-lg sm:w-56"
+                />
+                <div className="flex-1">
+                  <p className="text-sm text-ink-3">
+                    {draft.make} {draft.model} {draft.trim}
+                  </p>
+                  <p className="mt-1 text-4xl font-semibold tabular text-ink">
+                    {chf(valuation.value)}
+                  </p>
+                  <p className="mt-1 text-sm text-ink-3 tabular">
+                    Realistische Spanne {chf(valuation.low)} –{" "}
+                    {chf(valuation.high)}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Badge tone={valuation.confidence > 0.75 ? "good" : "warn"}>
+                      {Math.round(valuation.confidence * 100)} % Zuverlässigkeit
+                    </Badge>
+                    <Badge>
+                      {Math.round((valuation.value / draft.listPriceNew) * 100)}{" "}
+                      % vom Neupreis
+                    </Badge>
+                    <Badge tone="bad">{chf(perMonth)} pro Monat</Badge>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 divide-x divide-line border-t border-line sm:grid-cols-4">
+                <Mini label="Heute" value={chf(valuation.value)} />
+                <Mini label="in 12 Monaten" value={chf(in12)} tone="bad" />
+                <Mini label="in 24 Monaten" value={chf(in24)} tone="bad" />
+                <Mini
+                  label="Verlust 24 Mte."
+                  value={chf(valuation.value - in24)}
+                  tone="bad"
+                />
+              </div>
+            </Card>
+
+            <Card className="p-5 sm:p-6">
+              <p className="text-[11px] uppercase tracking-wider text-ink-3">
+                Wertverlauf und Prognose
               </p>
-              <p className="mt-1 text-4xl font-semibold tabular text-ink">
-                {chf(valuation.value)}
+              <div className="mt-4">
+                <ValueChart points={history} />
+              </div>
+              <p className="mt-4 border-t border-line pt-3 text-xs leading-relaxed text-ink-3">
+                Die Prognose schreibt Alterung, Laufleistung und die
+                Marktentwicklung des jeweiligen Antriebssegments fort. Das
+                schattierte Band zeigt, wie unsicher die Schätzung mit
+                zunehmendem Horizont wird — nach zwei Jahren liegt die
+                realistische Streuung bereits im mittleren vierstelligen
+                Bereich.
               </p>
-              <p className="mt-1 text-sm text-ink-3 tabular">
-                Realistische Spanne {chf(valuation.low)} – {chf(valuation.high)}
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Badge tone={valuation.confidence > 0.75 ? "good" : "warn"}>
-                  {Math.round(valuation.confidence * 100)} % Zuverlässigkeit
-                </Badge>
-                <Badge>
-                  {Math.round((valuation.value / draft.listPriceNew) * 100)} % vom Neupreis
-                </Badge>
-                <Badge tone="bad">{chf(perMonth)} pro Monat</Badge>
+            </Card>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card className="p-5">
+                <p className="text-[11px] uppercase tracking-wider text-ink-3">
+                  Zusammensetzung des Werts
+                </p>
+                <div className="mt-4">
+                  <ValuationBreakdown vehicle={vehicle} valuation={valuation} />
+                </div>
+              </Card>
+
+              <div className="space-y-6">
+                <Card className="p-5">
+                  <p className="text-[11px] uppercase tracking-wider text-ink-3">
+                    Was den Wert bewegt
+                  </p>
+                  <p className="mt-1 text-sm text-ink-3">
+                    Einzelne Änderungen gegenüber der aktuellen Konfiguration.
+                  </p>
+                  <ul className="mt-4 space-y-3">
+                    {sensitivity.map((s) => (
+                      <li key={s.label}>
+                        <div className="flex items-baseline justify-between gap-3">
+                          <span className="text-sm text-ink-2">{s.label}</span>
+                          <span
+                            className={`text-sm font-semibold tabular ${
+                              s.delta >= 0 ? "text-good" : "text-bad"
+                            }`}
+                          >
+                            {s.delta >= 0 ? "+" : "−"}
+                            {chf(Math.abs(s.delta))}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-xs text-ink-3">{s.hint}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+
+                <Card className="p-5">
+                  <p className="text-[11px] uppercase tracking-wider text-ink-3">
+                    Empfehlung
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-ink-2">
+                    {recommendation(valuation.value, perMonth, draft)}
+                  </p>
+                  <Link
+                    href="/matches"
+                    className="mt-4 block rounded-lg bg-volt py-2.5 text-center text-sm font-semibold text-ink transition-colors hover:bg-volt-hi"
+                  >
+                    Tauschmöglichkeiten anzeigen
+                  </Link>
+                </Card>
               </div>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 divide-x divide-line border-t border-line sm:grid-cols-4">
-            <Mini label="Heute" value={chf(valuation.value)} />
-            <Mini label="in 12 Monaten" value={chf(in12)} tone="bad" />
-            <Mini label="in 24 Monaten" value={chf(in24)} tone="bad" />
-            <Mini
-              label="Verlust 24 Mte."
-              value={chf(valuation.value - in24)}
-              tone="bad"
-            />
-          </div>
-        </Card>
-
-        <Card className="p-5 sm:p-6">
-          <p className="text-[11px] uppercase tracking-wider text-ink-3">
-            Wertverlauf und Prognose
-          </p>
-          <div className="mt-4">
-            <ValueChart points={history} />
-          </div>
-          <p className="mt-4 border-t border-line pt-3 text-xs leading-relaxed text-ink-3">
-            Die Prognose schreibt Alterung, Laufleistung und die Marktentwicklung des jeweiligen
-            Antriebssegments fort. Das schattierte Band zeigt, wie unsicher die Schätzung mit
-            zunehmendem Horizont wird — nach zwei Jahren liegt die realistische Streuung bereits
-            im mittleren vierstelligen Bereich.
-          </p>
-        </Card>
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="p-5">
-            <p className="text-[11px] uppercase tracking-wider text-ink-3">
-              Zusammensetzung des Werts
-            </p>
-            <div className="mt-4">
-              <ValuationBreakdown vehicle={vehicle} valuation={valuation} />
-            </div>
-          </Card>
-
-          <div className="space-y-6">
-            <Card className="p-5">
-              <p className="text-[11px] uppercase tracking-wider text-ink-3">
-                Was den Wert bewegt
-              </p>
-              <p className="mt-1 text-sm text-ink-3">
-                Einzelne Änderungen gegenüber der aktuellen Konfiguration.
-              </p>
-              <ul className="mt-4 space-y-3">
-                {sensitivity.map((s) => (
-                  <li key={s.label}>
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="text-sm text-ink-2">{s.label}</span>
-                      <span
-                        className={`text-sm font-semibold tabular ${
-                          s.delta >= 0 ? "text-good" : "text-bad"
-                        }`}
-                      >
-                        {s.delta >= 0 ? "+" : "−"}
-                        {chf(Math.abs(s.delta))}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-xs text-ink-3">{s.hint}</p>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-
-            <Card className="p-5">
-              <p className="text-[11px] uppercase tracking-wider text-ink-3">Empfehlung</p>
-              <p className="mt-2 text-sm leading-relaxed text-ink-2">
-                {recommendation(valuation.value, perMonth, draft)}
-              </p>
-              <Link
-                href="/matches"
-                className="mt-4 block rounded-lg bg-volt py-2.5 text-center text-sm font-semibold text-ink transition-colors hover:bg-volt-hi"
-              >
-                Tauschmöglichkeiten anzeigen
-              </Link>
-            </Card>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -511,7 +589,13 @@ export function ValuationStudio({
 const inputClass =
   "w-full rounded-md border border-line bg-surface-2 px-2.5 py-1.5 text-sm text-ink outline-none focus:border-ink-3";
 
-function Field({ label: l, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label: l,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
       <span className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-ink-3">
@@ -534,7 +618,9 @@ function Mini({
   return (
     <div className="p-4">
       <p className="text-[11px] uppercase tracking-wider text-ink-3">{l}</p>
-      <p className={`mt-1 text-lg font-semibold tabular ${tone === "bad" ? "text-ink-2" : "text-ink"}`}>
+      <p
+        className={`mt-1 text-lg font-semibold tabular ${tone === "bad" ? "text-ink-2" : "text-ink"}`}
+      >
         {value}
       </p>
     </div>

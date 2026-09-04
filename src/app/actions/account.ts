@@ -17,6 +17,7 @@ import {
   watchlist,
 } from "@/lib/db/schema";
 import { destroySession, requireUser } from "@/lib/auth/session";
+import { deleteBlobs } from "@/lib/blob";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
 import {
   connectOnboardingUrl,
@@ -50,7 +51,10 @@ export async function updateProfileAction(
     canton: formData.get("canton") ?? "",
     phone: formData.get("phone") ?? "",
   });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Eingaben unvollständig." };
+  if (!parsed.success)
+    return {
+      error: parsed.error.issues[0]?.message ?? "Eingaben unvollständig.",
+    };
 
   await db
     .update(users)
@@ -75,7 +79,10 @@ export async function updateProfileAction(
 export async function startPayoutOnboardingAction(): Promise<AccountResult> {
   const me = await requireUser();
   if (!stripeConfigured()) {
-    return { error: "Auszahlungen sind auf dieser Installation noch nicht eingerichtet." };
+    return {
+      error:
+        "Auszahlungen sind auf dieser Installation noch nicht eingerichtet.",
+    };
   }
   try {
     const accountId = await ensureConnectAccount(me.id, me.email);
@@ -83,7 +90,10 @@ export async function startPayoutOnboardingAction(): Promise<AccountResult> {
     return { ok: true, redirectTo: url };
   } catch (err) {
     console.error("Connect-Onboarding fehlgeschlagen:", err);
-    return { error: "Das Auszahlungskonto konnte nicht angelegt werden. Bitte später erneut." };
+    return {
+      error:
+        "Das Auszahlungskonto konnte nicht angelegt werden. Bitte später erneut.",
+    };
   }
 }
 
@@ -93,7 +103,10 @@ export async function refreshPayoutStatusAction(): Promise<AccountResult> {
   try {
     const enabled = await refreshPayoutStatus(me.id);
     revalidatePath("/konto");
-    return { ok: true, notice: enabled ? "Auszahlungen sind freigeschaltet." : undefined };
+    return {
+      ok: true,
+      notice: enabled ? "Auszahlungen sind freigeschaltet." : undefined,
+    };
   } catch (err) {
     console.error("Statusabfrage fehlgeschlagen:", err);
     return { error: "Der Status konnte nicht abgefragt werden." };
@@ -109,13 +122,21 @@ export async function refreshPayoutStatusAction(): Promise<AccountResult> {
  * erklärung sagt Auskunft zu — ohne diesen Pfad wäre das ein leeres
  * Versprechen.
  */
-export async function exportMyDataAction(): Promise<{ json?: string; error?: string }> {
+export async function exportMyDataAction(): Promise<{
+  json?: string;
+  error?: string;
+}> {
   const me = await requireUser();
 
   const limit = await checkRateLimit(`export:${me.id}`, 5, 24 * 60 * 60);
-  if (!limit.ok) return { error: "Zu viele Auskunftsanfragen. Bitte morgen erneut." };
+  if (!limit.ok)
+    return { error: "Zu viele Auskunftsanfragen. Bitte morgen erneut." };
 
-  const [konto] = await db.select().from(users).where(eq(users.id, me.id)).limit(1);
+  const [konto] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, me.id))
+    .limit(1);
   if (!konto) return { error: "Konto nicht gefunden." };
 
   const [
@@ -146,7 +167,10 @@ export async function exportMyDataAction(): Promise<{ json?: string; error?: str
 
   const dealIds = meineDeals.map((d) => d.id);
   const nachrichten = dealIds.length
-    ? await db.select().from(dealMessages).where(inArray(dealMessages.dealId, dealIds))
+    ? await db
+        .select()
+        .from(dealMessages)
+        .where(inArray(dealMessages.dealId, dealIds))
     : [];
 
   // Der Passwort-Hash gehört nicht in eine Auskunft — er ist kein
@@ -178,7 +202,9 @@ export async function exportMyDataAction(): Promise<{ json?: string; error?: str
  * E-Mail-Adresse durch eine unbrauchbare Kennung ersetzt. Fahrzeuge und
  * Inserate verschwinden aus dem Markt.
  */
-export async function deleteAccountAction(bestaetigung: string): Promise<AccountResult> {
+export async function deleteAccountAction(
+  bestaetigung: string,
+): Promise<AccountResult> {
   const me = await requireUser();
   if (bestaetigung.trim().toUpperCase() !== "LÖSCHEN") {
     return { error: "Bitte zum Bestätigen das Wort LÖSCHEN eintippen." };
@@ -226,56 +252,136 @@ export async function deleteAccountAction(bestaetigung: string): Promise<Account
     };
   }
 
-  await db.transaction(async (tx) => {
-    // Offene Vorschläge zurückziehen
-    await tx
-      .update(deals)
-      .set({ status: "storniert", updatedAt: new Date() })
-      .where(
-        and(
-          or(eq(deals.initiatorId, me.id), eq(deals.counterpartyId, me.id)),
-          inArray(deals.status, ["vorschlag", "verhandlung"]),
-        ),
-      );
+  const zuLoeschendeFotos: string[] = [];
 
-    // Fahrzeuge aus dem Markt nehmen
-    await tx
-      .update(listings)
-      .set({ status: "pausiert", updatedAt: new Date() })
-      .where(and(eq(listings.ownerId, me.id), ne(listings.status, "getauscht")));
-    await tx
-      .update(vehicles)
-      .set({ archivedAt: new Date(), updatedAt: new Date() })
-      .where(eq(vehicles.ownerId, me.id));
+  try {
+    await db.transaction(async (tx) => {
+      // Die beiden Sperrgründe innerhalb der Transaktion erneut prüfen und
+      // die Zeilen dabei sperren. Zwischen der Vorprüfung oben und hier
+      // könnte die Gegenseite einen Vorschlag angenommen haben.
+      const nochOffen = await tx
+        .select({ id: deals.id })
+        .from(deals)
+        .where(
+          and(
+            or(eq(deals.initiatorId, me.id), eq(deals.counterpartyId, me.id)),
+            inArray(deals.status, ["angenommen", "treuhand", "abwicklung"]),
+          ),
+        )
+        .for("update")
+        .limit(1);
+      if (nochOffen.length) throw new LoeschKonflikt("verbindlicher Tausch");
 
-    await tx.delete(watchlist).where(eq(watchlist.userId, me.id));
-    await tx.delete(authTokens).where(eq(authTokens.userId, me.id));
-    await tx.delete(sessions).where(eq(sessions.userId, me.id));
+      const nochZahlung = await tx
+        .select({ id: payments.id })
+        .from(payments)
+        .where(
+          and(
+            or(eq(payments.payerId, me.id), eq(payments.payeeId, me.id)),
+            inArray(payments.status, ["erstellt", "autorisiert", "eingezogen"]),
+          ),
+        )
+        .for("update")
+        .limit(1);
+      if (nochZahlung.length) throw new LoeschKonflikt("offene Zahlung");
 
-    await tx
-      .update(users)
-      .set({
-        // Die Adresse muss eindeutig bleiben (Unique-Index) und darf sich
-        // nicht mehr zum Anmelden eignen.
-        email: `geloescht+${me.id}@invalid`,
-        name: "Gelöschtes Konto",
-        location: "",
-        canton: "",
-        phone: null,
-        passwordHash: "geloescht",
-        emailVerifiedAt: null,
-        identityVerified: false,
-        // Der Verweis auf das Auszahlungskonto wird gelöst. Das Konto selbst
-        // liegt bei Stripe und untersteht deren gesetzlichen Aufbewahrungs-
-        // fristen — darauf weist die Oberfläche ausdrücklich hin.
-        stripeAccountId: null,
-        stripePayoutsEnabled: false,
-        deletedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, me.id));
-  });
+      // Fotos merken, bevor die Fahrzeuge archiviert werden
+      const meineFahrzeuge = await tx
+        .select({ photos: vehicles.photos })
+        .from(vehicles)
+        .where(eq(vehicles.ownerId, me.id));
+      for (const f of meineFahrzeuge) {
+        for (const foto of f.photos ?? []) zuLoeschendeFotos.push(foto.url);
+      }
+
+      // Offene Vorschläge zurückziehen
+      await tx
+        .update(deals)
+        .set({ status: "storniert", updatedAt: new Date() })
+        .where(
+          and(
+            or(eq(deals.initiatorId, me.id), eq(deals.counterpartyId, me.id)),
+            inArray(deals.status, ["vorschlag", "verhandlung"]),
+          ),
+        );
+
+      // Fahrzeuge aus dem Markt nehmen
+      await tx
+        .update(listings)
+        .set({ status: "pausiert", updatedAt: new Date() })
+        .where(
+          and(eq(listings.ownerId, me.id), ne(listings.status, "getauscht")),
+        );
+      await tx
+        .update(vehicles)
+        .set({ archivedAt: new Date(), updatedAt: new Date() })
+        .where(eq(vehicles.ownerId, me.id));
+
+      await tx.delete(watchlist).where(eq(watchlist.userId, me.id));
+      await tx.delete(authTokens).where(eq(authTokens.userId, me.id));
+      await tx.delete(sessions).where(eq(sessions.userId, me.id));
+
+      // Nachrichten und Bewertungen sind Freitext und enthalten typischerweise
+      // Übergabeort, Telefonnummer oder Klarnamen. Die Zeilen bleiben, damit
+      // der Verlauf für die Gegenseite lesbar bleibt — der Inhalt geht.
+      await tx
+        .update(dealMessages)
+        .set({ body: "[Nachricht eines gelöschten Kontos]" })
+        .where(
+          and(eq(dealMessages.authorId, me.id), eq(dealMessages.system, false)),
+        );
+      await tx
+        .update(reviews)
+        .set({ body: null })
+        .where(eq(reviews.authorId, me.id));
+
+      await tx
+        .update(users)
+        .set({
+          // Die Adresse muss eindeutig bleiben (Unique-Index) und darf sich
+          // nicht mehr zum Anmelden eignen.
+          email: `geloescht+${me.id}@invalid`,
+          name: "Gelöschtes Konto",
+          location: "",
+          canton: "",
+          phone: null,
+          passwordHash: "geloescht",
+          emailVerifiedAt: null,
+          identityVerified: false,
+          // Der Verweis auf das Auszahlungskonto wird gelöst. Das Konto selbst
+          // liegt bei Stripe und untersteht deren gesetzlichen Aufbewahrungs-
+          // fristen — darauf weist die Oberfläche ausdrücklich hin.
+          stripeAccountId: null,
+          stripePayoutsEnabled: false,
+          deletedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, me.id));
+    });
+  } catch (err) {
+    if (err instanceof LoeschKonflikt) {
+      return {
+        error:
+          err.grund === "offene Zahlung"
+            ? "Zu deinem Konto ist noch ein Betrag hinterlegt oder unterwegs. Bitte melde dich " +
+              "beim Support."
+            : "Zu deinem Konto ist gerade ein Tausch verbindlich geworden. Er muss erst " +
+              "abgeschlossen oder abgebrochen sein.",
+      };
+    }
+    throw err;
+  }
+
+  // Erst nach dem Commit: der Blob-Speicher lässt sich nicht zurückrollen.
+  await deleteBlobs(zuLoeschendeFotos);
 
   await destroySession();
   return { ok: true, redirectTo: "/?konto=geloescht" };
+}
+
+/** Ein Sperrgrund, der erst innerhalb der Transaktion aufgefallen ist. */
+class LoeschKonflikt extends Error {
+  constructor(readonly grund: "verbindlicher Tausch" | "offene Zahlung") {
+    super(grund);
+  }
 }

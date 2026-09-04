@@ -35,7 +35,24 @@ export function operator(): Operator {
   };
 }
 
-/** Die Angaben, ohne die der Betrieb in der Schweiz nicht zulässig ist. */
+/**
+ * Die Angaben, ohne die der Betrieb in der Schweiz nicht zulässig ist —
+ * derselbe Umfang, den der Hinweis im Impressum aufzählt. Wären es weniger,
+ * verschwände der Hinweis bei halber Konfiguration und die Seite sähe
+ * vollständig aus, obwohl UID und Rechtsform fehlen.
+ */
 export function operatorComplete(op = operator()): boolean {
-  return Boolean(op.name && op.address && op.email);
+  return Boolean(op.name && op.legalForm && op.address && op.uid && op.email);
+}
+
+/** Welche Pflichtangaben fehlen noch? Für Hinweis und Betriebsprüfung. */
+export function missingOperatorFields(op = operator()): string[] {
+  const pflicht: Array<[keyof Operator, string]> = [
+    ["name", "Firmenname"],
+    ["legalForm", "Rechtsform"],
+    ["address", "Adresse"],
+    ["uid", "UID/MWST-Nummer"],
+    ["email", "Kontaktadresse"],
+  ];
+  return pflicht.filter(([k]) => !op[k]).map(([, bez]) => bez);
 }

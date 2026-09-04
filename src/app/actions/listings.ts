@@ -8,6 +8,7 @@ import { deals, listings, vehicles } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
 import { listingSchema, type ListingInput } from "@/lib/validation";
+import { deleteBlobs } from "@/lib/blob";
 
 export interface SaveResult {
   ok?: boolean;
@@ -134,6 +135,10 @@ export async function updateListingAction(vehicleId: string, raw: unknown): Prom
     };
   }
 
+  // Welche Bilder fallen mit dieser Änderung weg?
+  const behalten = new Set(parsed.data.photos.map((p) => p.url));
+  const verwaist = (owned.photos ?? []).map((p) => p.url).filter((url) => !behalten.has(url));
+
   await db.transaction(async (tx) => {
     await tx
       .update(vehicles)
@@ -144,6 +149,9 @@ export async function updateListingAction(vehicleId: string, raw: unknown): Prom
       .set({ ...wishRow(parsed.data), updatedAt: new Date() })
       .where(eq(listings.vehicleId, vehicleId));
   });
+
+  // Erst nach dem Commit — der Blob-Speicher lässt sich nicht zurückrollen.
+  await deleteBlobs(verwaist);
 
   revalidatePath("/garage");
   revalidatePath(`/fahrzeug/${vehicleId}`);

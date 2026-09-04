@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { sql as raw } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { stripeConfigured } from "@/lib/payments";
 import { siteUrlConfigured } from "@/lib/mail";
-import { operatorComplete } from "@/lib/operator";
+import { missingOperatorFields } from "@/lib/operator";
 
 export const dynamic = "force-dynamic";
 
@@ -18,9 +19,17 @@ export const dynamic = "force-dynamic";
 function darfDetails(request: Request): boolean {
   const token = process.env.HEALTH_TOKEN;
   if (!token) return process.env.NODE_ENV !== "production";
+
+  // Nur über den Header: ein Geheimnis in der Adresszeile landet in
+  // Zugriffsprotokollen, in der Browser-Historie und im Referrer.
   const header = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  const query = new URL(request.url).searchParams.get("token");
-  return header === token || query === token;
+  if (!header) return false;
+
+  // Zeitkonstant vergleichen. Über die Hashes, weil timingSafeEqual gleich
+  // lange Puffer verlangt und die Länge sonst selbst etwas verriete.
+  const a = createHash("sha256").update(header).digest();
+  const b = createHash("sha256").update(token).digest();
+  return timingSafeEqual(a, b);
 }
 
 export async function GET(request: Request) {
@@ -41,7 +50,10 @@ export async function GET(request: Request) {
   checks.mailversand =
     process.env.RESEND_API_KEY && process.env.MAIL_FROM ? "konfiguriert" : "nicht konfiguriert";
   checks.basisadresse = siteUrlConfigured() ? "konfiguriert" : "nicht konfiguriert";
-  checks.impressum = operatorComplete() ? "vollständig" : "unvollständig";
+  const fehlendeAngaben = missingOperatorFields();
+  checks.impressum = fehlendeAngaben.length
+    ? `unvollständig (${fehlendeAngaben.join(", ")})`
+    : "vollständig";
 
   const status = healthy ? 200 : 503;
   if (!darfDetails(request)) {

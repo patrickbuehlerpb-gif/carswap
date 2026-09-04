@@ -1,23 +1,23 @@
 import type { Metadata } from "next";
 import { Angabe, H2, LegalPage, Todo } from "@/components/legal";
-import { operator, operatorComplete } from "@/lib/operator";
+import { missingOperatorFields, operator, operatorComplete } from "@/lib/operator";
 
 export const metadata: Metadata = { title: "Impressum" };
 export const dynamic = "force-dynamic";
 
 export default function ImpressumPage() {
   const op = operator();
+  const fehlend = missingOperatorFields(op);
 
   return (
     <LegalPage title="Impressum" updated="September 2026">
-      {!operatorComplete(op) && (
+      {fehlend.length > 0 && (
         <Todo>
-          Firmenname, Rechtsform, vollständige Adresse, UID/MWST-Nummer, Handelsregistereintrag und
-          eine Kontaktadresse für rechtliche Anfragen. Ohne diese Angaben ist der Betrieb in der
-          Schweiz nicht zulässig (Art. 3 Abs. 1 lit. s UWG). Die Werte werden über die
-          Umgebungsvariablen <code>OPERATOR_NAME</code>, <code>OPERATOR_ADDRESS</code> und{" "}
-          <code>OPERATOR_EMAIL</code> gesetzt, optional dazu <code>OPERATOR_LEGAL_FORM</code>,{" "}
-          <code>OPERATOR_UID</code>, <code>OPERATOR_REGISTER</code> und{" "}
+          Es fehlen noch: {fehlend.join(", ")}. Ohne diese Angaben ist der Betrieb in der Schweiz
+          nicht zulässig (Art. 3 Abs. 1 lit. s UWG). Gesetzt werden sie über die
+          Umgebungsvariablen <code>OPERATOR_NAME</code>, <code>OPERATOR_LEGAL_FORM</code>,{" "}
+          <code>OPERATOR_ADDRESS</code>, <code>OPERATOR_UID</code> und{" "}
+          <code>OPERATOR_EMAIL</code>, optional dazu <code>OPERATOR_REGISTER</code> und{" "}
           <code>OPERATOR_PHONE</code>.
         </Todo>
       )}

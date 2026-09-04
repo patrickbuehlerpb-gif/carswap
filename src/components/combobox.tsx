@@ -41,7 +41,18 @@ export function Combobox({
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [active, setActive] = useState(0);
+  // -1 heisst: kein Eintrag markiert. Beim Öffnen mit einem frei eingetippten
+  // Wert darf nicht der erste Listeneintrag markiert sein — Enter würde ihn
+  // sonst übernehmen und den eigenen Wert kommentarlos ersetzen.
+  const [active, setActive] = useState(-1);
+  /**
+   * Der Klick auf einen Listeneintrag erreicht auch den Dokument-Listener
+   * weiter unten: React hängt seine Ereignisse an das Dokument, unser
+   * Listener kommt danach, und die Liste ist zu diesem Zeitpunkt schon aus
+   * dem Baum. Die Prüfung «liegt das Ziel im Feld?» schlägt dann fehl und
+   * würde den Suchtext über die eben getroffene Auswahl schreiben.
+   */
+  const geradeUebernommen = useRef(false);
 
   // Solange geschlossen, zeigt das Feld den gewählten Wert; beim Öffnen wird
   // daraus das Suchfeld.
@@ -64,6 +75,7 @@ export function Combobox({
   useEffect(() => {
     if (!open) return;
     function onPointerDown(e: PointerEvent) {
+      if (geradeUebernommen.current) return;
       // Ein Klick daneben darf das Getippte nicht verschlucken — sonst
       // speichert ein Klick direkt auf «Speichern» den alten Wert.
       if (!wrapRef.current?.contains(e.target as Node)) commitText();
@@ -83,7 +95,7 @@ export function Combobox({
   function openList() {
     if (disabled || open) return;
     setQuery("");
-    setActive(Math.max(0, options.indexOf(value)));
+    setActive(options.indexOf(value));
     setOpen(true);
   }
 
@@ -108,10 +120,16 @@ export function Combobox({
   }
 
   function pick(option: string) {
+    geradeUebernommen.current = true;
+    // Der Merker gilt nur für das laufende Ereignis.
+    setTimeout(() => {
+      geradeUebernommen.current = false;
+    }, 0);
     onChange(option);
     setOpen(false);
     setQuery("");
-    inputRef.current?.blur();
+    // Kein blur: der Fokus bleibt im Eingabefeld, damit Tab von dort aus zum
+    // nächsten Feld springt und nicht an den Seitenanfang.
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -129,7 +147,7 @@ export function Combobox({
         break;
       case "ArrowUp":
         e.preventDefault();
-        setActive((i) => Math.max(0, i - 1));
+        setActive((i) => Math.max(-1, i - 1));
         break;
       case "Home":
         e.preventDefault();
@@ -141,7 +159,7 @@ export function Combobox({
         break;
       case "Enter":
         e.preventDefault();
-        if (matches[active]) pick(matches[active]);
+        if (active >= 0 && matches[active]) pick(matches[active]);
         else commitText();
         break;
       case "Escape":
@@ -152,7 +170,7 @@ export function Combobox({
       case "Tab":
         // Tab bestätigt den markierten Treffer. Wer bewusst etwas Eigenes
         // eingibt, hat keinen Treffer in der Liste und behält seinen Text.
-        if (query.trim() && matches[active]) pick(matches[active]);
+        if (query.trim() && active >= 0 && matches[active]) pick(matches[active]);
         else commitText();
         break;
     }
@@ -175,7 +193,7 @@ export function Combobox({
           aria-expanded={open}
           aria-controls={`lb-${id}`}
           aria-autocomplete="list"
-          aria-activedescendant={open && matches[active] ? `opt-${id}-${active}` : undefined}
+          aria-activedescendant={open && active >= 0 && matches[active] ? `opt-${id}-${active}` : undefined}
           autoComplete="off"
           required={required}
           disabled={disabled}
@@ -185,7 +203,8 @@ export function Combobox({
           onClick={openList}
           onChange={(e) => {
             setQuery(e.target.value);
-            setActive(0);
+            // Sobald getippt wird, ist der erste Treffer die naheliegende Wahl.
+            setActive(e.target.value.trim() ? 0 : -1);
             if (!open) setOpen(true);
           }}
           onKeyDown={onKeyDown}

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import {
   authTokens,
+  dealMessages,
   deals,
   listings,
   payments,
@@ -172,6 +173,42 @@ describe("Kontolöschung", () => {
     const [row] = await db.select().from(users).where(eq(users.id, a));
     expect(row.stripeAccountId).toBeNull();
     expect(row.stripePayoutsEnabled).toBe(false);
+  });
+
+  it("entfernt Nachrichten- und Bewertungstexte des Kontos", async () => {
+    const { a, b, va, vb } = await kontoMitAllem();
+    const dealId = newId("dl");
+    await db.insert(deals).values({
+      id: dealId,
+      fromVehicleId: va,
+      toVehicleId: vb,
+      initiatorId: a,
+      counterpartyId: b,
+      cashDelta: 0,
+      status: "abgelehnt",
+    });
+    const meine = newId("msg");
+    const fremde = newId("msg");
+    const system = newId("msg");
+    await db.insert(dealMessages).values([
+      { id: meine, dealId, authorId: a, body: "Hol es Freitag an der Bahnhofstrasse 12, 079 …" },
+      { id: fremde, dealId, authorId: b, body: "Passt mir gut" },
+      { id: system, dealId, authorId: a, body: "Anna hat abgelehnt.", system: true },
+    ]);
+
+    als(a);
+    expect((await deleteAccountAction("LÖSCHEN")).error).toBeUndefined();
+
+    const rows = await db.select().from(dealMessages).where(eq(dealMessages.dealId, dealId));
+    const byId = new Map(rows.map((r) => [r.id, r.body]));
+    expect(byId.get(meine)).not.toContain("Bahnhofstrasse");
+    // Der Verlauf der Gegenseite bleibt lesbar
+    expect(byId.get(fremde)).toBe("Passt mir gut");
+    // Systemnachrichten sind kein persönlicher Text
+    expect(byId.get(system)).toBe("Anna hat abgelehnt.");
+
+    const [bewertung] = await db.select().from(reviews).where(eq(reviews.authorId, b));
+    expect(bewertung.body).toBe("Alles bestens");
   });
 
   it("zieht offene Vorschläge zurück", async () => {
