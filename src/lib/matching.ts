@@ -216,7 +216,9 @@ export function findMatches(
     }
     if (!vehicle.accidentFree) concerns.push("Unfallschaden dokumentiert");
     if (vehicle.defects?.length) concerns.push(`${vehicle.defects.length} bekannte(r) Mangel`);
-    if (!owner.verified) concerns.push("Besitzer noch nicht verifiziert");
+    // Nur die E-Mail ist ein geprüftes Signal. Auf einen Ausweis zu zeigen,
+    // den niemand prüft, hätte jedem Inserat dauerhaft einen Makel angehängt.
+    if (!owner.emailVerified) concerns.push("E-Mail-Adresse noch nicht bestätigt");
 
     const score = Math.round(
       100 *
@@ -225,7 +227,7 @@ export function findMatches(
             0.28 * myQuality +
             0.16 * (1 - Math.min(1, relGap / 0.4)) +
             0.1 * ratingScore(owner) +
-            0.06 * (owner.verified ? 1 : 0.3) +
+            0.06 * (owner.emailVerified ? 1 : 0.3) +
             0.06 * clamp01(1 - Math.abs(vehicle.mileageKm - 30_000) / 120_000),
         ),
     );
@@ -361,7 +363,7 @@ export function findRingSwaps(
               0.25 * (1 - Math.min(1, Math.abs(myCash) / (vMe * 0.4))) +
               0.15 * ratingScore(ownerA) +
               0.15 * ratingScore(ownerB) +
-              0.15 * (ownerA.verified && ownerB.verified ? 1 : 0.4),
+              0.15 * (ownerA.emailVerified && ownerB.emailVerified ? 1 : 0.4),
           ),
       );
 

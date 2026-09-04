@@ -36,6 +36,13 @@
       "when": 1788543704197,
       "tag": "0004_meldungen",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788546163753,
+      "tag": "0005_sperren",
+      "breakpoints": true
     }
   ]
 }

@@ -54,6 +54,8 @@ export interface SessionUser {
   stripeAccountId: string | null;
   stripePayoutsEnabled: boolean;
   isAdmin: boolean;
+  /** Von der Betreiberin stillgelegt — anmelden ja, handeln nein. */
+  suspended: boolean;
   rating: number | null;
   ratingCount: number;
   swapsCompleted: number;
@@ -72,6 +74,7 @@ function toSessionUser(u: UserRow): SessionUser {
     stripeAccountId: u.stripeAccountId,
     stripePayoutsEnabled: u.stripePayoutsEnabled,
     isAdmin: u.isAdmin,
+    suspended: u.suspendedAt !== null,
     rating: u.ratingCount > 0 ? u.ratingSum / u.ratingCount / 10 : null,
     ratingCount: u.ratingCount,
     swapsCompleted: u.swapsCompleted,

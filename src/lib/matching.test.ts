@@ -40,7 +40,8 @@ function nutzer(id: string): User {
     rating: null,
     ratingCount: 0,
     swapsCompleted: 0,
-    verified: true,
+    emailVerified: true,
+    identityVerified: false,
     avatarColor: "#000000",
   };
 }

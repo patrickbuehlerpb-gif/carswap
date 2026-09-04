@@ -104,6 +104,7 @@ vi.mock("@/lib/auth/session", async () => {
       stripeAccountId: u.stripeAccountId,
       stripePayoutsEnabled: u.stripePayoutsEnabled,
       isAdmin: u.isAdmin,
+      suspended: u.suspendedAt !== null,
     };
   }
 

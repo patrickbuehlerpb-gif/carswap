@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { deals, listings, vehicles } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
+import { suspendedNotice } from "@/lib/auth/guards";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
 import { listingSchema, type ListingInput } from "@/lib/validation";
 import { deleteBlobs } from "@/lib/blob";
@@ -78,6 +79,8 @@ async function inVerbindlichemTausch(vehicleId: string): Promise<boolean> {
 
 export async function createListingAction(raw: unknown): Promise<SaveResult> {
   const me = await requireUser();
+  const stillgelegt = suspendedNotice(me);
+  if (stillgelegt) return { error: stillgelegt };
 
   const limit = await checkRateLimit(`listing:${me.id}`, 10, 24 * 60 * 60);
   if (!limit.ok) return { error: "Zu viele Inserate in kurzer Zeit. Bitte morgen weitermachen." };
@@ -104,6 +107,8 @@ export async function createListingAction(raw: unknown): Promise<SaveResult> {
 
 export async function updateListingAction(vehicleId: string, raw: unknown): Promise<SaveResult> {
   const me = await requireUser();
+  const stillgelegt = suspendedNotice(me);
+  if (stillgelegt) return { error: stillgelegt };
 
   const [owned] = await db
     .select()
@@ -168,11 +173,28 @@ export async function setListingStatusAction(
   if (status !== "aktiv" && status !== "pausiert") {
     return { error: "Unbekannter Inseratsstatus." };
   }
+  const stillgelegt = suspendedNotice(me);
+  if (stillgelegt) return { error: stillgelegt };
   if (await inVerbindlichemTausch(vehicleId)) {
     return {
       error:
         "Zu diesem Fahrzeug läuft ein verbindlich zugesagter Tausch. Das Inserat lässt sich " +
         "erst danach wieder ändern.",
+    };
+  }
+
+  // Ein von der Betreiberin gesperrtes Inserat gehört nicht mehr dem
+  // Besitzer — «pausiert» hätte er sonst einfach wieder aktiviert.
+  const [aktuell] = await db
+    .select({ blockedAt: listings.blockedAt })
+    .from(listings)
+    .where(and(eq(listings.vehicleId, vehicleId), eq(listings.ownerId, me.id)))
+    .limit(1);
+  if (aktuell?.blockedAt) {
+    return {
+      error:
+        "Dieses Inserat wurde gesperrt und lässt sich nicht wieder aktivieren. " +
+        "Melde dich beim Support.",
     };
   }
 

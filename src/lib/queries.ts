@@ -67,7 +67,8 @@ export function toUser(row: UserRow): User {
     rating: row.ratingCount > 0 ? row.ratingSum / row.ratingCount / 10 : null,
     ratingCount: row.ratingCount,
     swapsCompleted: row.swapsCompleted,
-    verified: row.identityVerified && row.emailVerifiedAt !== null,
+    emailVerified: row.emailVerifiedAt !== null,
+    identityVerified: row.identityVerified,
     avatarColor: row.avatarColor,
   };
 }

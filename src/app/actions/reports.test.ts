@@ -1,9 +1,18 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { listings, reports, users } from "@/lib/db/schema";
+import { deals, listings, reports, users } from "@/lib/db/schema";
+import { newId } from "@/lib/db/ids";
 import { als, createUser, createVehicle, resetDatabase } from "@/test/fixtures";
-import { reportListingAction, resolveReportAction } from "@/app/actions/reports";
+import {
+  blockListingAction,
+  reportListingAction,
+  resolveReportAction,
+  suspendOwnerAction,
+} from "@/app/actions/reports";
+import { proposeSwapAction } from "@/app/actions/deals";
+import { setListingStatusAction } from "@/app/actions/listings";
+import { exportMyDataAction } from "@/app/actions/account";
 
 beforeEach(async () => {
   await resetDatabase();
@@ -32,6 +41,106 @@ describe("Meldung abhaken", () => {
     await db.update(users).set({ isAdmin: true }).where(eq(users.id, melder));
     expect((await resolveReportAction(meldung.id)).error).toBeUndefined();
     expect((await db.select().from(reports))[0].status).toBe("geprüft");
+  });
+});
+
+describe("Sperren und stilllegen", () => {
+  async function gemeldet() {
+    const { besitzer, melder, vehicleId } = await inserat();
+    als(melder);
+    await reportListingAction(vehicleId, "betrugsverdacht", "Sieht nach Betrug aus");
+    const [meldung] = await db.select().from(reports);
+    const admin = await createUser("Admin");
+    await db.update(users).set({ isAdmin: true }).where(eq(users.id, admin));
+    return { besitzer, melder, admin, vehicleId, meldungId: meldung.id };
+  }
+
+  it("nimmt ein gesperrtes Inserat aus dem Markt und lässt es nicht reaktivieren", async () => {
+    const { besitzer, admin, vehicleId, meldungId } = await gemeldet();
+    als(admin);
+    expect((await blockListingAction(meldungId, "Kennzeichen gefälscht")).error).toBeUndefined();
+
+    const [inseratRow] = await db.select().from(listings).where(eq(listings.vehicleId, vehicleId));
+    expect(inseratRow.status).toBe("pausiert");
+    expect(inseratRow.blockedAt).not.toBeNull();
+    expect(inseratRow.blockedReason).toBe("Kennzeichen gefälscht");
+
+    // Der Besitzer kommt nicht mehr daran
+    als(besitzer);
+    expect((await setListingStatusAction(vehicleId, "aktiv")).error).toMatch(/gesperrt/);
+    const [danach] = await db.select().from(listings).where(eq(listings.vehicleId, vehicleId));
+    expect(danach.status).toBe("pausiert");
+  });
+
+  it("storniert offene Vorschläge zum gesperrten Fahrzeug", async () => {
+    const { besitzer, melder, admin, vehicleId, meldungId } = await gemeldet();
+    const meins = await createVehicle(melder);
+    als(melder);
+    const vorschlag = await proposeSwapAction({
+      fromVehicleId: meins,
+      toVehicleId: vehicleId,
+      cashDelta: 0,
+      message: "Interesse?",
+    });
+    expect(vorschlag.error).toBeUndefined();
+
+    als(admin);
+    expect((await blockListingAction(meldungId, "")).error).toBeUndefined();
+    const [dealRow] = await db.select().from(deals).where(eq(deals.id, vorschlag.dealId!));
+    expect(dealRow.status).toBe("storniert");
+    void besitzer;
+  });
+
+  it("sperrt kein Inserat, an dem ein verbindlicher Tausch hängt", async () => {
+    const { melder, admin, vehicleId, meldungId } = await gemeldet();
+    const meins = await createVehicle(melder);
+    await db.insert(deals).values({
+      id: newId("dl"),
+      fromVehicleId: meins,
+      toVehicleId: vehicleId,
+      initiatorId: melder,
+      counterpartyId: (await db.select().from(listings).where(eq(listings.vehicleId, vehicleId)))[0]
+        .ownerId,
+      cashDelta: 0,
+      status: "treuhand",
+    });
+
+    als(admin);
+    const res = await blockListingAction(meldungId, "");
+    expect(res.error).toMatch(/verbindlich zugesagter Tausch/);
+  });
+
+  it("legt das Konto still: anmelden ja, handeln nein", async () => {
+    const { besitzer, admin, vehicleId, meldungId } = await gemeldet();
+    als(admin);
+    expect((await suspendOwnerAction(meldungId, "Mehrfach auffällig")).error).toBeUndefined();
+
+    const [konto] = await db.select().from(users).where(eq(users.id, besitzer));
+    expect(konto.suspendedAt).not.toBeNull();
+    // Aktive Inserate verschwinden
+    const [inseratRow] = await db.select().from(listings).where(eq(listings.vehicleId, vehicleId));
+    expect(inseratRow.status).toBe("pausiert");
+
+    // Handeln ist gesperrt …
+    als(besitzer);
+    const neues = await createVehicle(await createUser("Chiara"));
+    const res = await proposeSwapAction({
+      fromVehicleId: vehicleId,
+      toVehicleId: neues,
+      cashDelta: 0,
+      message: "Doch noch?",
+    });
+    expect(res.error).toMatch(/stillgelegt/);
+    // … die Auskunft über die eigenen Daten nicht
+    const auskunft = await exportMyDataAction();
+    expect(auskunft.error).toBeUndefined();
+  });
+
+  it("lässt die Betreiberin sich nicht selbst stilllegen", async () => {
+    const { besitzer, meldungId } = await gemeldet();
+    await db.update(users).set({ isAdmin: true }).where(eq(users.id, besitzer));
+    als(besitzer);
+    expect((await suspendOwnerAction(meldungId, "")).error).toMatch(/selbst/);
   });
 });
 

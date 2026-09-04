@@ -34,6 +34,22 @@ hängen.
 | **Tausch** (`/tausch/[id]`) | Direktvergleich, Wertkurven beider Fahrzeuge, Ausgleich per Regler, Prüfung gegen den Rahmen der Gegenseite. |
 | **Tauschvorgang** (`/deals/[id]`) | Verhandlung, Zusage, Treuhand, Übergabe-Checkliste, Abschluss mit Halterwechsel. |
 
+### Moderation
+
+Jedes Inserat lässt sich melden; die Meldung geht in die Tabelle `reports` und
+per Mail an `OPERATOR_EMAIL`. Unter `/admin/meldungen` kann die Betreiberin sie
+abhaken, das Inserat sperren oder das Konto stilllegen.
+
+Sperren ist bewusst etwas anderes als «pausiert»: ein gesperrtes Inserat
+verschwindet aus dem Markt, offene Vorschläge dazu werden storniert, und der
+Besitzer kann es nicht wieder aktivieren. Ein Inserat, an dem ein verbindlich
+zugesagter Tausch hängt, lässt sich nicht sperren — das würde Geld bewegen.
+
+Ein stillgelegtes Konto kann sich weiterhin anmelden und kommt an seine
+laufenden Tausche und seine Daten; inserieren, tauschen und bewerten ist
+gesperrt. Eine Sperre ist kein Grund, jemanden von den eigenen Daten
+auszusperren.
+
 ### Bewertungen
 
 Nach einem abgeschlossenen Tausch bewertet jede Seite die andere einmal — ein
@@ -324,9 +340,11 @@ Nach dem ersten Deployment:
   und `OPERATOR_PHONE`. Fehlt eines davon, benennt die Seite es einzeln —
   statt eine vollständige Rechtsseite vorzutäuschen. `/api/health` meldet den
   Zustand als `impressum`.
-- **Identitätsprüfung** der Nutzer (`identityVerified` wird heute nirgends
-  gesetzt) sowie Abfrage von Fahrzeugausweis und Pfandrecht. Stripe Identity
-  wäre die naheliegende Anbindung, weil Stripe ohnehin schon eingebunden ist.
+- **Identitätsprüfung** der Nutzer sowie Abfrage von Fahrzeugausweis und
+  Pfandrecht. Stripe Identity wäre die naheliegende Anbindung, weil Stripe
+  ohnehin schon eingebunden ist. Das Feld `identityVerified` ist vorbereitet,
+  wird aber von nichts gesetzt — und die Oberfläche verspricht deshalb auch
+  nichts damit: sie zeigt «E-Mail bestätigt», weil nur das geprüft ist.
 - **Empirische Kalibrierung** der Restwertkurven an echten Marktdaten — am
   ehesten zusammen mit einer Eurotax-Lizenz, die auch den Fahrzeugkatalog
   mitbringt.
@@ -338,10 +356,10 @@ Nach dem ersten Deployment:
 - **Auszahlungen, die am Empfängerkonto scheitern**, bleiben liegen, bis jemand
   die Übergabe erneut bestätigt. Ein Hintergrundlauf, der das von selbst
   wiederholt, fehlt.
-- **Missbrauchsschutz**: Prüfung neuer Konten und Betrugserkennung bei
-  auffälligen Wertdifferenzen. Melden, benachrichtigen und abhaken gibt es
-  (`/admin/meldungen`); was fehlt, sind Konsequenzen — ein Inserat sperren
-  oder ein Konto stilllegen geht heute nur von Hand in der Datenbank.
+- **Missbrauchsschutz**: automatische Betrugserkennung bei auffälligen
+  Wertdifferenzen und eine Prüfung neuer Konten. Melden, benachrichtigen,
+  abhaken, ein Inserat sperren und ein Konto stilllegen gibt es
+  (`/admin/meldungen`).
 - **Rückbuchungen** nach abgeschlossenem Tausch werden erkannt und gemeldet,
   aber nicht automatisch geheilt.
 - **Kontolöschung**: Name, Adresse, Kontaktdaten, Sitzungen, Token, Fotos und

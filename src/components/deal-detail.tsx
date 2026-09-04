@@ -560,9 +560,11 @@ export function DealDetail({
                 · {other.swapsCompleted} Tausche
               </p>
             </div>
-            {other.verified && (
+            {(other.emailVerified || other.identityVerified) && (
               <span className="ml-auto shrink-0">
-                <Badge tone="good">verifiziert</Badge>
+                <Badge tone="good">
+                  {other.identityVerified ? "Ausweis geprüft" : "E-Mail bestätigt"}
+                </Badge>
               </span>
             )}
           </div>

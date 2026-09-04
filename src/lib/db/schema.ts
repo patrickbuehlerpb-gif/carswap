@@ -45,6 +45,9 @@ export const users = pgTable(
      * verschwinden. Alles Persönliche ist dann entfernt.
      */
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    /** Von der Betreiberin stillgelegt — Anmeldung bleibt möglich, Handeln nicht. */
+    suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+    suspendedReason: text("suspended_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -170,6 +173,13 @@ export const listings = pgTable(
       .$type<"aktiv" | "pausiert" | "in verhandlung" | "getauscht">()
       .notNull()
       .default("aktiv"),
+    /**
+     * Von der Betreiberin gesperrt. Getrennt vom Status, damit das Sperren
+     * nicht mit «pausiert» verwechselt wird — der Besitzer darf ein
+     * gesperrtes Inserat nicht einfach wieder aktivieren.
+     */
+    blockedAt: timestamp("blocked_at", { withTimezone: true }),
+    blockedReason: text("blocked_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

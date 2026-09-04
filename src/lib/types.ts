@@ -73,7 +73,17 @@ export interface User {
   ratingCount: number;
   swapsCompleted: number;
   /** E-Mail bestätigt und Identität geprüft */
-  verified: boolean;
+  /**
+   * Bestätigte E-Mail-Adresse. Das ist heute das einzige Vertrauenssignal,
+   * das tatsächlich geprüft wird.
+   */
+  emailVerified: boolean;
+  /**
+   * Geprüfter Ausweis. Setzt heute niemand — das Feld ist da, damit die
+   * Anbindung an einen Prüfdienst später nichts umbauen muss. Solange es
+   * nirgends gesetzt wird, darf die Oberfläche auch nichts damit versprechen.
+   */
+  identityVerified: boolean;
   avatarColor: string;
 }
 

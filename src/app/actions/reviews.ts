@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { deals, reviews, users } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
+import { suspendedNotice } from "@/lib/auth/guards";
 
 export interface ReviewResult {
   ok?: boolean;
@@ -32,6 +33,8 @@ export async function submitReviewAction(
   body: string,
 ): Promise<ReviewResult> {
   const me = await requireUser();
+  const stillgelegt = suspendedNotice(me);
+  if (stillgelegt) return { error: stillgelegt };
 
   const parsed = reviewSchema.safeParse({ stars, body });
   if (!parsed.success) {

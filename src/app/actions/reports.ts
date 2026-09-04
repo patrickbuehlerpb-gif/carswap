@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
-import { listings, reports, vehicles } from "@/lib/db/schema";
+import { deals, listings, reports, users, vehicles } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
 import { sendMail, siteUrl } from "@/lib/mail";
@@ -88,6 +88,116 @@ export async function reportListingAction(
     );
   }
 
+  return { ok: true };
+}
+
+/**
+ * Sperrt ein gemeldetes Inserat. Es verschwindet aus dem Markt und lässt sich
+ * vom Besitzer nicht wieder aktivieren — anders als «pausiert», das ihm
+ * gehört. Läuft zu dem Fahrzeug ein verbindlicher Tausch, muss der zuerst
+ * geklärt werden; ihn hier abzubrechen würde Geld bewegen.
+ */
+export async function blockListingAction(
+  reportId: string,
+  grund: string,
+): Promise<ReportResult> {
+  const me = await requireUser();
+  if (!me.isAdmin) return { error: "Dafür fehlt dir die Berechtigung." };
+
+  const [meldung] = await db
+    .select({ listingId: reports.listingId, vehicleId: listings.vehicleId })
+    .from(reports)
+    .innerJoin(listings, eq(listings.id, reports.listingId))
+    .where(eq(reports.id, reportId))
+    .limit(1);
+  if (!meldung) return { error: "Meldung nicht gefunden." };
+
+  const gebunden = await db
+    .select({ id: deals.id })
+    .from(deals)
+    .where(
+      and(
+        or(eq(deals.fromVehicleId, meldung.vehicleId), eq(deals.toVehicleId, meldung.vehicleId)),
+        inArray(deals.status, ["angenommen", "treuhand", "abwicklung"]),
+      ),
+    )
+    .limit(1);
+  if (gebunden.length) {
+    return {
+      error:
+        "Zu diesem Fahrzeug läuft ein verbindlich zugesagter Tausch. Der muss zuerst geklärt " +
+        "werden — ihn hier abzubrechen würde Geld bewegen.",
+    };
+  }
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(listings)
+      .set({
+        status: "pausiert",
+        blockedAt: new Date(),
+        blockedReason: grund.trim().slice(0, 500) || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(listings.id, meldung.listingId));
+    // Offene Vorschläge zu diesem Fahrzeug fallen weg.
+    await tx
+      .update(deals)
+      .set({ status: "storniert", updatedAt: new Date() })
+      .where(
+        and(
+          or(eq(deals.fromVehicleId, meldung.vehicleId), eq(deals.toVehicleId, meldung.vehicleId)),
+          inArray(deals.status, ["vorschlag", "verhandlung"]),
+        ),
+      );
+    await tx.update(reports).set({ status: "geprüft" }).where(eq(reports.id, reportId));
+  });
+
+  revalidatePath("/admin/meldungen");
+  revalidatePath("/markt");
+  return { ok: true };
+}
+
+/**
+ * Legt das Konto hinter einem gemeldeten Inserat still. Anmelden geht weiter —
+ * sonst käme die Person nicht mehr an ihre laufenden Tausche und ihre Daten —,
+ * inserieren und tauschen nicht mehr.
+ */
+export async function suspendOwnerAction(
+  reportId: string,
+  grund: string,
+): Promise<ReportResult> {
+  const me = await requireUser();
+  if (!me.isAdmin) return { error: "Dafür fehlt dir die Berechtigung." };
+
+  const [meldung] = await db
+    .select({ ownerId: listings.ownerId })
+    .from(reports)
+    .innerJoin(listings, eq(listings.id, reports.listingId))
+    .where(eq(reports.id, reportId))
+    .limit(1);
+  if (!meldung) return { error: "Meldung nicht gefunden." };
+  if (meldung.ownerId === me.id) return { error: "Dich selbst kannst du nicht stilllegen." };
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(users)
+      .set({
+        suspendedAt: new Date(),
+        suspendedReason: grund.trim().slice(0, 500) || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, meldung.ownerId));
+    // Alles, was noch offen im Markt steht, verschwindet.
+    await tx
+      .update(listings)
+      .set({ status: "pausiert", blockedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(listings.ownerId, meldung.ownerId), eq(listings.status, "aktiv")));
+    await tx.update(reports).set({ status: "geprüft" }).where(eq(reports.id, reportId));
+  });
+
+  revalidatePath("/admin/meldungen");
+  revalidatePath("/markt");
   return { ok: true };
 }
 

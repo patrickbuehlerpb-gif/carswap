@@ -204,6 +204,20 @@ export function PayoutSetup({
  * Auskunft und Löschung. Beides ist in der Datenschutzerklärung zugesagt und
  * braucht deshalb einen sichtbaren Weg, nicht nur eine Mailadresse.
  */
+/** Hinweis für ein stillgelegtes Konto. */
+export function StilllegungsHinweis({ grund }: { grund: string | null }) {
+  return (
+    <div className="rounded-xl border border-bad/40 bg-bad/8 p-4">
+      <p className="text-sm font-semibold text-ink">Dein Konto ist stillgelegt</p>
+      <p className="mt-1 text-sm text-ink-2">
+        Du kommst weiterhin an deine laufenden Tausche und an deine Daten. Neue Inserate,
+        Tauschvorschläge und Bewertungen sind gesperrt.
+        {grund ? ` Grund: ${grund}` : ""}
+      </p>
+    </div>
+  );
+}
+
 export function DatenUndLoeschung() {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);

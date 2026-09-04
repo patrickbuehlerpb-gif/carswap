@@ -6,6 +6,7 @@ import {
   DatenUndLoeschung,
   PayoutSetup,
   ResendVerification,
+  StilllegungsHinweis,
 } from "@/components/account-widgets";
 import { getSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
@@ -26,7 +27,7 @@ export default async function KontoPage({
   const { stripe: stripeStatus } = await searchParams;
 
   const [row] = await db
-    .select({ phone: users.phone })
+    .select({ phone: users.phone, suspendedReason: users.suspendedReason })
     .from(users)
     .where(eq(users.id, me.id))
     .limit(1);
@@ -37,6 +38,8 @@ export default async function KontoPage({
         title="Konto"
         sub="Profilangaben, E-Mail-Bestätigung und das Konto für Auszahlungen."
       />
+
+      {me.suspended && <StilllegungsHinweis grund={row?.suspendedReason ?? null} />}
 
       {!me.emailVerified && <ResendVerification />}
 

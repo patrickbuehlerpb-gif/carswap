@@ -16,6 +16,7 @@ import {
   type DealRow,
 } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
+import { suspendedNotice } from "@/lib/auth/guards";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
 import {
   captureAndPayout,
@@ -122,6 +123,8 @@ export async function proposeSwapAction(input: {
   message: string;
 }): Promise<ActionResult & { dealId?: string }> {
   const me = await requireUser();
+  const stillgelegt = suspendedNotice(me);
+  if (stillgelegt) return { error: stillgelegt };
   const unbestaetigt = braucheBestaetigteMail(me);
   if (unbestaetigt) return { error: unbestaetigt };
 
@@ -280,6 +283,8 @@ export async function sendDealMessageAction(
 
 export async function acceptDealAction(dealId: string): Promise<ActionResult> {
   const me = await requireUser();
+  const stillgelegt = suspendedNotice(me);
+  if (stillgelegt) return { error: stillgelegt };
   const unbestaetigt = braucheBestaetigteMail(me);
   if (unbestaetigt) return { error: unbestaetigt };
 
@@ -503,6 +508,8 @@ export async function cancelDealAction(dealId: string): Promise<ActionResult> {
 
 export async function startEscrowAction(dealId: string): Promise<ActionResult> {
   const me = await requireUser();
+  const stillgelegt = suspendedNotice(me);
+  if (stillgelegt) return { error: stillgelegt };
   const unbestaetigt = braucheBestaetigteMail(me);
   if (unbestaetigt) return { error: unbestaetigt };
 

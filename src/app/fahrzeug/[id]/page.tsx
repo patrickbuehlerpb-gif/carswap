@@ -352,9 +352,11 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
                           : "noch keine Bewertung"}
                       </p>
                     </div>
-                    {owner.verified && (
+                    {(owner.emailVerified || owner.identityVerified) && (
                       <span className="ml-auto">
-                        <Badge tone="good">verifiziert</Badge>
+                        <Badge tone="good">
+                          {owner.identityVerified ? "Ausweis geprüft" : "E-Mail bestätigt"}
+                        </Badge>
                       </span>
                     )}
                   </div>
