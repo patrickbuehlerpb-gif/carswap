@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { upload } from "@vercel/blob/client";
+import { Combobox } from "@/components/combobox";
 import { ValueChart } from "@/components/value-chart";
 import { VehicleVisual } from "@/components/vehicle-visual";
 import { Badge, Card } from "@/components/ui";
@@ -102,6 +103,7 @@ export function ListingForm({
   const [uploading, setUploading] = useState(false);
   const [pending, start] = useTransition();
   const [defectDraft, setDefectDraft] = useState("");
+  const [makeFilter, setMakeFilter] = useState("");
 
   function set<K extends keyof ListingFormValues>(key: K, value: ListingFormValues[K]) {
     setV((prev) => ({ ...prev, [key]: value }));
@@ -109,6 +111,24 @@ export function ListingForm({
 
   /** Modellvorschläge zur gewählten Marke — nur eine Hilfe, keine Pflicht. */
   const modelSuggestions = useMemo(() => modelsFor(v.make), [v.make]);
+
+  /**
+   * Beim Markenwechsel das Modell leeren: ein Modellname der alten Marke wäre
+   * danach falsch. Nur bei einer tatsächlichen Änderung, damit das Laden eines
+   * bestehenden Inserats nichts überschreibt.
+   */
+  /** Gefilterte Markenliste für die Wunschliste; Ausgewählte bleiben sichtbar. */
+  const visibleWishMakes = useMemo(() => {
+    const q = makeFilter.trim().toLowerCase();
+    if (!q) return MAKE_NAMES;
+    return MAKE_NAMES.filter(
+      (m) => m.toLowerCase().includes(q) || v.wishMakes.includes(m),
+    );
+  }, [makeFilter, v.wishMakes]);
+
+  function changeMake(make: string) {
+    setV((prev) => (prev.make === make ? prev : { ...prev, make, model: "" }));
+  }
 
   function toggle<T>(key: keyof ListingFormValues, list: T[], item: T) {
     const next = list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
@@ -221,36 +241,29 @@ export function ListingForm({
           </p>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <Field label="Marke">
-              <select value={v.make} onChange={(e) => set("make", e.target.value)} className={input}>
-                {MAKE_NAMES.map((m) => (
-                  <option key={m}>{m}</option>
-                ))}
-              </select>
-            </Field>
-            <Field
+            <Combobox
+              label="Marke"
+              value={v.make}
+              onChange={changeMake}
+              options={MAKE_NAMES}
+              placeholder="Marke suchen …"
+              emptyHint="Kein Treffer — deine Eingabe wird als eigene Marke übernommen."
+              required
+            />
+            <Combobox
               label="Modell"
+              value={v.model}
+              onChange={(m) => set("model", m)}
+              options={modelSuggestions}
+              placeholder={modelSuggestions.length ? "Modell suchen …" : "Modell eintragen …"}
               hint={
                 modelSuggestions.length
-                  ? `${modelSuggestions.length} Vorschläge für ${v.make} — freie Eingabe bleibt möglich.`
-                  : "Marke nicht im Katalog: trag das Modell einfach von Hand ein."
+                  ? `${modelSuggestions.length} Modelle für ${v.make} — eigene Eingabe bleibt möglich.`
+                  : `Für ${v.make} haben wir keine Modellliste — trag es von Hand ein.`
               }
-            >
-              <input
-                value={v.model}
-                onChange={(e) => set("model", e.target.value)}
-                className={input}
-                placeholder="z.B. ID.7 Tourer"
-                list="modell-vorschlaege"
-                autoComplete="off"
-                required
-              />
-              <datalist id="modell-vorschlaege">
-                {modelSuggestions.map((m) => (
-                  <option key={m} value={m} />
-                ))}
-              </datalist>
-            </Field>
+              emptyHint="Kein Treffer — deine Eingabe wird übernommen."
+              required
+            />
           </div>
 
           <Field label="Version / Ausführung" className="mt-4">
@@ -571,9 +584,36 @@ export function ListingForm({
             Treffer — je enger, desto passender.
           </p>
 
-          <FieldGroup label="Marken" className="mt-5">
-            <div className="flex flex-wrap gap-1.5">
-              {MAKE_NAMES.map((m) => (
+          <FieldGroup
+            label="Marken"
+            className="mt-5"
+            hint="Ohne Auswahl kommt jede Marke infrage."
+          >
+            {v.wishMakes.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {v.wishMakes.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => toggle("wishMakes", v.wishMakes, m)}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-volt-ink/45 bg-volt/30 px-2.5 py-1 text-xs text-volt-ink"
+                  >
+                    {m}
+                    <span aria-hidden>×</span>
+                    <span className="sr-only">entfernen</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <input
+              value={makeFilter}
+              onChange={(e) => setMakeFilter(e.target.value)}
+              placeholder="Marken filtern …"
+              className={`${input} mb-2`}
+              aria-label="Marken filtern"
+            />
+            <div className="flex max-h-44 flex-wrap gap-1.5 overflow-y-auto rounded-lg border border-line bg-surface-2 p-2">
+              {visibleWishMakes.map((m) => (
                 <Chip
                   key={m}
                   active={v.wishMakes.includes(m)}
@@ -582,6 +622,9 @@ export function ListingForm({
                   {m}
                 </Chip>
               ))}
+              {visibleWishMakes.length === 0 && (
+                <p className="px-1 py-1 text-xs text-ink-3">Keine Marke passt zum Filter.</p>
+              )}
             </div>
           </FieldGroup>
 

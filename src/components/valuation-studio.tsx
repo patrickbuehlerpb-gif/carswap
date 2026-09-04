@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { Combobox } from "@/components/combobox";
 import { ValueChart } from "@/components/value-chart";
 import { ValuationBreakdown } from "@/components/valuation-breakdown";
 import { VehicleVisual } from "@/components/vehicle-visual";
@@ -196,31 +197,22 @@ export function ValuationStudio({
 
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Marke">
-              <select
-                value={draft.make}
-                onChange={(e) => set("make", e.target.value)}
-                className={inputClass}
-              >
-                {MAKE_NAMES.map((m) => (
-                  <option key={m}>{m}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Modell">
-              <input
-                value={draft.model}
-                onChange={(e) => set("model", e.target.value)}
-                className={inputClass}
-                list="wert-modelle"
-                autoComplete="off"
-              />
-              <datalist id="wert-modelle">
-                {modelsFor(draft.make).map((m) => (
-                  <option key={m} value={m} />
-                ))}
-              </datalist>
-            </Field>
+            <Combobox
+              label="Marke"
+              value={draft.make}
+              onChange={(make) =>
+                setDraft((d) => (d.make === make ? d : { ...d, make, model: "" }))
+              }
+              options={MAKE_NAMES}
+              placeholder="Marke suchen …"
+            />
+            <Combobox
+              label="Modell"
+              value={draft.model}
+              onChange={(model) => set("model", model)}
+              options={modelsFor(draft.make)}
+              placeholder="Modell suchen …"
+            />
           </div>
 
           <Field label="Version / Ausführung">
