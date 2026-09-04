@@ -154,10 +154,15 @@ export function MatchFinder({
       ) : (
         <section>
           <h3 className="mb-1 text-sm font-semibold text-ink">Dreiertausch</h3>
-          <p className="mb-4 max-w-3xl text-sm text-ink-3">
+          <p className="mb-2 max-w-3xl text-sm text-ink-3">
             Du gibst dein Fahrzeug an jemanden, der es sucht — und bekommst deines von einer
-            dritten Partei. Alle drei Ausgleichszahlungen summieren sich zu null; abgewickelt wird
-            über ein gemeinsames Treuhandkonto, sodass keine Partei in Vorleistung geht.
+            dritten Partei. Alle drei Ausgleichszahlungen summieren sich zu null.
+          </p>
+          <p className="mb-4 max-w-3xl rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-ink-2">
+            <span className="font-semibold text-ink">Noch nicht abwickelbar:</span> Ein Dreiertausch
+            lässt sich hier finden, aber noch nicht in einem Zug abschliessen — die Treuhand kennt
+            bisher nur zwei Parteien. Wer die Konstellation nutzen will, spricht sich mit den beiden
+            anderen ab. Wir arbeiten daran.
           </p>
           {rings.length === 0 ? (
             <EmptyBox text="Für diese Kombination liess sich kein Ring bilden. Erweitere deine Suchkriterien oder wähle ein anderes Fahrzeug." />
@@ -238,12 +243,19 @@ export function MatchFinder({
                         {chf(r.participants.reduce((s, p) => s + p.cash, 0))}
                       </span>
                     </p>
-                    <Link
-                      href={`/tausch/${r.participants[0].gets.id}?mine=${mine.id}`}
-                      className="rounded-lg border border-line-strong px-4 py-1.5 text-sm text-ink-2 transition-colors hover:border-volt-ink/45 hover:text-volt-ink"
-                    >
-                      Ring anstossen
-                    </Link>
+                    <div className="flex flex-wrap gap-2">
+                      {r.participants
+                        .filter((p) => p.user.id !== me.id)
+                        .map((p) => (
+                          <Link
+                            key={p.user.id}
+                            href={`/fahrzeug/${p.gives.id}`}
+                            className="rounded-lg border border-line-strong px-3 py-1.5 text-sm text-ink-2 transition-colors hover:border-volt-ink/45 hover:text-volt-ink"
+                          >
+                            {p.gives.make} {p.gives.model} ansehen
+                          </Link>
+                        ))}
+                    </div>
                   </div>
                 </Card>
               ))}

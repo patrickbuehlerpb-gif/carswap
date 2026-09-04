@@ -348,8 +348,14 @@ Nach dem ersten Deployment:
 - **Empirische Kalibrierung** der Restwertkurven an echten Marktdaten — am
   ehesten zusammen mit einer Eurotax-Lizenz, die auch den Fahrzeugkatalog
   mitbringt.
-- **Ringtausch-Abwicklung** als atomarer Vorgang; heute lässt sich ein Ring nur
-  als Kette von Einzeltauschen anstossen.
+- **Ringtausch-Abwicklung.** Die Suche findet Dreierkonstellationen und rechnet
+  die Zuzahlungen so, dass sie sich zu null summieren — abschliessen lässt sich
+  ein solcher Tausch aber noch nicht: die Treuhand kennt zwei Parteien, nicht
+  drei. Die Oberfläche sagt das inzwischen auch. Offen sind dabei nicht nur
+  Schema und Zustandsmaschine, sondern Produktfragen: Was passiert, wenn eine
+  von drei Parteien nach der Einzahlung abspringt? Wer trägt die Gebühren,
+  wenn drei Beträge fliessen? Wie lange bleiben drei Fahrzeuge gebunden,
+  während auf die dritte Zusage gewartet wird?
 - **Rückbuchungen** (Chargebacks) und Erstattungen nach abgeschlossenem Tausch
   werden erkannt und beiden Seiten gemeldet, aber nicht automatisch geheilt —
   das braucht einen Streitfall-Prozess.
