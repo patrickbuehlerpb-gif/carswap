@@ -49,7 +49,7 @@ describe("Auskunft", () => {
   });
 
   it("verlangt eine Anmeldung", async () => {
-    await expect(exportMyDataAction()).rejects.toThrow(/REDIRECT/);
+    await expect(exportMyDataAction()).rejects.toThrow(/Nicht angemeldet/);
   });
 });
 

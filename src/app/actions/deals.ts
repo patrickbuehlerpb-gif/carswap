@@ -29,7 +29,7 @@ import {
   PaymentStateError,
   PayoutBlockedError,
 } from "@/lib/payments";
-import { sendMail, siteUrl } from "@/lib/mail";
+import { mailConfigured, sendMail, siteUrl } from "@/lib/mail";
 
 export interface ActionResult {
   ok?: boolean;
@@ -39,6 +39,24 @@ export interface ActionResult {
 }
 
 const OPEN: DealRow["status"][] = ["vorschlag", "verhandlung"];
+
+/**
+ * Verbindliche Schritte setzen eine bestätigte E-Mail-Adresse voraus — sonst
+ * steht die Gegenseite am Ende mit einer Adresse da, die nie jemand erreicht
+ * hat. Die Oberfläche kündigt genau das an.
+ *
+ * Kann diese Installation gar keine Mails verschicken, wäre die Bestätigung
+ * unmöglich und die Regel würde jeden aussperren. Dann greift sie nicht — der
+ * Zustand steht in /api/health und im README.
+ */
+function braucheBestaetigteMail(me: { emailVerified?: boolean }): string | null {
+  if (!mailConfigured()) return null;
+  if (me.emailVerified) return null;
+  return (
+    "Bitte bestätige zuerst deine E-Mail-Adresse — den Link findest du in deinem Postfach, " +
+    "erneut senden kannst du ihn unter «Konto»."
+  );
+}
 
 /** Der Tausch hat den Zustand gewechselt, während die Aktion lief. */
 class DealConflict extends Error {}
@@ -104,6 +122,8 @@ export async function proposeSwapAction(input: {
   message: string;
 }): Promise<ActionResult & { dealId?: string }> {
   const me = await requireUser();
+  const unbestaetigt = braucheBestaetigteMail(me);
+  if (unbestaetigt) return { error: unbestaetigt };
 
   const limit = await checkRateLimit(`propose:${me.id}`, 20, 60 * 60);
   if (!limit.ok) return { error: "Zu viele Vorschläge in kurzer Zeit. Bitte kurz warten." };
@@ -260,6 +280,9 @@ export async function sendDealMessageAction(
 
 export async function acceptDealAction(dealId: string): Promise<ActionResult> {
   const me = await requireUser();
+  const unbestaetigt = braucheBestaetigteMail(me);
+  if (unbestaetigt) return { error: unbestaetigt };
+
   const deal = await loadDeal(dealId, me.id);
   if (!deal) return { error: "Tausch nicht gefunden." };
   if (!OPEN.includes(deal.status)) return { error: "Dieser Vorschlag ist nicht mehr offen." };
@@ -480,6 +503,9 @@ export async function cancelDealAction(dealId: string): Promise<ActionResult> {
 
 export async function startEscrowAction(dealId: string): Promise<ActionResult> {
   const me = await requireUser();
+  const unbestaetigt = braucheBestaetigteMail(me);
+  if (unbestaetigt) return { error: unbestaetigt };
+
   const deal = await loadDeal(dealId, me.id);
   if (!deal) return { error: "Tausch nicht gefunden." };
   if (deal.status !== "angenommen") {

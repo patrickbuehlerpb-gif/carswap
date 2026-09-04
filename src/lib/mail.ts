@@ -86,6 +86,11 @@ export function siteUrl(): string {
   return "http://localhost:3000";
 }
 
+/** Kann diese Installation überhaupt E-Mails verschicken? */
+export function mailConfigured(): boolean {
+  return Boolean(process.env.RESEND_API_KEY && process.env.MAIL_FROM);
+}
+
 /** Ist die Basis-URL überhaupt konfiguriert? Für die Betriebsprüfung. */
 export function siteUrlConfigured(): boolean {
   return Boolean(

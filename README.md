@@ -146,6 +146,24 @@ Für eine vollständige, gepflegte Quelle kommen infrage:
 
 ## Sicherheit
 
+Ein paar Entscheidungen, die nicht offensichtlich sind:
+
+- **Die Anmeldesperre hängt an der IP, nicht an der Adresse.** Ein Zähler pro
+  E-Mail-Adresse, der schon beim blossen Versuch hochläuft, wäre eine
+  Einladung: damit sperrt jeder ein fremdes Konto aus, ohne das Passwort zu
+  kennen. Fehlversuche pro Adresse werden gezählt und verlangsamen weitere
+  Fehlversuche, blockieren aber nie ein korrektes Passwort.
+- **Verbindliche Schritte** (Vorschlag, Zusage, Treuhand) verlangen eine
+  bestätigte E-Mail-Adresse. Kann die Installation keine Mails verschicken,
+  wäre die Bestätigung unmöglich — dann greift die Regel nicht, und
+  `/api/health` weist den Mailversand als nicht konfiguriert aus.
+- **Die Registrierung nennt eine bereits vergebene Adresse beim Namen.** Das
+  ist bewusst: die Alternative wäre, jede Registrierung gleich aussehen zu
+  lassen und den Hinweis nur per Mail zu schicken — ohne eingerichteten
+  Mailversand käme man dann gar nicht mehr weiter. Der Preis ist, dass sich
+  abfragen lässt, ob eine Adresse ein Konto hat.
+
+
 - **Passwörter** werden mit scrypt gehasht (N=32768, r=8, p=1, 64 Byte Schlüssel,
   16 Byte Salt), Vergleich in konstanter Zeit. Keine nativen Abhängigkeiten.
 - **Sitzungen** liegen als Zufallstoken im httpOnly-Cookie; in der Datenbank
@@ -280,7 +298,7 @@ Nach dem ersten Deployment:
 | `SITE_URL` | Basis für Mail-Links und Stripe-Rücksprung | fällt auf `localhost` zurück, Fehler im Log |
 | `STRIPE_SECRET_KEY` | Zahlungen | Tausche mit Wertdifferenz nicht möglich |
 | `STRIPE_WEBHOOK_SECRET` | Webhook-Signatur | Webhook antwortet mit 503 |
-| `RESEND_API_KEY` + `MAIL_FROM` | Mailversand | keine Bestätigungs- und Reset-Mails |
+| `RESEND_API_KEY` + `MAIL_FROM` | Mailversand | keine Bestätigungs- und Reset-Mails, und die Pflicht zur bestätigten Adresse entfällt |
 | `BLOB_READ_WRITE_TOKEN` | Fotouploads | Upload antwortet mit 503 |
 | `BLOB_PUBLIC_HOST` | erlaubter Foto-Host | wird aus dem Token abgeleitet |
 | `OPERATOR_*` | Impressum und Datenschutz | Rechtsseiten weisen sich als unvollständig aus |

@@ -35,7 +35,10 @@ export async function createSession(userId: string, userAgent?: string): Promise
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    expires: expiresAt,
+    // maxAge statt eines festen Zeitpunkts: die Middleware zieht die Frist
+    // bei jedem Seitenaufruf nach. Ein fester Zeitpunkt liesse das Cookie
+    // exakt 30 Tage nach der Anmeldung ablaufen, egal wie aktiv jemand war.
+    maxAge: Math.floor(TTL_MS / 1000),
   });
 }
 
@@ -94,7 +97,8 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const row = rows[0];
   if (!row) return null;
 
-  // Gleitende Verlängerung, aber nicht bei jedem Request schreiben
+  // Gleitende Verlängerung der Datenbankzeile. Das Cookie selbst zieht die
+  // Middleware nach — in einer Serverkomponente lässt es sich nicht setzen.
   const remaining = row.session.expiresAt.getTime() - Date.now();
   if (remaining < REFRESH_BELOW_MS) {
     await db

@@ -77,19 +77,34 @@ vi.mock("@/lib/auth/session", async () => {
   const { db } = await import("@/lib/db");
   const { users } = await import("@/lib/db/schema");
   const { eq } = await import("drizzle-orm");
-  const { toUser } = await import("@/lib/queries");
 
+  // Dieselbe Form wie die echte SessionUser — sonst prüfen die Tests gegen
+  // ein Objekt, das es so nie gibt.
   async function getSessionUser() {
     if (!testSession.userId) return null;
     const rows = await db.select().from(users).where(eq(users.id, testSession.userId)).limit(1);
-    return rows[0] ? toUser(rows[0]) : null;
+    const u = rows[0];
+    if (!u) return null;
+    return {
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      location: u.location,
+      canton: u.canton,
+      avatarColor: u.avatarColor,
+      emailVerified: u.emailVerifiedAt !== null,
+      identityVerified: u.identityVerified,
+      stripeAccountId: u.stripeAccountId,
+      stripePayoutsEnabled: u.stripePayoutsEnabled,
+      isAdmin: u.isAdmin,
+    };
   }
 
   return {
     getSessionUser,
     async requireUser() {
       const user = await getSessionUser();
-      if (!user) throw new Error("REDIRECT:/konto/anmelden");
+      if (!user) throw new Error("Nicht angemeldet.");
       return user;
     },
     createSession: async () => {},

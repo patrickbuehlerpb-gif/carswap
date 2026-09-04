@@ -8,7 +8,8 @@ import { db } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { users } from "@/lib/db/schema";
 import { hashPassword, passwordProblem, verifyPassword } from "@/lib/auth/password";
-import { checkRateLimit } from "@/lib/auth/rate-limit";
+import { checkRateLimit, clearRateLimit, peekRateLimit } from "@/lib/auth/rate-limit";
+import { sicheresZiel } from "@/lib/auth/safe-redirect";
 import { createSession, destroyAllSessions, destroySession } from "@/lib/auth/session";
 import { consumeToken, issueToken } from "@/lib/auth/tokens";
 import { sendMail, siteUrl } from "@/lib/mail";
@@ -73,25 +74,26 @@ export async function signUpAction(_prev: FormState, formData: FormData): Promis
   const pwProblem = passwordProblem(parsed.data.password);
   if (pwProblem) return { error: pwProblem };
 
-  const existing = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, parsed.data.email))
-    .limit(1);
-  if (existing.length) {
+  const id = newId("usr");
+  // Kein vorgeschaltetes SELECT: zwischen Prüfung und INSERT passt ein
+  // zweiter Registrierungsversuch, und der wäre am Unique-Index mit einem
+  // unbehandelten Datenbankfehler herausgeflogen. Der Index entscheidet.
+  const angelegt = await db
+    .insert(users)
+    .values({
+      id,
+      email: parsed.data.email,
+      name: parsed.data.name,
+      passwordHash: await hashPassword(parsed.data.password),
+      location: parsed.data.location,
+      canton: parsed.data.canton.toUpperCase(),
+      avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
+    })
+    .onConflictDoNothing({ target: users.email })
+    .returning({ id: users.id });
+  if (!angelegt.length) {
     return { error: "Für diese E-Mail-Adresse gibt es bereits ein Konto." };
   }
-
-  const id = newId("usr");
-  await db.insert(users).values({
-    id,
-    email: parsed.data.email,
-    name: parsed.data.name,
-    passwordHash: await hashPassword(parsed.data.password),
-    location: parsed.data.location,
-    canton: parsed.data.canton.toUpperCase(),
-    avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
-  });
 
   const token = await issueToken(id, "verify_email");
   await sendMail({
@@ -115,19 +117,26 @@ export async function signUpAction(_prev: FormState, formData: FormData): Promis
 
 export async function signInAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { ip, userAgent } = await requestContext();
-  const emailRaw = String(formData.get("email") ?? "").trim().toLowerCase();
+  // Auf 254 Zeichen begrenzt: der Wert wird gleich als Ratenlimit-Schlüssel
+  // verwendet, und der Rest der Anwendung lässt nicht mehr zu.
+  const emailRaw = String(formData.get("email") ?? "").trim().toLowerCase().slice(0, 254);
   const password = String(formData.get("password") ?? "");
   const next = String(formData.get("next") ?? "");
 
+  // Die Sperre hängt an der IP, nicht an der Adresse. Ein Zähler pro Adresse,
+  // der schon beim Versuch hochläuft, wäre eine Einladung: damit sperrt jeder
+  // ein fremdes Konto aus, ohne das Passwort zu kennen.
   const byIp = await checkRateLimit(`login-ip:${ip}`, 20, 15 * 60);
-  const byEmail = await checkRateLimit(`login-mail:${emailRaw}`, 8, 15 * 60);
-  if (!byIp.ok || !byEmail.ok) {
+  if (!byIp.ok) {
     return {
-      error: `Zu viele Anmeldeversuche. Bitte in ${Math.ceil(
-        Math.max(byIp.retryAfterSeconds, byEmail.retryAfterSeconds) / 60,
+      error: `Zu viele Anmeldeversuche von dieser Verbindung. Bitte in ${Math.ceil(
+        byIp.retryAfterSeconds / 60,
       )} Minuten erneut versuchen.`,
     };
   }
+
+  const mailKey = `login-mail:${emailRaw}`;
+  const fehlversuche = await peekRateLimit(mailKey, 8, 15 * 60);
 
   const rows = await db.select().from(users).where(eq(users.email, emailRaw)).limit(1);
   const user = rows[0];
@@ -139,11 +148,25 @@ export async function signInAction(_prev: FormState, formData: FormData): Promis
     : await verifyPassword(password, "scrypt$32768$8$1$AAAAAAAAAAAAAAAAAAAAAA$AAAA");
 
   if (!user || !ok) {
+    // Erst jetzt zählen — und nur den Fehlversuch.
+    const stand = await checkRateLimit(mailKey, 8, 15 * 60);
+    // Nach mehreren Fehlversuchen wird jede weitere Antwort für diese Adresse
+    // spürbar langsamer. Das bremst Rateversuche, sperrt aber niemanden aus:
+    // mit dem richtigen Passwort kommt man weiterhin sofort durch.
+    if (!stand.ok) await warte(Math.min(2000, 250 * (8 - stand.remaining)));
     return { error: "E-Mail-Adresse oder Passwort stimmt nicht." };
   }
 
+  // Erfolg löscht den Zähler, damit ein Tippfehler von gestern nicht nachwirkt.
+  if (!fehlversuche.ok || fehlversuche.remaining < 8) await clearRateLimit(mailKey);
+
   await createSession(user.id, userAgent);
-  redirect(next.startsWith("/") && !next.startsWith("//") ? next : "/garage");
+  redirect(sicheresZiel(next));
+}
+
+/** Kurze, absichtliche Verzögerung. */
+function warte(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 export async function signOutAction(): Promise<void> {
@@ -154,6 +177,16 @@ export async function signOutAction(): Promise<void> {
 /* ------------------------------------------------------------------ */
 /* Passwort zurücksetzen                                               */
 /* ------------------------------------------------------------------ */
+
+/**
+ * Beide Zweige des Passwort-Resets sollen gleich lange dauern. Sonst verrät
+ * die Antwortzeit, ob es das Konto gibt — der Treffer-Zweig verschickt eine
+ * Mail, der andere kehrt sofort zurück.
+ */
+async function mitMindestdauer<T>(ms: number, arbeit: Promise<T>): Promise<T> {
+  const [ergebnis] = await Promise.all([arbeit, warte(ms)]);
+  return ergebnis;
+}
 
 export async function requestPasswordResetAction(
   _prev: FormState,
@@ -173,22 +206,27 @@ export async function requestPasswordResetAction(
   };
   if (!parsed.success) return generic;
 
-  const rows = await db.select().from(users).where(eq(users.email, parsed.data)).limit(1);
-  const user = rows[0];
-  if (user) {
-    const token = await issueToken(user.id, "reset_password");
-    await sendMail({
-      to: user.email,
-      subject: "CarSwap: Passwort zurücksetzen",
-      text:
-        `Hallo ${user.name}\n\n` +
-        `Setze dein Passwort über diesen Link neu:\n` +
-        `${siteUrl()}/konto/passwort-neu?token=${token}\n\n` +
-        `Der Link ist eine Stunde gültig. Wenn du das nicht angefordert hast, ` +
-        `ändert sich nichts an deinem Konto.\n`,
-    });
-  }
-  return generic;
+  return await mitMindestdauer(
+    800,
+    (async () => {
+      const rows = await db.select().from(users).where(eq(users.email, parsed.data)).limit(1);
+      const user = rows[0];
+      if (user) {
+        const token = await issueToken(user.id, "reset_password");
+        await sendMail({
+          to: user.email,
+          subject: "CarSwap: Passwort zurücksetzen",
+          text:
+            `Hallo ${user.name}\n\n` +
+            `Setze dein Passwort über diesen Link neu:\n` +
+            `${siteUrl()}/konto/passwort-neu?token=${token}\n\n` +
+            `Der Link ist eine Stunde gültig. Wenn du das nicht angefordert hast, ` +
+            `ändert sich nichts an deinem Konto.\n`,
+        });
+      }
+      return generic;
+    })(),
+  );
 }
 
 export async function resetPasswordAction(
