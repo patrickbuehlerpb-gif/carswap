@@ -13,7 +13,8 @@
     "db:studio": "drizzle-kit studio",
     "test": "vitest run",
     "test:watch": "vitest",
-    "preflight": "tsx scripts/preflight.ts"
+    "preflight": "tsx scripts/preflight.ts",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",
@@ -28,6 +29,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.1.13",
     "@types/node": "^22.18.1",
     "@types/react": "^19.1.13",

@@ -126,6 +126,23 @@ Abgedeckt sind die Stellen, an denen Fehler Geld kosten: die Zustandsmaschine
 des Tauschs samt gleichzeitiger Zugriffe, `captureAndPayout()` gegen ein
 Stripe-Doppel, die Gebührenrechnung und die Webhook-Ereignisse.
 
+### Ablauf im Browser
+
+```bash
+TEST_DATABASE_URL=postgres://…/carswap_test npm run e2e
+```
+
+Ein Durchlauf durch den ganzen Ablauf gegen `next start`: zwei Konten
+registrieren, je ein Fahrzeug inserieren, Vorschlag, Zusage, Übergabe von
+beiden Seiten bestätigen, Halterwechsel in der Garage prüfen und bewerten.
+Bewusst ohne Wertdifferenz — dieser Weg kommt ohne Stripe aus und deckt
+trotzdem die ganze Zustandsmaschine ab.
+
+Geprüft wird gegen den Produktions-Build, nicht gegen `next dev`: Middleware,
+Sicherheitsrichtlinie und Serverkomponenten verhalten sich dort anders. Chromium
+wird nicht heruntergeladen, wenn `PLAYWRIGHT_BROWSERS_PATH` schon eines
+bereitstellt.
+
 ### Datenbank
 
 Jede PostgreSQL-Instanz ab Version 14 genügt; die Anwendung spricht sie über
