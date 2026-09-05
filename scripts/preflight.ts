@@ -126,6 +126,15 @@ async function main() {
     folge: `Es fehlen: ${fehlend.join(", ")}. Ohne diese Angaben ist der Betrieb in der Schweiz nicht zulässig (Art. 3 Abs. 1 lit. s UWG).`,
     hinweis: "OPERATOR_* setzen.",
   });
+  pruefe(gesetzt("OPERATOR_DB_PROVIDER"), "Datenbankanbieter in der Datenschutzerklärung", {
+    grad: "fehler",
+    folge:
+      "Die Datenschutzerklärung muss sagen, wer die Daten tatsächlich hat. Vercel, Stripe " +
+      "und Resend stehen fest im Code — welcher Anbieter hinter DATABASE_URL steckt, weiss " +
+      "die Anwendung nicht. Solange das fehlt, benennt die Seite die Lücke.",
+    hinweis: 'OPERATOR_DB_PROVIDER setzen, etwa "Neon Inc. (USA), Server in Frankfurt".',
+  });
+
   pruefe(gesetzt("OPERATOR_EMAIL"), "Empfänger für Meldungen", {
     grad: "warnung",
     folge: "Meldungen zu Inseraten landen nur in der Datenbank, niemand wird benachrichtigt.",

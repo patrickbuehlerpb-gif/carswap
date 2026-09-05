@@ -12,7 +12,10 @@ export default function AgbPage() {
         Diese Fassung beschreibt, wie die Plattform wirklich funktioniert. Vor der öffentlichen
         Freischaltung muss sie eine Anwältin prüfen. Zwei Fragen vor allem: Fällt das Verwahren
         von Ausgleichszahlungen unter das Geldwäschereigesetz? Und wie weit reicht die
-        Gewährleistung beim Tausch unter Privatpersonen?
+        Gewährleistung beim Tausch unter Privatpersonen? Dazu fehlen zwei Punkte, die eine
+        Entscheidung verlangen und keine Beschreibung sind: unsere Haftung und der
+        Gerichtsstand — bei Verträgen mit Konsumentinnen und Konsumenten ist er nicht frei
+        wählbar.
       </Todo>
 
       <H2>1. Was autotauschen ist</H2>
@@ -63,11 +66,35 @@ export default function AgbPage() {
 
       <H2>7. Kosten</H2>
       <p>
-        Die Plattform ist derzeit kostenlos. Bei Zahlungen über Stripe fallen die Gebühren von
-        Stripe an. Sie stehen da, bevor du einzahlst.
+        Die Plattform ist derzeit kostenlos. Wer eine Ausgleichszahlung leistet, zahlt einen
+        Aufschlag — er deckt genau die Kartengebühr, damit beim Empfänger der volle Betrag
+        ankommt. Bei uns bleibt davon nichts. Der Aufschlag steht da, bevor du einzahlst.
       </p>
 
-      <H2>8. Sperrung</H2>
+      <H2>8. Konto beenden</H2>
+      <p>
+        Du kannst dein Konto jederzeit im{" "}
+        <a href="/konto" className="textlink">
+          Konto
+        </a>{" "}
+        löschen, ohne Frist und ohne Begründung. Eines hält dich auf: ein bereits zugesagter
+        Tausch, auch ein Dreiertausch. Der muss erst fertig oder abgebrochen sein — sonst
+        stünde die Gegenseite mit einem Auto und ohne Ansprechpartner da. Was nach der
+        Löschung bleibt, steht in der{" "}
+        <a href="/datenschutz" className="textlink">
+          Datenschutzerklärung
+        </a>
+        .
+      </p>
+
+      <H2>9. Änderungen dieser Bedingungen</H2>
+      <p>
+        Ändert sich etwas Wesentliches, sagen wir es vorher per E-Mail an die Adresse deines
+        Kontos. Wer nicht einverstanden ist, kann das Konto löschen; für Tausche, die dann
+        schon laufen, gilt weiterhin die Fassung, unter der sie begonnen haben.
+      </p>
+
+      <H2>10. Sperrung</H2>
       <p>
         Konten mit offensichtlich falschen Angaben, gefälschten Fahrzeugdaten oder betrügerischer
         Absicht sperren wir ohne Vorankündigung.

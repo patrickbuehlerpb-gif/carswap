@@ -19,8 +19,13 @@ export function contentSecurityPolicy(nonce: string): string {
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://js.stripe.com`,
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com data:",
+    // Google-Schriftenhosts standen hier lange in beiden Zeilen — ohne Grund:
+    // `next/font/google` lädt die Schriften beim Bauen herunter und liefert sie
+    // vom eigenen Host aus. Zur Laufzeit geht keine einzige Anfrage dorthin.
+    // Eine Erlaubnis, die niemand braucht, ist trotzdem eine Erlaubnis; und die
+    // Datenschutzerklärung verspricht, dass niemand mitmisst.
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self' data:",
     "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com",
     "connect-src 'self' https://api.stripe.com https://*.public.blob.vercel-storage.com https://blob.vercel-storage.com",
     "frame-src https://js.stripe.com https://hooks.stripe.com",

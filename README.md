@@ -694,6 +694,28 @@ Der Lauf macht vier Dinge und ist beliebig oft wiederholbar:
   tägliche «alles gut»-Mail liest nach einer Woche niemand mehr — und dann
   geht auch die eine unter, die zählt.
 
+## Was die Rechtsseiten sagen
+
+Die drei Rechtsseiten beschreiben, was der Code tut — nicht, was üblicherweise
+in solchen Texten steht. Das ist keine Zierde, sondern der einzige Weg, sie
+richtig zu halten: eine Behauptung, die nicht aus dem Code kommt, veraltet beim
+ersten Umbau, und niemand merkt es.
+
+Deshalb kommen die Aufbewahrungsfristen in der Datenschutzerklärung aus
+`lib/auth/tokens.ts` und `lib/wartung.ts` (Sitzung 30 Tage, Bestätigungslink 7
+Tage, Passwortlink 1 Stunde, Adresswechsel 24 Stunden, verbrauchte Links und
+Zähler einen Tag später), der Satz über die Kartengebühr in den AGB aus
+`platformFee` — der Aufschlag deckt genau Stripes Anteil, bei der Plattform
+bleibt nichts —, und der Hinweis, dass ein zugesagter Tausch die Kontolöschung
+aufhält, aus der Prüfung in `actions/account.ts`.
+
+Die Liste der Dienstleister ist der einzige Teil, der nicht ganz aus dem Code
+kommt. Vercel, Stripe und Resend sind eingebaut und lassen sich nicht
+wegkonfigurieren. Hinter `DATABASE_URL` kann dagegen jeder Anbieter stecken —
+die Anwendung weiss es nicht, und in einem Rechtstext wird nicht geraten.
+Darum `OPERATOR_DB_PROVIDER`: fehlt die Angabe, sagt die Seite «der Anbieter
+ist hier noch nicht eingetragen», und `npm run preflight` meldet es als Fehler.
+
 ## Was vor dem Livegang noch fehlt
 
 - **Impressum, Datenschutz und AGB** müssen juristisch geprüft werden.
@@ -705,6 +727,14 @@ Der Lauf macht vier Dinge und ist beliebig oft wiederholbar:
   und `OPERATOR_PHONE`. Fehlt eines davon, benennt die Seite es einzeln —
   statt eine vollständige Rechtsseite vorzutäuschen. `/api/health` meldet den
   Zustand als `impressum`.
+
+  Was beschreibbar war, steht inzwischen drin (siehe unten). Offen sind die
+  Punkte, die eine Entscheidung verlangen und keine Beschreibung: **Haftung**
+  und **Gerichtsstand** in den AGB — bei Verträgen mit Konsumentinnen ist er
+  nicht frei wählbar —, eine **Vertretung in der EU**, falls das DSGVO-Regime
+  greift, und die **Garantie für die Bekanntgabe ins Ausland** je Anbieter
+  (Angemessenheitsbeschluss oder Standardvertragsklauseln). Die Seiten benennen
+  diese Lücken selbst.
 - **Name und Marke.** `autotauschen.app` ist gekauft, `autotauschen.ch` folgt
   und wird dann als Weiterleitung eingerichtet. Der Name sagt, was das Produkt
   tut — das ist sein Vorzug und zugleich seine markenrechtliche Schwäche:
@@ -753,6 +783,7 @@ Der Lauf macht vier Dinge und ist beliebig oft wiederholbar:
 | `BLOB_PUBLIC_HOST` | erlaubter Foto-Host | wird aus dem Token abgeleitet |
 | `OPERATOR_NAME`, `OPERATOR_LEGAL_FORM`, `OPERATOR_ADDRESS`, `OPERATOR_UID`, `OPERATOR_EMAIL` | Pflichtangaben im Impressum | die Seite benennt die fehlenden Felder einzeln |
 | `OPERATOR_REGISTER`, `OPERATOR_PHONE` | ergänzende Angaben | werden weggelassen |
+| `OPERATOR_DB_PROVIDER` | Wer die Datenbank betreibt — für die Datenschutzerklärung | die Seite benennt die Lücke, statt einen Anbieter zu erfinden |
 | `HEALTH_TOKEN` | Details unter `/api/health` (nur als `Authorization: Bearer …`) | Details nur ausserhalb der Produktion |
 | `CRON_SECRET` | Die täglichen Läufe unter `/api/cron/*` | ersatzweise `HEALTH_TOKEN`; ohne beide laufen sie in Produktion nicht |
 | `PLATFORM_FEE_PERCENT` / `PLATFORM_FEE_FIXED_MINOR` | Zahlungsgebühr | 2.9 % + 30 Rappen |

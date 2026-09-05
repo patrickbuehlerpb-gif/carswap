@@ -16,6 +16,17 @@ export interface Operator {
   register?: string;
   email?: string;
   phone?: string;
+  /**
+   * Wer die Datenbank betreibt, wie es in der Datenschutzerklärung stehen
+   * soll — etwa «Neon Inc. (USA), Server in Frankfurt».
+   *
+   * Die übrigen Dienstleister stehen fest im Code: Vercel, Stripe und Resend
+   * sind eingebaut, sie lassen sich nicht wegkonfigurieren. Die Datenbank
+   * dagegen ist nur eine Adresse in `DATABASE_URL` — welcher Anbieter
+   * dahintersteht, weiss die Anwendung nicht. Raten wäre hier das Schlimmste:
+   * die Datenschutzerklärung muss sagen, wer die Daten tatsächlich hat.
+   */
+  dbProvider?: string;
 }
 
 function clean(value: string | undefined): string | undefined {
@@ -32,6 +43,7 @@ export function operator(): Operator {
     register: clean(process.env.OPERATOR_REGISTER),
     email: clean(process.env.OPERATOR_EMAIL),
     phone: clean(process.env.OPERATOR_PHONE),
+    dbProvider: clean(process.env.OPERATOR_DB_PROVIDER),
   };
 }
 
