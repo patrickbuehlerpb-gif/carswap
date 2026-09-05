@@ -8,6 +8,7 @@ import {
   PasswortAendern,
   PayoutSetup,
   ResendVerification,
+  TrefferMeldungen,
   StilllegungsHinweis,
 } from "@/components/account-widgets";
 import { getSessionUser } from "@/lib/auth/session";
@@ -29,7 +30,11 @@ export default async function KontoPage({
   const { stripe: stripeStatus } = await searchParams;
 
   const [row] = await db
-    .select({ phone: users.phone, suspendedReason: users.suspendedReason })
+    .select({
+      phone: users.phone,
+      suspendedReason: users.suspendedReason,
+      notifyMatches: users.notifyMatches,
+    })
     .from(users)
     .where(eq(users.id, me.id))
     .limit(1);
@@ -38,7 +43,7 @@ export default async function KontoPage({
     <div className="mx-auto w-full max-w-2xl space-y-6">
       <SectionHead
         title="Konto"
-        sub="Profilangaben, E-Mail-Bestätigung und das Konto für Auszahlungen."
+        sub="Profilangaben, Nachrichten, Zugang und das Konto für Auszahlungen."
       />
 
       {me.suspended && <StilllegungsHinweis grund={row?.suspendedReason ?? null} />}
@@ -85,6 +90,14 @@ export default async function KontoPage({
             }
           />
         </div>
+      </Card>
+
+      <Card className="p-5 sm:p-6">
+        <h2 className="text-base font-semibold text-ink">Nachrichten</h2>
+        <p className="mt-1 mb-5 text-sm text-ink-3">
+          Zu deinen laufenden Tauschen schreiben wir dir immer. Alles andere kannst du abstellen.
+        </p>
+        <TrefferMeldungen an={row?.notifyMatches ?? true} />
       </Card>
 
       <Card className="p-5 sm:p-6">

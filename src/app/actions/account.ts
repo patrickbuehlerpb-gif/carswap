@@ -9,6 +9,7 @@ import {
   dealMessages,
   deals,
   listings,
+  matchNotices,
   payments,
   reviews,
   ringLegs,
@@ -117,6 +118,28 @@ export async function refreshPayoutStatusAction(): Promise<AccountResult> {
     console.error("Statusabfrage fehlgeschlagen:", err);
     return { error: "Der Status konnte nicht abgefragt werden." };
   }
+}
+
+/**
+ * Schaltet die Treffermeldungen an oder ab.
+ *
+ * Bewusst ohne Passwortabfrage: das ist eine Einstellung, keine Änderung am
+ * Zugang. Und wer sie versehentlich umlegt, legt sie mit demselben Klick
+ * wieder zurück.
+ */
+export async function setMatchNotifyAction(an: boolean): Promise<AccountResult> {
+  const me = await requireUser();
+  await db
+    .update(users)
+    .set({ notifyMatches: an, updatedAt: new Date() })
+    .where(eq(users.id, me.id));
+  revalidatePath("/konto");
+  return {
+    ok: true,
+    notice: an
+      ? "Wir melden dir neue Treffer."
+      : "Wir melden dir keine Treffer mehr. Auf der Treffer-Seite siehst du sie weiterhin.",
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -369,6 +392,7 @@ export async function exportMyDataAction(): Promise<{
     meineDeals,
     meineZahlungen,
     meineMerkliste,
+    gemeldeteTreffer,
     meineBewertungen,
   ] = await Promise.all([
     db.select().from(vehicles).where(eq(vehicles.ownerId, me.id)),
@@ -382,6 +406,7 @@ export async function exportMyDataAction(): Promise<{
       .from(payments)
       .where(or(eq(payments.payerId, me.id), eq(payments.payeeId, me.id))),
     db.select().from(watchlist).where(eq(watchlist.userId, me.id)),
+    db.select().from(matchNotices).where(eq(matchNotices.userId, me.id)),
     // Beides gehört dazu: was ich geschrieben habe und was über mich steht.
     db
       .select()
@@ -422,6 +447,7 @@ export async function exportMyDataAction(): Promise<{
         nachrichten,
         zahlungen: meineZahlungen,
         merkliste: meineMerkliste,
+        gemeldeteTreffer,
         bewertungen: meineBewertungen,
       },
       null,
@@ -608,6 +634,7 @@ export async function deleteAccountAction(
         .where(eq(vehicles.ownerId, me.id));
 
       await tx.delete(watchlist).where(eq(watchlist.userId, me.id));
+      await tx.delete(matchNotices).where(eq(matchNotices.userId, me.id));
       await tx.delete(authTokens).where(eq(authTokens.userId, me.id));
       await tx.delete(sessions).where(eq(sessions.userId, me.id));
 

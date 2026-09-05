@@ -25,7 +25,7 @@ export default async function globalSetup() {
   const { db, sql } = connect();
   await db.execute(raw`truncate table
     deal_vehicle_locks, deal_messages, payments, deals, ring_legs, ring_swaps,
-    watchlist, reviews, reports,
+    watchlist, reviews, reports, match_notices,
     listings, vehicles, sessions, auth_tokens, rate_limits, webhook_events, users
     restart identity cascade`);
   await sql.end();

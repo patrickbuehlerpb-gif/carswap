@@ -10,6 +10,7 @@ import {
   exportMyDataAction,
   refreshPayoutStatusAction,
   requestEmailChangeAction,
+  setMatchNotifyAction,
   startPayoutOnboardingAction,
   updateProfileAction,
 } from "@/app/actions/account";
@@ -120,6 +121,60 @@ export function AccountForm({
 
       <SaveButton />
     </form>
+  );
+}
+
+/**
+ * Schalter für die Treffermeldungen. Ein Kippschalter statt eines Formulars:
+ * die Einstellung hat genau zwei Zustände und braucht kein «Speichern».
+ */
+export function TrefferMeldungen({ an }: { an: boolean }) {
+  const [aktiv, setAktiv] = useState(an);
+  const [pending, start] = useTransition();
+  const [meldung, setMeldung] = useState<string | null>(null);
+
+  return (
+    <div>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-ink">Mail, wenn jemand dein Auto sucht</p>
+          <p className="mt-1 text-xs text-ink-3">
+            Höchstens eine Nachricht am Tag, und nur wenn wirklich jemand Neues auftaucht, der dein
+            Auto sucht.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={aktiv}
+          aria-label="Mail, wenn jemand dein Auto sucht"
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              const neu = !aktiv;
+              setAktiv(neu);
+              const res = await setMatchNotifyAction(neu);
+              if (res.error) setAktiv(!neu);
+              setMeldung(res.error ?? res.notice ?? null);
+            })
+          }
+          className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60 ${
+            aktiv ? "bg-marke" : "bg-line-strong"
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 h-5 w-5 rounded-full bg-surface transition-[left] ${
+              aktiv ? "left-[22px]" : "left-0.5"
+            }`}
+          />
+        </button>
+      </div>
+      {meldung && (
+        <p role="status" className="mt-2 text-xs text-ink-2">
+          {meldung}
+        </p>
+      )}
+    </div>
   );
 }
 

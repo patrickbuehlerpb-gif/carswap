@@ -31,10 +31,10 @@ hängen.
 
 | Bereich | Was es tut |
 | --- | --- |
-| **Konto** (`/konto/*`) | Registrierung, Anmeldung, E-Mail-Bestätigung, Passwort-Reset, Passwort und Adresse ändern, Profil, Auszahlungskonto. |
+| **Konto** (`/konto/*`) | Registrierung, Anmeldung, E-Mail-Bestätigung, Passwort-Reset, Passwort und Adresse ändern, Profil, Treffermeldungen an/aus, Auszahlungskonto. |
 | **Inserat** (`/inserat/neu`) | Fahrzeug einstellen mit Live-Bewertung während der Eingabe, Fotoupload, Wunschliste. Pausieren und Archivieren inklusive. |
 | **Marktplatz** (`/markt`) | Alle Inserate mit Filtern. Angemeldet wird die Zuzahlung laufend gegen das eigene Fahrzeug gerechnet. |
-| **Matches** (`/matches`) | Drei Gruppen — beide wollen, nur du, nur die Gegenseite — plus Ringtausch über drei Parteien. |
+| **Matches** (`/matches`) | Drei Gruppen — beide wollen, nur du, nur die Gegenseite — plus Ringtausch über drei Parteien. Beidseitige Treffer kommen zusätzlich täglich per Mail. |
 | **Wertrechner** (`/wert`) | Wertverlauf, Prognoseband, vollständige Aufschlüsselung und Sensitivitätsanalyse. |
 | **Tausch** (`/tausch/[id]`) | Direktvergleich, Wertkurven beider Fahrzeuge, Ausgleich per Regler, Prüfung gegen den Rahmen der Gegenseite. |
 | **Tauschvorgang** (`/deals/[id]`) | Verhandlung, Zusage, Treuhand, Telefonnummer der Gegenseite, Übergabe-Checkliste, Abschluss mit Halterwechsel. |
@@ -361,7 +361,7 @@ eingerichtet sind.
 src/
   app/
     actions/           Server Actions (auth, listings, deals, watchlist, account)
-    api/               Stripe-Webhook, Blob-Upload-Token, Health-Check
+    api/               Stripe-Webhook, Blob-Upload-Token, Health-Check, Crons
     konto/             Registrierung, Anmeldung, Reset, Profil
     inserat/           Inserat anlegen und bearbeiten
   components/          UI, Charts, Formulare, Konfiguratoren
@@ -374,6 +374,8 @@ src/
     rings.ts           Ringrechnung: Ausgleiche zerlegen, Ring prüfen
     rings-db.ts        Ringzustände: Zusage, Treuhandwechsel, Freigabe
     payments.ts        Stripe: Treuhand, Capture, Connect-Auszahlung
+    treffer.ts         Täglicher Lauf: neue beidseitige Treffer per Mail
+    wartung.ts         Täglicher Lauf: Zahlungen freigeben, aufräumen
     validation.ts      Zod-Schemata für alle Eingaben
 scripts/               Migration, Seed, Demo-Daten
 drizzle/               Erzeugte SQL-Migrationen
@@ -399,17 +401,45 @@ Nach dem ersten Deployment:
    `payment_intent.payment_failed`, `charge.refunded`, `account.updated`) und
    das Signaturgeheimnis als `STRIPE_WEBHOOK_SECRET` hinterlegen.
 2. Einen Vercel-Blob-Store verbinden, damit Fotouploads funktionieren.
-3. `CRON_SECRET` setzen. Vercel schickt es dem nächtlichen Wartungslauf
-   (`vercel.json`) als Bearer-Token mit; ohne das Geheimnis antwortet der Lauf
-   in Produktion nur mit 401.
+3. `CRON_SECRET` setzen. Vercel schickt es den beiden täglichen Läufen
+   (`vercel.json`) als Bearer-Token mit; ohne das Geheimnis antworten sie in
+   Produktion nur mit 401.
 4. `/api/health` prüfen — die Antwort listet auf, was konfiguriert ist, und
    meldet unter `liegengebliebenesGeld`, ob ein eingezogener Betrag noch nicht
    beim Empfänger ist.
 
-## Wartungslauf
+## Tägliche Läufe
 
-`vercel.json` richtet einen täglichen Cron auf `/api/cron/wartung` ein. Der Lauf
-macht drei Dinge und ist beliebig oft wiederholbar:
+`vercel.json` richtet zwei Crons ein. Beide prüfen dasselbe Geheimnis
+(`lib/cron-auth.ts`): `CRON_SECRET`, ersatzweise `HEALTH_TOKEN`.
+
+### Treffermeldungen — `/api/cron/treffer`, 06:00 UTC
+
+Ohne diesen Lauf rechnet das Matching nur, solange jemand die Treffer-Seite
+offen hat. Ein Autotausch ist aber nichts, wofür man täglich eine Seite
+aufruft: wer sein Auto einstellte, erfuhr nie, dass inzwischen jemand
+aufgetaucht ist, der genau dieses Auto sucht.
+
+Der Lauf schickt höchstens eine Mail pro Person und Tag mit bis zu drei
+Treffern. Was er meldet und was nicht:
+
+- **Nur beidseitige Treffer, und nur mit einem echten Wunsch dahinter.** Ein
+  leeres Wunschfeld besteht jede Prüfung — es stellt ja keine. Die Passung
+  gälte dann formal als beidseitig, obwohl die Gegenseite nie etwas gesucht
+  hat, und «jemand sucht ausdrücklich ein Auto wie deines» wäre schlicht
+  falsch. Ein blosser Höchstbetrag zählt nicht als Wunsch: er sagt, was jemand
+  ausgeben will, nicht welches Auto er will.
+- **Jedes Inserat höchstens einmal je Person.** Was gemeldet wurde, steht in
+  `match_notices`; ohne diese Zeilen käme derselbe Treffer jeden Tag erneut.
+  Vermerkt wird vor dem Versand — andersherum stünde bei einem Absturz
+  dazwischen eine Mail ohne Vermerk.
+- **Nur an bestätigte Adressen**, nur an Konten mit dem Schalter an
+  (`users.notify_matches`, im Konto umlegbar), nie an stillgelegte oder
+  gelöschte.
+
+### Wartung — `/api/cron/wartung`, 03:00 UTC
+
+Der Lauf macht drei Dinge und ist beliebig oft wiederholbar:
 
 - **Verwaiste Zahlungen freigeben.** Beim Abbruch eines Tauschs wird die
   Reservierung sofort freigegeben. Scheitert das gerade an Stripe, bleibt sie
@@ -477,5 +507,5 @@ macht drei Dinge und ist beliebig oft wiederholbar:
 | `OPERATOR_NAME`, `OPERATOR_LEGAL_FORM`, `OPERATOR_ADDRESS`, `OPERATOR_UID`, `OPERATOR_EMAIL` | Pflichtangaben im Impressum | die Seite benennt die fehlenden Felder einzeln |
 | `OPERATOR_REGISTER`, `OPERATOR_PHONE` | ergänzende Angaben | werden weggelassen |
 | `HEALTH_TOKEN` | Details unter `/api/health` (nur als `Authorization: Bearer …`) | Details nur ausserhalb der Produktion |
-| `CRON_SECRET` | Wartungslauf unter `/api/cron/wartung` | ersatzweise `HEALTH_TOKEN`; ohne beide läuft er in Produktion nicht |
+| `CRON_SECRET` | Die täglichen Läufe unter `/api/cron/*` | ersatzweise `HEALTH_TOKEN`; ohne beide laufen sie in Produktion nicht |
 | `PLATFORM_FEE_PERCENT` / `PLATFORM_FEE_FIXED_MINOR` | Zahlungsgebühr | 2.9 % + 30 Rappen |

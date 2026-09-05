@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { darfLaufen } from "@/lib/cron-auth";
 import { gibVerwaisteZahlungenFrei, haengendeGelder, raeumeAuf } from "@/lib/wartung";
 
 export const dynamic = "force-dynamic";
@@ -13,23 +13,8 @@ export const maxDuration = 60;
  * abgelaufene Sitzungen und Token weg und meldet, ob Geld auf dem
  * Plattformkonto liegt, das eigentlich jemand anderem gehört.
  *
- * Ohne gültiges Geheimnis passiert nichts. Ist keines gesetzt, läuft der
- * Endpunkt ausserhalb der Produktion trotzdem — sonst liesse er sich lokal
- * nicht ausprobieren.
+ * Wer ihn auslösen darf, entscheidet lib/cron-auth.
  */
-function darfLaufen(request: Request): boolean {
-  const geheim = process.env.CRON_SECRET || process.env.HEALTH_TOKEN;
-  if (!geheim) return process.env.NODE_ENV !== "production";
-
-  const header = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  if (!header) return false;
-
-  // Zeitkonstant über die Hashes vergleichen: timingSafeEqual verlangt gleich
-  // lange Puffer, und die Länge selbst wäre schon eine Auskunft.
-  const a = createHash("sha256").update(header).digest();
-  const b = createHash("sha256").update(geheim).digest();
-  return timingSafeEqual(a, b);
-}
 
 export async function GET(request: Request) {
   if (!darfLaufen(request)) {

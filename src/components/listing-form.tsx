@@ -605,7 +605,8 @@ export function ListingForm({
           <h2 className="text-base font-semibold text-ink">Was suchst du im Tausch?</h2>
           <p className="mt-1 text-sm text-ink-3">
             Danach entscheidet sich, wem wir dein Auto zeigen. Je offener die Liste, desto mehr
-            Treffer. Je enger, desto passender.
+            Treffer. Je enger, desto passender. Und nur wenn du etwas angibst, können wir dir
+            schreiben, sobald es auftaucht.
           </p>
 
           <FieldGroup

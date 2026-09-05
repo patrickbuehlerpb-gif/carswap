@@ -49,6 +49,12 @@ export const users = pgTable(
     stripePayoutsEnabled: boolean("stripe_payouts_enabled").notNull().default(false),
     isAdmin: boolean("is_admin").notNull().default(false),
     /**
+     * Mail, wenn jemand auftaucht, der das eigene Auto sucht. Standardmässig
+     * an — ohne diese Meldung erfährt niemand je von einem Treffer, denn das
+     * Matching läuft nur, solange jemand die Seite offen hat.
+     */
+    notifyMatches: boolean("notify_matches").notNull().default(true),
+    /**
      * Gelöschte Konten bleiben als anonymisierte Hülle bestehen: abgeschlossene
      * Tausche verweisen darauf und dürfen aus buchhalterischen Gründen nicht
      * verschwinden. Alles Persönliche ist dann entfernt.
@@ -430,6 +436,28 @@ export const webhookEvents = pgTable("webhook_events", {
 
 export const watchlist = pgTable(
   "watchlist",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    listingId: text("listing_id")
+      .notNull()
+      .references(() => listings.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.listingId] })],
+);
+
+/**
+ * Welcher Person welches Inserat schon als Treffer gemeldet wurde.
+ *
+ * Ohne diese Zeilen käme derselbe Treffer jeden Tag erneut per Mail. Der
+ * Schlüssel steht auf (Person, Inserat) und nicht auf dem eigenen Fahrzeug:
+ * ein Inserat ist eine Nachricht wert, nicht drei, nur weil jemand drei Autos
+ * eingestellt hat.
+ */
+export const matchNotices = pgTable(
+  "match_notices",
   {
     userId: text("user_id")
       .notNull()

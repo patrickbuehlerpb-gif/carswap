@@ -14,7 +14,7 @@ export function als(userId: string | null): void {
 export async function resetDatabase(): Promise<void> {
   await db.execute(raw`truncate table
     deal_vehicle_locks, deal_messages, payments, deals, ring_legs, ring_swaps,
-    watchlist, reviews, reports,
+    watchlist, reviews, reports, match_notices,
     listings, vehicles, sessions, auth_tokens, rate_limits, webhook_events, users
     restart identity cascade`);
 }

@@ -140,12 +140,13 @@ async function main() {
     hinweis: "HEALTH_TOKEN setzen und als Bearer-Token mitschicken.",
   });
 
-  pruefe(gesetzt("CRON_SECRET") || gesetzt("HEALTH_TOKEN"), "Wartungslauf", {
+  pruefe(gesetzt("CRON_SECRET") || gesetzt("HEALTH_TOKEN"), "Hintergrundläufe", {
     grad: "warnung",
     folge:
-      "Der nächtliche Lauf antwortet in Produktion nur mit 401. Reservierungen zu abgebrochenen " +
-      "Tauschen bleiben dann auf den Karten stehen, und abgelaufene Sitzungen sammeln sich an.",
-    hinweis: "CRON_SECRET setzen — Vercel schickt es dem Cron als Bearer-Token mit.",
+      "Beide täglichen Läufe antworten in Produktion nur mit 401. Reservierungen zu abgebrochenen " +
+      "Tauschen bleiben dann auf den Karten stehen, abgelaufene Sitzungen sammeln sich an — und " +
+      "niemand erfährt je, dass jemand sein Auto sucht.",
+    hinweis: "CRON_SECRET setzen — Vercel schickt es den Crons als Bearer-Token mit.",
   });
 
   /* ---------------- Ausgabe ---------------- */

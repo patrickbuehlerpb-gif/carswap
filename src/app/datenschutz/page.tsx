@@ -58,8 +58,9 @@ export default function DatenschutzPage() {
       <p>
         Wir schreiben dir, um deine Adresse zu bestätigen, dein Passwort zurückzusetzen und wenn
         sich bei einem deiner Tausche etwas tut. Ändert jemand Passwort oder Adresse deines Kontos,
-        sagen wir dir das ebenfalls — auch an die bisherige Adresse. Werbung bekommst du von uns
-        nicht.
+        sagen wir dir das ebenfalls — auch an die bisherige Adresse. Dazu kommt höchstens eine
+        Nachricht am Tag, wenn jemand auftaucht, der dein Auto sucht; die lässt sich im Konto
+        abstellen. Werbung bekommst du von uns nicht.
       </p>
 
       <H2>Deine Rechte</H2>

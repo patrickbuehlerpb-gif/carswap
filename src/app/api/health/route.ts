@@ -55,7 +55,8 @@ export async function GET(request: Request) {
   checks.impressum = fehlendeAngaben.length
     ? `unvollständig (${fehlendeAngaben.join(", ")})`
     : "vollständig";
-  checks.wartung = process.env.CRON_SECRET || process.env.HEALTH_TOKEN
+  // Ein Geheimnis für beide täglichen Läufe — Wartung und Treffermeldungen.
+  checks.hintergrundlaeufe = process.env.CRON_SECRET || process.env.HEALTH_TOKEN
     ? "konfiguriert"
     : "nicht konfiguriert";
 
