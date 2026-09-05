@@ -72,7 +72,20 @@ export async function sendMail(mail: Mail): Promise<{ delivered: boolean; reason
  */
 export function siteUrl(): string {
   const explicit = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL;
-  if (explicit) return explicit.replace(/\/+$/, "");
+  if (explicit) {
+    const ohneSchraegstrich = explicit.replace(/\/+$/, "");
+    // Ein Tippfehler — «quitt.ch» statt «https://quitt.ch» — darf nicht die
+    // ganze Seite umwerfen. Die Adresse steckt inzwischen auch in
+    // metadataBase, und ein ungültiger Wert würde dort beim Rendern werfen.
+    if (istAbsolut(ohneSchraegstrich)) return ohneSchraegstrich;
+    if (!warnedAboutSiteUrl) {
+      warnedAboutSiteUrl = true;
+      console.error(
+        `[config] SITE_URL ist keine vollständige Adresse: «${explicit}». ` +
+          "Erwartet wird etwas wie https://quitt.ch — bis dahin wird localhost verwendet.",
+      );
+    }
+  }
   if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
     return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
   }
@@ -93,11 +106,20 @@ export function mailConfigured(): boolean {
 
 /** Ist die Basis-URL überhaupt konfiguriert? Für die Betriebsprüfung. */
 export function siteUrlConfigured(): boolean {
-  return Boolean(
-    process.env.SITE_URL ||
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      process.env.VERCEL_PROJECT_PRODUCTION_URL,
-  );
+  const explicit = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL;
+  // Eine ungültige Adresse ist so gut wie keine — sonst meldete die
+  // Betriebsprüfung «konfiguriert», während alle Links auf localhost zeigen.
+  if (explicit) return istAbsolut(explicit.replace(/\/+$/, ""));
+  return Boolean(process.env.VERCEL_PROJECT_PRODUCTION_URL);
+}
+
+function istAbsolut(wert: string): boolean {
+  try {
+    const url = new URL(wert);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 let warnedAboutSiteUrl = false;

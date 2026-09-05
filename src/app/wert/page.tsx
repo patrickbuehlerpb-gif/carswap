@@ -5,7 +5,11 @@ import { getSessionUser } from "@/lib/auth/session";
 import { getMyVehicles } from "@/lib/queries";
 import { currentMonth } from "@/lib/valuation";
 
-export const metadata: Metadata = { title: "Wertrechner" };
+export const metadata: Metadata = {
+  title: "Wertrechner",
+  description:
+    "Was ist dein Auto heute wert, und was in zwei Jahren? Mit vollständiger Aufschlüsselung.",
+};
 export const dynamic = "force-dynamic";
 
 export default async function WertPage() {

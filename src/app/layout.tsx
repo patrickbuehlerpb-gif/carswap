@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { siteUrl } from "@/lib/mail";
 import { Archivo, IBM_Plex_Mono } from "next/font/google";
 import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
@@ -23,13 +24,30 @@ const plexMono = IBM_Plex_Mono({
   variable: "--font-plex-mono",
 });
 
+const BESCHREIBUNG =
+  "Tausche dein Auto direkt gegen ein anderes. Wir rechnen aus, was es wert ist, und halten die Differenz, bis beide die Übergabe bestätigt haben.";
+
 export const metadata: Metadata = {
+  /*
+   * Ohne metadataBase bleiben alle Vorschaubilder relativ — und eine relative
+   * Adresse kann kein Chatprogramm auflösen, das den Link nur als Text
+   * bekommt. Fehlt SITE_URL, zeigt sie auf localhost; darauf weist siteUrl()
+   * in Produktion ausdrücklich hin.
+   */
+  metadataBase: new URL(siteUrl()),
   title: {
     default: "quitt — Autos tauschen statt verkaufen",
     template: "%s · quitt",
   },
-  description:
-    "Tausche dein Auto direkt gegen ein anderes. Wir rechnen aus, was es wert ist, und halten die Differenz, bis beide die Übergabe bestätigt haben.",
+  description: BESCHREIBUNG,
+  openGraph: {
+    type: "website",
+    siteName: "quitt",
+    locale: "de_CH",
+    title: "quitt — Autos tauschen statt verkaufen",
+    description: BESCHREIBUNG,
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

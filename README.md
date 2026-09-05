@@ -313,6 +313,28 @@ Für eine vollständige, gepflegte Quelle kommen infrage:
 - **NHTSA vPIC** — frei und ohne Schlüssel, aber auf den US-Markt bezogen; die
   europäischen Modellbezeichnungen weichen ab.
 
+## Geteilte Links
+
+Ein Marktplatz lebt davon, dass Leute «schau dir das an» weiterschicken. Ohne
+Open-Graph-Angaben ist das eine nackte Adresse ohne Vorschau — der Absender
+merkt es nicht, weil er sie selbst nie sieht.
+
+Jede Seite bringt deshalb Titel und Beschreibung mit, ein Inserat zusätzlich
+sein erstes Foto. Ohne Foto steht dort das Bild der Seite
+(`app/opengraph-image.tsx`, zur Laufzeit gerendert) — ausdrücklich genannt und
+nicht geerbt: sobald eine Seite eigene Open-Graph-Angaben setzt, ersetzen sie
+die des Layouts vollständig, und das Inserat stünde ganz ohne Vorschau da. Die
+schematische Silhouette kommt in der Vorschau bewusst nicht vor: auf der Seite
+ist sie ein ehrlicher Platzhalter, in einem Chatfenster sähe sie aus wie ein
+Foto des Autos.
+
+Das Ganze hängt an `metadataBase` und damit an `SITE_URL` — ein Chatprogramm
+bekommt nur den Link als Text und kann eine relative Adresse nicht auflösen.
+Deshalb prüft `siteUrl()` den Wert jetzt: «quitt.ch» ohne Schema ist keine
+Adresse, sondern ein Tippfehler, der sonst beim Rendern von `metadataBase`
+jede Seite umgeworfen hätte. Ein solcher Wert wird verworfen und beim Namen
+genannt, und `npm run preflight` meldet die Basisadresse dann als fehlend.
+
 ## Barrierefreiheit
 
 `e2e/barrierefreiheit.spec.ts` fährt mit axe über die öffentlichen Seiten, die

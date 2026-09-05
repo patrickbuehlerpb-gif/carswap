@@ -20,7 +20,13 @@ import {
 } from "@/lib/queries";
 import { chf, dateLabel, km, label, relativeAge, vehicleFullTitle } from "@/lib/format";
 import { cashDelta, fitsWish } from "@/lib/matching";
-import { currentMonth, depreciationPerMonth, valuate, valueHistory } from "@/lib/valuation";
+import {
+  currentMonth,
+  depreciationPerMonth,
+  valuate,
+  valueAt,
+  valueHistory,
+} from "@/lib/valuation";
 
 export const dynamic = "force-dynamic";
 
@@ -30,8 +36,42 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const v = await getVehicle(id);
-  return { title: v ? vehicleFullTitle(v) : "Auto" };
+  const v = await getPublicVehicle(id);
+  if (!v) return { title: "Auto" };
+
+  const titel = vehicleFullTitle(v);
+  const beschreibung = [
+    `${v.year}`,
+    // km() bringt die Einheit schon mit.
+    km(v.mileageKm),
+    label.fuel(v.fuel),
+    `Wert ${chf(valueAt(v))}`,
+  ].join(" · ");
+
+  /*
+   * Das erste Foto ist das Vorschaubild. Ohne Foto das Bild der Seite —
+   * ausdrücklich genannt, nicht geerbt: sobald eine Seite eigene
+   * Open-Graph-Angaben setzt, ersetzen sie die des Layouts vollständig, und
+   * das Inserat stünde ganz ohne Vorschau da.
+   *
+   * Die schematische Silhouette kommt hier bewusst nicht vor. Auf der Seite
+   * ist sie ein ehrlicher Platzhalter; in einer Chatvorschau, wo daneben nur
+   * «Cupra Born» steht, sähe sie aus wie ein Foto des Autos.
+   */
+  const foto = v.photos?.[0];
+
+  return {
+    title: titel,
+    description: beschreibung,
+    openGraph: {
+      type: "article",
+      title: `${titel} — zum Tausch`,
+      description: beschreibung,
+      images: foto
+        ? [{ url: foto.url, width: foto.width, height: foto.height, alt: titel }]
+        : [{ url: "/opengraph-image", width: 1200, height: 630, alt: "quitt" }],
+    },
+  };
 }
 
 export default async function VehiclePage({ params }: { params: Promise<{ id: string }> }) {

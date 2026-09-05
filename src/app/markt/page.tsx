@@ -11,7 +11,11 @@ import {
   getWatchlistIds,
 } from "@/lib/queries";
 
-export const metadata: Metadata = { title: "Marktplatz" };
+export const metadata: Metadata = {
+  title: "Marktplatz",
+  description:
+    "Alle Autos, die zum Tausch stehen. Angemeldet rechnen wir jede Zuzahlung direkt gegen dein eigenes.",
+};
 export const dynamic = "force-dynamic";
 
 export default async function MarktPage() {
