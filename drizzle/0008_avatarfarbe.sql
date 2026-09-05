@@ -1,0 +1,1 @@
+ALTER TABLE "users" ALTER COLUMN "avatar_color" SET DEFAULT '#0e4c46';

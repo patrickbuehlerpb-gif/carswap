@@ -16,7 +16,7 @@ export function Sterne({ value, className = "" }: { value: number; className?: s
           <span key={i} className="relative inline-block h-3.5 w-3.5 text-line-strong">
             <span className="absolute inset-0">★</span>
             <span
-              className="absolute inset-0 overflow-hidden text-volt-ink"
+              className="absolute inset-0 overflow-hidden text-marke"
               style={{ width: `${anteil * 100}%` }}
             >
               ★
@@ -96,7 +96,7 @@ export function ReviewForm({
               aria-pressed={stars === s}
               className={`rounded-md border px-2 py-1 text-xs tabular transition-colors ${
                 stars === s
-                  ? "border-volt-ink bg-volt/25 text-ink"
+                  ? "border-marke bg-marke/25 text-ink"
                   : "border-line bg-surface-2 text-ink-3 hover:border-line-strong hover:text-ink"
               }`}
             >
@@ -119,7 +119,7 @@ export function ReviewForm({
       <button
         onClick={senden}
         disabled={pending}
-        className="mt-2 w-full rounded-lg bg-volt py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi disabled:opacity-60"
+        className="mt-2 w-full rounded-lg bg-marke py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi disabled:opacity-60"
       >
         {pending ? "Wird gespeichert …" : "Bewertung abgeben"}
       </button>

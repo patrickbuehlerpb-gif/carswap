@@ -23,7 +23,7 @@ export default async function EmailBestaetigenPage({
       >
         {ok ? "✓" : "!"}
       </span>
-      <h1 className="mt-4 text-xl font-semibold tracking-tight text-ink">
+      <h1 className="mt-4 text-xl display text-ink">
         {ok ? "E-Mail-Adresse bestätigt" : "Link nicht mehr gültig"}
       </h1>
       <p className="mt-2 text-sm text-ink-3">
@@ -33,7 +33,7 @@ export default async function EmailBestaetigenPage({
       </p>
       <Link
         href={ok ? "/garage" : "/konto"}
-        className="mt-5 inline-block rounded-lg bg-volt px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi"
+        className="mt-5 inline-block rounded-lg bg-marke px-5 py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
       >
         {ok ? "Zur Garage" : "Zum Konto"}
       </Link>

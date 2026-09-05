@@ -1,12 +1,26 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Archivo, IBM_Plex_Mono } from "next/font/google";
 import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
 
-const inter = Inter({
+/**
+ * Archivo ist eine variable Schrift mit Breitenachse: Überschriften laufen
+ * breit (siehe .display in globals.css), die Oberfläche normal. Beides kommt
+ * aus derselben Datei, es wird also keine zweite Schrift geladen.
+ */
+const archivo = Archivo({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-inter",
+  variable: "--font-archivo",
+  axes: ["wdth"],
+});
+
+/** Nur für Beträge und Messwerte — gleich breite Ziffern. */
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  display: "swap",
+  variable: "--font-plex-mono",
 });
 
 export const metadata: Metadata = {
@@ -15,16 +29,16 @@ export const metadata: Metadata = {
     template: "%s · CarSwap",
   },
   description:
-    "Die Tauschbörse für Privatpersonen: Fahrzeug gegen Fahrzeug, Wertdifferenz transparent ausgeglichen. Inklusive Wertverlauf, Matching und Treuhand.",
+    "Die Tauschbörse für Privatpersonen: Fahrzeug gegen Fahrzeug, die Wertdifferenz nachvollziehbar berechnet und über ein Treuhandkonto abgewickelt. Inklusive Wertverlauf, Matching und Übergabe.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="de-CH" className={inter.variable}>
+    <html lang="de-CH" className={`${archivo.variable} ${plexMono.variable}`}>
       <body className="flex min-h-screen flex-col bg-canvas font-sans antialiased">
         <a
           href="#inhalt"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-volt focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-ink"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-marke focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-onmarke"
         >
           Zum Inhalt springen
         </a>

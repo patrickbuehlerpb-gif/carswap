@@ -52,13 +52,13 @@ export function VehicleCard({
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div className="flex items-start justify-between gap-3">
           <Link href={`/fahrzeug/${vehicle.id}`} className="min-w-0">
-            <h3 className="truncate text-[15px] font-semibold tracking-tight text-ink group-hover:text-volt-ink">
+            <h3 className="truncate text-[15px] font-semibold tracking-tight text-ink group-hover:text-marke">
               {vehicle.make} {vehicle.model}
             </h3>
             <p className="truncate text-xs text-ink-3">{vehicle.trim || " "}</p>
           </Link>
           <div className="flex shrink-0 gap-1.5">
-            {mutual && <Badge tone="volt">beidseitig</Badge>}
+            {mutual && <Badge tone="marke">beidseitig</Badge>}
             {watched && <Badge tone="info">gemerkt</Badge>}
           </div>
         </div>

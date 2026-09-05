@@ -25,9 +25,14 @@ export interface FormState {
   notice?: string;
 }
 
+/**
+ * Erkennungsfarben für Konten. Alle liegen im Bereich der Marke und sind
+ * mitteldunkel: auf jeder davon steht die helle Schrift des Kürzels lesbar,
+ * und nebeneinander bleiben sie unterscheidbar.
+ */
 const AVATAR_COLORS = [
-  "#c2ee3a", "#7dd3fc", "#fca5a5", "#fcd34d", "#86efac",
-  "#c4b5fd", "#f9a8d4", "#5eead4", "#fdba74", "#a5b4fc",
+  "#0e4c46", "#b0730f", "#6b7f5a", "#8a5a4a", "#4a6b7a",
+  "#7a5f8a", "#2c6a3f", "#9a4a52", "#5f6b8a", "#8a7a3a",
 ];
 
 async function requestContext() {

@@ -47,7 +47,7 @@ export function WatchButton({
         aria-pressed={active}
         className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors ${
           active
-            ? "border-volt-ink/40 bg-volt/25 text-volt-ink"
+            ? "border-marke/40 bg-marke/25 text-marke"
             : "border-line-strong bg-surface text-ink-2 hover:text-ink"
         }`}
       >

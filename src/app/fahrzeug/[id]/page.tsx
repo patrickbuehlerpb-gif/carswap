@@ -94,7 +94,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
             />
             <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+                <h1 className="text-2xl display text-ink sm:text-3xl">
                   {vehicle.make} {vehicle.model}
                 </h1>
                 <p className="mt-1 text-ink-3">{vehicle.trim}</p>
@@ -195,7 +195,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
               <div className="mb-5 flex flex-wrap items-end gap-8">
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-ink-3">Heutiger Wert</p>
-                  <p className="mt-1 text-2xl font-semibold tabular text-ink">
+                  <p className="mt-1 text-2xl betrag text-ink">
                     {chf(valuation.value)}
                   </p>
                 </div>
@@ -203,13 +203,13 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
                   <p className="text-[11px] uppercase tracking-wider text-ink-3">
                     Wertverlust pro Monat
                   </p>
-                  <p className="mt-1 text-2xl font-semibold tabular text-bad">{chf(perMonth)}</p>
+                  <p className="mt-1 text-2xl betrag text-bad">{chf(perMonth)}</p>
                 </div>
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-ink-3">
                     Restwertquote
                   </p>
-                  <p className="mt-1 text-2xl font-semibold tabular text-ink">
+                  <p className="mt-1 text-2xl betrag text-ink">
                     {Math.round((valuation.value / vehicle.listPriceNew) * 100)} %
                   </p>
                 </div>
@@ -233,13 +233,13 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
         <div className="min-w-0 space-y-5 lg:sticky lg:top-24 lg:self-start">
           {isMine ? (
             <Card className="p-5">
-              <Badge tone="volt">Dein Fahrzeug</Badge>
+              <Badge tone="marke">Dein Fahrzeug</Badge>
               <p className="mt-3 text-sm text-ink-2">
                 Dieses Fahrzeug steht in deiner Garage. Du kannst es als Tauschobjekt einsetzen.
               </p>
               <Link
                 href="/matches"
-                className="mt-4 block rounded-lg bg-volt py-2.5 text-center text-sm font-semibold text-ink transition-colors hover:bg-volt-hi"
+                className="mt-4 block rounded-lg bg-marke py-2.5 text-center text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
               >
                 Passende Tausche anzeigen
               </Link>
@@ -258,7 +258,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
               </p>
               <Link
                 href={`/konto/registrieren`}
-                className="mt-4 block rounded-lg bg-volt py-2.5 text-center text-sm font-semibold text-ink transition-colors hover:bg-volt-hi"
+                className="mt-4 block rounded-lg bg-marke py-2.5 text-center text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
               >
                 Konto erstellen
               </Link>
@@ -276,7 +276,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
               </p>
               <Link
                 href="/inserat/neu"
-                className="mt-4 block rounded-lg bg-volt py-2.5 text-center text-sm font-semibold text-ink transition-colors hover:bg-volt-hi"
+                className="mt-4 block rounded-lg bg-marke py-2.5 text-center text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
               >
                 Fahrzeug einstellen
               </Link>
@@ -293,7 +293,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
                       key={o.mine.id}
                       className={`rounded-lg border p-3 ${
                         o.fit?.ok
-                          ? "border-volt-ink/35 bg-volt/20"
+                          ? "border-marke/35 bg-marke/20"
                           : "border-line bg-surface-2"
                       }`}
                     >
@@ -320,7 +320,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
                 </div>
                 <Link
                   href={`/tausch/${vehicle.id}${best ? `?mine=${best.mine.id}` : ""}`}
-                  className="mt-4 block rounded-lg bg-volt py-2.5 text-center text-sm font-semibold text-ink transition-colors hover:bg-volt-hi"
+                  className="mt-4 block rounded-lg bg-marke py-2.5 text-center text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
                 >
                   Tausch vorschlagen
                 </Link>
@@ -333,7 +333,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
                 <Card className="p-5">
                   <div className="flex items-center gap-3">
                     <span
-                      className="grid h-10 w-10 place-items-center rounded-full text-sm font-semibold text-ink"
+                      className="grid h-10 w-10 place-items-center rounded-full text-sm font-semibold text-onmarke"
                       style={{ background: owner.avatarColor }}
                     >
                       {owner.name.slice(0, 1)}

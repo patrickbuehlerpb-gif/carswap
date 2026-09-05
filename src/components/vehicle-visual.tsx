@@ -1,9 +1,10 @@
-import { vehicleGradient } from "@/lib/format";
+import { vehiclePlate } from "@/lib/format";
 
 /**
- * Platzhalter-Visual statt Fotos: ein aus der Fahrzeug-ID abgeleiteter
- * Farbverlauf mit Karosserie-Silhouette. Deterministisch, damit Server- und
- * Client-Rendering übereinstimmen.
+ * Platzhalter-Visual statt Fotos: eine flache, aus der Fahrzeug-ID abgeleitete
+ * Platte mit Karosserie-Silhouette — eine technische Zeichnung, kein Foto und
+ * kein Farbverlauf. Deterministisch, damit Server- und Client-Rendering
+ * übereinstimmen.
  */
 export function VehicleVisual({
   id,
@@ -16,16 +17,14 @@ export function VehicleVisual({
   className?: string;
   label?: string;
 }) {
-  const g = vehicleGradient(id);
   return (
     <div
       className={`relative overflow-hidden ${className}`}
-      style={{ background: `linear-gradient(${g.angle}deg, ${g.from}, ${g.to})` }}
+      style={{ background: vehiclePlate(id) }}
     >
-      <div className="absolute inset-0 grid-noise opacity-70" />
       <svg
         viewBox="0 0 200 80"
-        className="absolute bottom-[10%] left-1/2 h-auto w-[78%] -translate-x-1/2 text-ink/75"
+        className="absolute bottom-[10%] left-1/2 h-auto w-[78%] -translate-x-1/2 text-marke/70"
         fill="none"
       >
         <Silhouette body={body} />

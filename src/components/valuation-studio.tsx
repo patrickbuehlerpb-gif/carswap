@@ -223,7 +223,7 @@ export function ValuationStudio({
                   onClick={() => loadPreset(v)}
                   className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
                     source === v.id
-                      ? "border-volt-ink/45 bg-volt/30 text-volt-ink"
+                      ? "border-marke/45 bg-marke/30 text-marke"
                       : "border-line bg-surface-2 text-ink-2 hover:text-ink"
                   }`}
                 >
@@ -297,7 +297,7 @@ export function ValuationStudio({
               step={1_000}
               value={draft.mileageKm}
               onChange={(e) => set("mileageKm", Number(e.target.value))}
-              className="w-full accent-volt-ink"
+              className="w-full accent-marke"
             />
           </Field>
 
@@ -399,7 +399,7 @@ export function ValuationStudio({
                 max={100}
                 value={draft.batterySoh}
                 onChange={(e) => set("batterySoh", Number(e.target.value))}
-                className="w-full accent-volt-ink"
+                className="w-full accent-marke"
               />
             </Field>
           )}
@@ -409,7 +409,7 @@ export function ValuationStudio({
               type="checkbox"
               checked={draft.accidentFree}
               onChange={(e) => set("accidentFree", e.target.checked)}
-              className="accent-volt-ink"
+              className="accent-marke"
             />
             unfallfrei
           </label>
@@ -435,7 +435,7 @@ export function ValuationStudio({
                     }
                     className={`rounded-md border px-2 py-0.5 text-[11px] transition-colors ${
                       active
-                        ? "border-volt-ink/45 bg-volt/30 text-volt-ink"
+                        ? "border-marke/45 bg-marke/30 text-marke"
                         : "border-line bg-surface-2 text-ink-3 hover:text-ink-2"
                     }`}
                   >
@@ -476,7 +476,7 @@ export function ValuationStudio({
                   <p className="text-sm text-ink-3">
                     {draft.make} {draft.model} {draft.trim}
                   </p>
-                  <p className="mt-1 text-4xl font-semibold tabular text-ink">
+                  <p className="mt-1 text-4xl betrag text-ink">
                     {chf(valuation.value)}
                   </p>
                   <p className="mt-1 text-sm text-ink-3 tabular">
@@ -572,7 +572,7 @@ export function ValuationStudio({
                   </p>
                   <Link
                     href="/matches"
-                    className="mt-4 block rounded-lg bg-volt py-2.5 text-center text-sm font-semibold text-ink transition-colors hover:bg-volt-hi"
+                    className="mt-4 block rounded-lg bg-marke py-2.5 text-center text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
                   >
                     Tauschmöglichkeiten anzeigen
                   </Link>

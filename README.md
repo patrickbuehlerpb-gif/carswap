@@ -94,6 +94,34 @@ dieselben Stationen wie ein Zweiertausch, mit drei Unterschieden:
   auf halbem Weg stehen. Springt jemand ab, geht alles zurück und kein
   Fahrzeug bewegt sich.
 
+## Erscheinungsbild
+
+Die Oberfläche soll aussehen wie ein Messblatt, nicht wie ein Dashboard: Ein
+Fahrzeugwert ist eine Behauptung über CHF 50'000, und sie wird glaubwürdiger,
+wenn sie nüchtern gesetzt ist.
+
+- **Farbe.** Warmes Papier (`--color-canvas`) statt kühlem Grau, tiefes Petrol
+  (`--color-marke`) als einzige Handlungsfarbe, Bernstein (`--color-warn`)
+  ausschliesslich für Geld. Petrol ist dunkel, deshalb steht auf gefüllten
+  Markenflächen `--color-onmarke` und nicht die Textfarbe.
+- **Schrift.** Archivo für alles — Überschriften laufen über die Breitenachse
+  breit und schwer (`.display`), die Oberfläche normal. Der Abstand zur
+  Standardvorlage kommt so aus Breite und Gewicht statt aus einer zweiten
+  Schrift. IBM Plex Mono trägt jede Zahl (`.tabular`, `.betrag`): gleich breite
+  Ziffern springen beim Aktualisieren nicht.
+- **Signet.** Zwei Zeilen, gleich breit. Oben ein Fahrzeug, unten das andere —
+  kürzer — plus der bernsteinfarbene Block, die Zuzahlung. Zusammen ergeben sie
+  dieselbe Länge; das Zeichen ist die Aussage des Produkts. Es steckt in
+  `src/app/icon.svg` und in `Signet()` in `site-header.tsx`.
+- **Fahrzeugbilder.** Solange keine Fotos hochgeladen sind, steht eine flache
+  Platte mit Karosserie-Strichzeichnung — eine technische Zeichnung, kein
+  Farbverlauf. Die Plattenfarbe leitet sich aus der Fahrzeug-ID ab und bleibt
+  zwischen Server und Client gleich.
+
+`npm run palette` prüft die Palette nach: jede Textfarbe gegen ihre Fläche auf
+WCAG AA (4.5:1), grafische Elemente auf 3:1, und die beiden Diagrammreihen auf
+Trennbarkeit bei Deuteranopie und Protanopie.
+
 ## Bewertungsmodell
 
 `src/lib/valuation.ts` enthält ein nachvollziehbares Modell statt einer Black

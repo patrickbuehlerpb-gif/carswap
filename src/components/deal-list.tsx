@@ -7,13 +7,13 @@ import type { DealStatus } from "@/lib/types";
 
 export const STATUS_META: Record<
   DealStatus,
-  { text: string; tone: "neutral" | "volt" | "good" | "bad" | "warn" | "info" }
+  { text: string; tone: "neutral" | "marke" | "good" | "bad" | "warn" | "info" }
 > = {
   vorschlag: { text: "Vorschlag offen", tone: "info" },
   verhandlung: { text: "In Verhandlung", tone: "warn" },
-  angenommen: { text: "Angenommen", tone: "volt" },
-  treuhand: { text: "Geld im Treuhandkonto", tone: "volt" },
-  abwicklung: { text: "Auszahlung läuft", tone: "volt" },
+  angenommen: { text: "Angenommen", tone: "marke" },
+  treuhand: { text: "Geld im Treuhandkonto", tone: "marke" },
+  abwicklung: { text: "Auszahlung läuft", tone: "marke" },
   abgeschlossen: { text: "Abgeschlossen", tone: "good" },
   abgelehnt: { text: "Abgelehnt", tone: "bad" },
   storniert: { text: "Storniert", tone: "bad" },
@@ -34,7 +34,7 @@ export function DealList({ deals }: { deals: DealView[] }) {
         {open.length === 0 ? (
           <div className="rounded-xl border border-dashed border-line-strong p-10 text-center">
             <p className="text-sm text-ink-3">Keine laufenden Tausche.</p>
-            <Link href="/matches" className="mt-2 inline-block text-sm text-volt-ink hover:underline">
+            <Link href="/matches" className="mt-2 inline-block text-sm text-marke hover:underline">
               Passende Fahrzeuge suchen →
             </Link>
           </div>

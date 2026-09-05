@@ -103,7 +103,7 @@ export default async function KontoPage({
           <div className="flex items-baseline justify-between gap-4">
             <dt className="text-ink-3">Passwort</dt>
             <dd>
-              <a href="/konto/passwort-vergessen" className="text-volt-ink hover:underline">
+              <a href="/konto/passwort-vergessen" className="text-marke hover:underline">
                 Passwort ändern
               </a>
             </dd>

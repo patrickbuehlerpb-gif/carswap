@@ -110,28 +110,27 @@ export function vehicleFullTitle(v: { make: string; model: string; trim?: string
 }
 
 /**
- * Kuratierte Farbpaare für die Fahrzeug-Visuals. Eine feste Palette statt frei
- * berechneter Farbtöne — so bleibt die Oberfläche ruhig und trifft nie einen
+ * Kuratierte Plattenfarben für die Fahrzeug-Visuals. Alle liegen in der
+ * Palette der Marke und sind bewusst schwach gesättigt: die Platte ist der
+ * Hintergrund einer technischen Zeichnung, nicht das Bild selbst. Eine feste
+ * Liste statt frei berechneter Töne — so trifft die Oberfläche nie einen
  * schlammigen Zwischenton.
  */
-const VISUAL_PALETTE: Array<[string, string]> = [
-  ["hsl(214 44% 94%)", "hsl(224 34% 86%)"],
-  ["hsl(184 38% 92%)", "hsl(196 32% 84%)"],
-  ["hsl(144 34% 92%)", "hsl(158 30% 84%)"],
-  ["hsl(284 34% 94%)", "hsl(298 28% 87%)"],
-  ["hsl(344 42% 95%)", "hsl(354 34% 88%)"],
-  ["hsl(28 48% 94%)", "hsl(20 38% 87%)"],
-  ["hsl(250 40% 95%)", "hsl(258 32% 88%)"],
-  ["hsl(208 16% 94%)", "hsl(214 12% 86%)"],
+const VISUAL_PLATES: string[] = [
+  "#dce7e2",
+  "#eae3d2",
+  "#e3e6db",
+  "#efe2ce",
+  "#e2e0d9",
+  "#dde5e6",
 ];
 
 /**
- * Deterministischer Farbverlauf pro Fahrzeug — ersetzt Fotos in der Demo und
- * bleibt zwischen Server- und Client-Rendering identisch.
+ * Deterministische Plattenfarbe pro Fahrzeug — ersetzt Fotos, solange keine
+ * hochgeladen sind, und bleibt zwischen Server- und Client-Rendering gleich.
  */
-export function vehicleGradient(id: string): { from: string; to: string; angle: number } {
+export function vehiclePlate(id: string): string {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  const [from, to] = VISUAL_PALETTE[h % VISUAL_PALETTE.length];
-  return { from, to, angle: 112 + (h % 7) * 8 };
+  return VISUAL_PLATES[h % VISUAL_PLATES.length];
 }

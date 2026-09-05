@@ -4,7 +4,7 @@ import { Card } from "@/components/ui";
 export default function NotFound() {
   return (
     <Card className="mx-auto mt-10 max-w-lg p-10 text-center">
-      <p className="text-4xl font-semibold tabular text-volt-ink">404</p>
+      <p className="text-4xl betrag text-marke">404</p>
       <h1 className="mt-3 text-lg font-semibold text-ink">Diese Seite gibt es nicht</h1>
       <p className="mt-2 text-sm text-ink-3">
         Möglicherweise wurde das Inserat inzwischen getauscht oder zurückgezogen.
@@ -12,7 +12,7 @@ export default function NotFound() {
       <div className="mt-6 flex flex-wrap justify-center gap-3">
         <Link
           href="/markt"
-          className="rounded-lg bg-volt px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi"
+          className="rounded-lg bg-marke px-5 py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
         >
           Zum Marktplatz
         </Link>

@@ -16,7 +16,7 @@ const PAD = { top: 16, right: 14, bottom: 12, left: 46 };
 
 export function ValueChart({
   points,
-  accent = "#4f7a12",
+  accent = "#0e4c46",
   compareLabel,
   comparePoints,
 }: {
@@ -172,7 +172,7 @@ export function ValueChart({
             <path
               d={comparePath}
               fill="none"
-              stroke="#2a78d6"
+              stroke="#b0730f"
               strokeWidth="2"
               strokeOpacity="0.85"
               strokeDasharray="1 5"
@@ -289,7 +289,7 @@ export function ValueChart({
         <Legend color={accent} label="Wertverlauf" />
         <Legend color={accent} dashed label="Prognose" />
         <Legend color={accent} band label="Unsicherheitsband" />
-        {compareLabel && <Legend color="#2a78d6" dotted label={compareLabel} />}
+        {compareLabel && <Legend color="#b0730f" dotted label={compareLabel} />}
       </div>
     </div>
   );

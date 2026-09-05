@@ -111,13 +111,13 @@ export function MarketBrowser({
               {signedIn ? (
                 <>
                   Stelle dein Fahrzeug ein, dann rechnen wir jede Zuzahlung direkt dagegen.{" "}
-                  <Link href="/inserat/neu" className="text-volt-ink hover:underline">
+                  <Link href="/inserat/neu" className="text-marke hover:underline">
                     Fahrzeug anbieten
                   </Link>
                 </>
               ) : (
                 <>
-                  <Link href="/konto/registrieren" className="text-volt-ink hover:underline">
+                  <Link href="/konto/registrieren" className="text-marke hover:underline">
                     Konto erstellen
                   </Link>{" "}
                   und Fahrzeug einstellen, um Zuzahlungen zu sehen.
@@ -134,7 +134,7 @@ export function MarketBrowser({
                     onClick={() => setMyVehicleId(v.id)}
                     className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
                       active
-                        ? "border-volt-ink/40 bg-volt/25"
+                        ? "border-marke/40 bg-marke/25"
                         : "border-line bg-surface-2 hover:border-line-strong"
                     }`}
                   >
@@ -142,7 +142,7 @@ export function MarketBrowser({
                       {v.make} {v.model}
                     </span>
                     <span className="block text-xs text-ink-3">
-                      {v.year} · {v.trim}
+                      {v.trim ? `${v.year} · ${v.trim}` : v.year}
                     </span>
                   </button>
                 );
@@ -204,7 +204,7 @@ export function MarketBrowser({
             step={1_000}
             value={maxCash}
             onChange={(e) => setMaxCash(Number(e.target.value))}
-            className="mt-1 w-full accent-volt-ink"
+            className="mt-1 w-full accent-marke"
             aria-label="Maximale Zuzahlung"
           />
           <p className="mt-1 text-[11px] text-ink-3">
@@ -219,7 +219,7 @@ export function MarketBrowser({
             type="checkbox"
             checked={onlyMutual}
             onChange={(e) => setOnlyMutual(e.target.checked)}
-            className="mt-0.5 accent-volt-ink"
+            className="mt-0.5 accent-marke"
           />
           <span>
             <span className="block text-sm font-medium text-ink">Nur beidseitige Treffer</span>
@@ -248,7 +248,7 @@ export function MarketBrowser({
             {mutualCount > 0 && (
               <>
                 {" · "}
-                <span className="text-volt-ink">{mutualCount} beidseitig passend</span>
+                <span className="text-marke">{mutualCount} beidseitig passend</span>
               </>
             )}
           </p>
@@ -273,7 +273,7 @@ export function MarketBrowser({
             <p className="text-sm text-ink-2">Keine Inserate mit diesen Kriterien.</p>
             <button
               onClick={resetFilters}
-              className="mt-3 text-sm text-volt-ink hover:text-volt-ink"
+              className="mt-3 text-sm text-marke hover:text-marke"
             >
               Filter zurücksetzen
             </button>
@@ -330,7 +330,7 @@ function Chip({
       onClick={onClick}
       className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
         active
-          ? "border-volt-ink/45 bg-volt/30 text-volt-ink"
+          ? "border-marke/45 bg-marke/30 text-marke"
           : "border-line bg-surface-2 text-ink-2 hover:border-line-strong hover:text-ink"
       }`}
     >

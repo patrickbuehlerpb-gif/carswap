@@ -39,30 +39,31 @@ export default async function HomePage() {
       <section className="relative overflow-hidden rounded-2xl border border-line bg-surface card-shadow">
         <div className="absolute inset-0 grid-noise opacity-40" />
         <div
-          className="pointer-events-none absolute -right-32 -top-40 h-96 w-96 rounded-full opacity-40 blur-3xl"
-          style={{ background: "radial-gradient(circle, #c2ee3a, transparent 65%)" }}
+          className="pointer-events-none absolute -right-32 -top-40 h-96 w-96 rounded-full opacity-[0.14] blur-3xl"
+          style={{ background: "radial-gradient(circle, #0e4c46, transparent 68%)" }}
         />
         <div className="relative grid gap-10 p-7 sm:p-10 lg:grid-cols-[1.1fr_1fr] lg:p-12">
           <div className="flex flex-col justify-center">
-            <Badge tone="volt" className="w-fit">
+            <Badge tone="marke" className="w-fit">
               Direkttausch zwischen Privatpersonen
             </Badge>
-            <h1 className="mt-5 text-4xl font-semibold leading-[1.08] tracking-tight text-ink sm:text-5xl">
+            <h1 className="mt-5 text-4xl display leading-[1.06] text-ink sm:text-5xl">
               Tausche dein Auto.
               <br />
-              <span className="text-volt-ink">Ohne Händlermarge,</span>
+              <span className="text-marke">Ohne Händlermarge,</span>
               <br />
               ohne Inseratezirkus.
             </h1>
             <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-ink-2">
               Verkaufen und kaufen sind zwei Transaktionen, zwei Preisverhandlungen und zwei
-              Enttäuschungen. CarSwap macht daraus eine: Fahrzeug gegen Fahrzeug, die Wertdifferenz
-              transparent berechnet und über Treuhand ausgeglichen.
+              Enttäuschungen. CarSwap macht daraus eine: Fahrzeug gegen Fahrzeug. Die Wertdifferenz
+              rechnen wir nachvollziehbar aus — ausgeglichen wird sie zwischen euch, über ein
+              Treuhandkonto.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <Link
                 href={me ? (myCar ? "/matches" : "/inserat/neu") : "/konto/registrieren"}
-                className="rounded-lg bg-volt px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi"
+                className="rounded-lg bg-marke px-5 py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
               >
                 {me ? (myCar ? "Passende Tausche finden" : "Fahrzeug einstellen") : "Kostenlos starten"}
               </Link>
@@ -76,15 +77,15 @@ export default async function HomePage() {
             <dl className="mt-9 grid max-w-md grid-cols-3 gap-6 border-t border-line pt-6">
               <div>
                 <dt className="text-[11px] uppercase tracking-wider text-ink-3">Inserate</dt>
-                <dd className="mt-1 text-2xl font-semibold tabular text-ink">{pool.length}</dd>
+                <dd className="mt-1 text-2xl betrag text-ink">{pool.length}</dd>
               </div>
               <div>
                 <dt className="text-[11px] uppercase tracking-wider text-ink-3">davon E-Auto</dt>
-                <dd className="mt-1 text-2xl font-semibold tabular text-ink">{evShare} %</dd>
+                <dd className="mt-1 text-2xl betrag text-ink">{evShare} %</dd>
               </div>
               <div>
                 <dt className="text-[11px] uppercase tracking-wider text-ink-3">Provision</dt>
-                <dd className="mt-1 text-2xl font-semibold tabular text-ink">0 %</dd>
+                <dd className="mt-1 text-2xl betrag text-ink">0 %</dd>
               </div>
             </dl>
           </div>
@@ -97,7 +98,7 @@ export default async function HomePage() {
               <SwapPreview from={myCar} to={matches[0].vehicle} cash={matches[0].cashDelta} />
               <Link
                 href={`/tausch/${matches[0].vehicle.id}?mine=${myCar.id}`}
-                className="mt-4 block rounded-lg border border-line-strong py-2 text-center text-sm font-medium text-ink-2 transition-colors hover:border-volt-ink/45 hover:text-volt-ink"
+                className="mt-4 block rounded-lg border border-line-strong py-2 text-center text-sm font-medium text-ink-2 transition-colors hover:border-marke/45 hover:text-marke"
               >
                 Tausch durchrechnen
               </Link>
@@ -112,7 +113,7 @@ export default async function HomePage() {
                   ["Treuhand & Übergabe", "Der Ausgleich wird erst nach beidseitiger Bestätigung ausgezahlt."],
                 ].map(([title, body], i) => (
                   <li key={title} className="flex gap-3">
-                    <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-volt text-xs font-semibold text-ink tabular">
+                    <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-marke text-xs font-semibold text-onmarke tabular">
                       {i + 1}
                     </span>
                     <span>
@@ -125,7 +126,7 @@ export default async function HomePage() {
               {!me && (
                 <Link
                   href="/konto/registrieren"
-                  className="mt-5 block rounded-lg bg-volt py-2.5 text-center text-sm font-semibold text-ink transition-colors hover:bg-volt-hi"
+                  className="mt-5 block rounded-lg bg-marke py-2.5 text-center text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
                 >
                   Konto erstellen
                 </Link>
@@ -142,7 +143,7 @@ export default async function HomePage() {
             title="Was ist mein Fahrzeug gerade wert?"
             sub="Kein einzelner Schätzpreis, sondern der Verlauf: woher der Wert kommt, wo er hingeht und wie sicher die Prognose ist."
             action={
-              <Link href="/wert" className="text-sm text-volt-ink hover:underline">
+              <Link href="/wert" className="text-sm text-marke hover:underline">
                 Eigenes Fahrzeug bewerten →
               </Link>
             }
@@ -158,7 +159,7 @@ export default async function HomePage() {
             title="Wenn zwei nicht zusammenpassen, helfen drei"
             sub="Das Grundproblem jedes Tauschmarkts: Du willst das Auto von A, aber A will deines nicht. Über einen Ringtausch löst sich das trotzdem auf."
             action={
-              <Link href="/matches" className="text-sm text-volt-ink hover:underline">
+              <Link href="/matches" className="text-sm text-marke hover:underline">
                 Alle Ringtausche →
               </Link>
             }
@@ -222,7 +223,7 @@ export default async function HomePage() {
                 : "Diese Fahrzeuge stehen gerade zum Tausch."
             }
             action={
-              <Link href="/markt" className="text-sm text-volt-ink hover:underline">
+              <Link href="/markt" className="text-sm text-marke hover:underline">
                 Ganzen Marktplatz ansehen →
               </Link>
             }
@@ -258,7 +259,7 @@ function ValuationTeaser({ vehicle, asOf }: { vehicle: Vehicle; asOf: string }) 
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm text-ink-3">{vehicleFullTitle(vehicle)}</p>
-          <p className="mt-1 text-3xl font-semibold tabular text-ink">{chf(valuation.value)}</p>
+          <p className="mt-1 text-3xl betrag text-ink">{chf(valuation.value)}</p>
           <p className="mt-1 text-xs text-ink-3 tabular">
             Realistische Spanne {chf(valuation.low)} – {chf(valuation.high)}
           </p>
@@ -319,7 +320,7 @@ function SwapSide({
   return (
     <div
       className={`flex items-center gap-3 rounded-lg border p-2.5 ${
-        highlight ? "border-volt-ink/35 bg-volt/20" : "border-line bg-surface-2"
+        highlight ? "border-marke/35 bg-marke/20" : "border-line bg-surface-2"
       }`}
     >
       <VehicleVisual id={vehicle.id} body={vehicle.body} className="h-14 w-24 shrink-0 rounded-md" />

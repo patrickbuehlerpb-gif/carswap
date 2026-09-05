@@ -7,12 +7,12 @@ import type { RingStatusDb } from "@/lib/db/schema";
 
 export const RING_STATUS_META: Record<
   RingStatusDb,
-  { text: string; tone: "neutral" | "volt" | "good" | "bad" | "warn" | "info" }
+  { text: string; tone: "neutral" | "marke" | "good" | "bad" | "warn" | "info" }
 > = {
   vorschlag: { text: "Vorschlag offen", tone: "info" },
-  angenommen: { text: "Alle drei haben zugesagt", tone: "volt" },
-  treuhand: { text: "Geld im Treuhandkonto", tone: "volt" },
-  abwicklung: { text: "Auszahlung läuft", tone: "volt" },
+  angenommen: { text: "Alle drei haben zugesagt", tone: "marke" },
+  treuhand: { text: "Geld im Treuhandkonto", tone: "marke" },
+  abwicklung: { text: "Auszahlung läuft", tone: "marke" },
   abgeschlossen: { text: "Abgeschlossen", tone: "good" },
   abgelehnt: { text: "Abgelehnt", tone: "bad" },
   storniert: { text: "Storniert", tone: "bad" },

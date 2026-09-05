@@ -208,7 +208,7 @@ export function Combobox({
             if (!open) setOpen(true);
           }}
           onKeyDown={onKeyDown}
-          className="w-full rounded-lg border border-line-strong bg-surface py-2 pl-3 pr-9 text-sm text-ink outline-none placeholder:text-ink-3 focus:border-volt-ink disabled:opacity-60"
+          className="w-full rounded-lg border border-line-strong bg-surface py-2 pl-3 pr-9 text-sm text-ink outline-none placeholder:text-ink-3 focus:border-marke disabled:opacity-60"
         />
         <span
           className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-3"
@@ -242,7 +242,7 @@ export function Combobox({
                     pick(option);
                   }}
                   className={`cursor-pointer px-3 py-1.5 text-sm ${
-                    isActive ? "bg-volt/30 text-ink" : "text-ink-2"
+                    isActive ? "bg-marke/30 text-ink" : "text-ink-2"
                   } ${option === value ? "font-semibold" : ""}`}
                 >
                   {option}

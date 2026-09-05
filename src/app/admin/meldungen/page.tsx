@@ -109,7 +109,7 @@ export default async function MeldungenPage() {
                             <Badge tone="warn">{bezeichnung.get(report.reason) ?? report.reason}</Badge>
                             <Link
                               href={`/fahrzeug/${vehicle.id}`}
-                              className="text-sm font-medium text-ink hover:text-volt-ink"
+                              className="text-sm font-medium text-ink hover:text-marke"
                             >
                               {vehicle.make} {vehicle.model}
                             </Link>
@@ -138,7 +138,7 @@ export default async function MeldungenPage() {
                   <li key={g.listingId}>
                     <Card className="flex flex-wrap items-center justify-between gap-3 p-3">
                       <div className="min-w-0 text-sm">
-                        <Link href={`/fahrzeug/${g.vehicleId}`} className="text-ink hover:text-volt-ink">
+                        <Link href={`/fahrzeug/${g.vehicleId}`} className="text-ink hover:text-marke">
                           {g.titel}
                         </Link>
                         <span className="ml-2 text-xs text-ink-3">

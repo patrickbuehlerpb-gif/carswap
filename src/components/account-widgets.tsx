@@ -44,7 +44,7 @@ export function ResendVerification() {
 /* ------------------------------------------------------------------ */
 
 const input =
-  "w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-3 focus:border-volt-ink";
+  "w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-3 focus:border-marke";
 
 function SaveButton() {
   const { pending } = useFormStatus();
@@ -52,7 +52,7 @@ function SaveButton() {
     <button
       type="submit"
       disabled={pending}
-      className="rounded-lg bg-volt px-5 py-2 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi disabled:opacity-60"
+      className="rounded-lg bg-marke px-5 py-2 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi disabled:opacity-60"
     >
       {pending ? "Wird gespeichert …" : "Speichern"}
     </button>
@@ -174,7 +174,7 @@ export function PayoutSetup({
             })
           }
           disabled={pending}
-          className="rounded-lg bg-volt px-5 py-2 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi disabled:opacity-60"
+          className="rounded-lg bg-marke px-5 py-2 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi disabled:opacity-60"
         >
           {pending ? "Einen Moment …" : hasAccount ? "Onboarding fortsetzen" : "Auszahlungskonto einrichten"}
         </button>

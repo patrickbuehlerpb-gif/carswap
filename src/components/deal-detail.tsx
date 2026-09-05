@@ -151,7 +151,7 @@ export function DealDetail({
             <ol className="mt-5 flex gap-1">
               {STEPS.map((s, i) => (
                 <li key={s} className="flex-1">
-                  <div className={`h-1 rounded-full ${i <= stepIndex ? "bg-volt-ink" : "bg-line-strong"}`} />
+                  <div className={`h-1 rounded-full ${i <= stepIndex ? "bg-marke" : "bg-line-strong"}`} />
                   <p
                     className={`mt-2 text-[10px] uppercase tracking-wide sm:text-[11px] ${
                       i <= stepIndex ? "text-ink-2" : "text-ink-3"
@@ -184,7 +184,7 @@ export function DealDetail({
                   Aktueller Ausgleich
                 </p>
                 <p
-                  className={`mt-1 text-2xl font-semibold tabular ${
+                  className={`mt-1 text-2xl betrag ${
                     myCash > 0 ? "text-warn" : myCash < 0 ? "text-good" : "text-ink"
                   }`}
                 >
@@ -226,7 +226,7 @@ export function DealDetail({
               return (
                 <li key={m.id} className={`flex gap-3 ${mine ? "flex-row-reverse" : ""}`}>
                   <span
-                    className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-semibold text-ink"
+                    className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-semibold text-onmarke"
                     style={{ background: author?.avatarColor ?? "#e9ece4" }}
                   >
                     {(author?.name ?? "?").slice(0, 1)}
@@ -234,7 +234,7 @@ export function DealDetail({
                   <div className={`max-w-[76%] ${mine ? "text-right" : ""}`}>
                     <div
                       className={`rounded-xl px-3.5 py-2.5 text-left text-sm leading-relaxed ${
-                        mine ? "bg-volt/30 text-ink" : "bg-surface-2 text-ink-2"
+                        mine ? "bg-marke/30 text-ink" : "bg-surface-2 text-ink-2"
                       }`}
                     >
                       {m.text}
@@ -263,7 +263,7 @@ export function DealDetail({
                 rows={3}
                 maxLength={4000}
                 placeholder={`Antwort an ${other.name} …`}
-                className="w-full resize-none rounded-lg border border-line-strong bg-surface p-3 text-sm text-ink outline-none placeholder:text-ink-3 focus:border-volt-ink"
+                className="w-full resize-none rounded-lg border border-line-strong bg-surface p-3 text-sm text-ink outline-none placeholder:text-ink-3 focus:border-marke"
               />
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 {(deal.status === "vorschlag" || deal.status === "verhandlung") && (
@@ -273,7 +273,7 @@ export function DealDetail({
                         type="checkbox"
                         checked={counter !== null}
                         onChange={(e) => setCounter(e.target.checked ? String(deal.cashDelta) : null)}
-                        className="accent-volt-ink"
+                        className="accent-marke"
                       />
                       Gegenangebot
                     </label>
@@ -283,7 +283,7 @@ export function DealDetail({
                         step={100}
                         value={counter}
                         onChange={(e) => setCounter(e.target.value)}
-                        className="w-36 rounded-md border border-line-strong bg-surface px-2.5 py-1.5 text-sm tabular text-ink outline-none focus:border-volt-ink"
+                        className="w-36 rounded-md border border-line-strong bg-surface px-2.5 py-1.5 text-sm tabular text-ink outline-none focus:border-marke"
                         aria-label="Gegenangebot in CHF"
                       />
                     )}
@@ -292,7 +292,7 @@ export function DealDetail({
                 <button
                   onClick={send}
                   disabled={pending}
-                  className="ml-auto rounded-lg bg-volt px-4 py-1.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi disabled:opacity-60"
+                  className="ml-auto rounded-lg bg-marke px-4 py-1.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi disabled:opacity-60"
                 >
                   Senden
                 </button>
@@ -334,7 +334,7 @@ export function DealDetail({
                 <button
                   onClick={() => run(() => acceptDealAction(deal.id))}
                   disabled={pending}
-                  className="mt-4 w-full rounded-lg bg-volt py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi disabled:opacity-60"
+                  className="mt-4 w-full rounded-lg bg-marke py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi disabled:opacity-60"
                 >
                   Angebot annehmen
                 </button>
@@ -376,7 +376,7 @@ export function DealDetail({
                 <button
                   onClick={() => run(() => startEscrowAction(deal.id))}
                   disabled={pending || (!paymentsEnabled && deal.cashDelta !== 0)}
-                  className="mt-4 w-full rounded-lg bg-volt py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi disabled:opacity-50"
+                  className="mt-4 w-full rounded-lg bg-marke py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi disabled:opacity-50"
                 >
                   {pending
                     ? "Wird vorbereitet …"
@@ -438,7 +438,7 @@ export function DealDetail({
                               onChange={() =>
                                 setTasks(done ? tasks.filter((x) => x !== t) : [...tasks, t])
                               }
-                              className="mt-0.5 accent-volt-ink"
+                              className="mt-0.5 accent-marke"
                             />
                             <span className={done ? "text-ink-3 line-through" : ""}>{t}</span>
                           </label>
@@ -449,7 +449,7 @@ export function DealDetail({
                   <button
                     onClick={() => run(() => confirmHandoverAction(deal.id))}
                     disabled={!allTasksDone || pending}
-                    className="mt-4 w-full rounded-lg bg-volt py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi disabled:cursor-not-allowed disabled:opacity-40"
+                    className="mt-4 w-full rounded-lg bg-marke py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Übergabe bestätigen
                   </button>
@@ -478,7 +478,7 @@ export function DealDetail({
                   <button
                     onClick={() => run(() => confirmHandoverAction(deal.id))}
                     disabled={pending}
-                    className="mt-3 w-full rounded-lg bg-volt py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi disabled:opacity-50"
+                    className="mt-3 w-full rounded-lg bg-marke py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi disabled:opacity-50"
                   >
                     {pending ? "Wird abgewickelt …" : "Auszahlung erneut anstossen"}
                   </button>
@@ -543,7 +543,7 @@ export function DealDetail({
         <Card className="p-5">
           <div className="flex items-center gap-3">
             <span
-              className="grid h-10 w-10 place-items-center rounded-full text-sm font-semibold text-ink"
+              className="grid h-10 w-10 place-items-center rounded-full text-sm font-semibold text-onmarke"
               style={{ background: other.avatarColor }}
             >
               {other.name.slice(0, 1)}
@@ -608,7 +608,7 @@ function SideCard({
   return (
     <div
       className={`rounded-lg border p-3 ${
-        highlight ? "border-volt-ink/35 bg-volt/20" : "border-line bg-surface-2"
+        highlight ? "border-marke/35 bg-marke/20" : "border-line bg-surface-2"
       }`}
     >
       <p className="text-[11px] uppercase tracking-wider text-ink-3">{caption}</p>
@@ -625,7 +625,7 @@ function SideCard({
       </p>
       <Link
         href={`/fahrzeug/${vehicle.id}`}
-        className="mt-1.5 inline-block text-xs text-volt-ink hover:underline"
+        className="mt-1.5 inline-block text-xs text-marke hover:underline"
       >
         Details →
       </Link>

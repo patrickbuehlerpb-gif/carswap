@@ -113,7 +113,7 @@ export function SwapConfigurator({
                   }}
                   className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
                     active
-                      ? "border-volt-ink/40 bg-volt/25"
+                      ? "border-marke/40 bg-marke/25"
                       : "border-line bg-surface-2 hover:border-line-strong"
                   }`}
                 >
@@ -128,7 +128,7 @@ export function SwapConfigurator({
                     {f && (
                       <span className="mt-1 inline-block text-[11px]">
                         {f.ok ? (
-                          <span className="text-volt-ink">passt zur Wunschliste</span>
+                          <span className="text-marke">passt zur Wunschliste</span>
                         ) : (
                           <span className="text-ink-3">ausserhalb der Wunschliste</span>
                         )}
@@ -155,7 +155,7 @@ export function SwapConfigurator({
                   <th className="pb-2 text-right font-medium text-ink-2">
                     {mine.make} {mine.model}
                   </th>
-                  <th className="pb-2 text-right font-medium text-volt-ink">
+                  <th className="pb-2 text-right font-medium text-marke">
                     {target.make} {target.model}
                   </th>
                 </tr>
@@ -230,7 +230,7 @@ export function SwapConfigurator({
               {current > 0 ? "Du zahlst zusätzlich" : current < 0 ? "Du erhältst zusätzlich" : "Reiner Tausch"}
             </p>
             <p
-              className={`mt-1 text-3xl font-semibold tabular ${
+              className={`mt-1 text-3xl betrag ${
                 current > 0 ? "text-warn" : current < 0 ? "text-good" : "text-ink"
               }`}
             >
@@ -243,7 +243,7 @@ export function SwapConfigurator({
               step={100}
               value={current}
               onChange={(e) => setOffer(Number(e.target.value))}
-              className="mt-4 w-full accent-volt-ink"
+              className="mt-4 w-full accent-marke"
               aria-label="Ausgleichszahlung anpassen"
             />
             <div className="flex justify-between text-[11px] text-ink-3 tabular">
@@ -320,7 +320,7 @@ export function SwapConfigurator({
           <button
             onClick={send}
             disabled={pending}
-            className="mt-3 w-full rounded-lg bg-volt py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi disabled:opacity-50"
+            className="mt-3 w-full rounded-lg bg-marke py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi disabled:opacity-50"
           >
             {pending ? "Wird gesendet …" : "Tauschvorschlag senden"}
           </button>
@@ -345,7 +345,7 @@ export function SwapConfigurator({
           </ol>
           <Link
             href={`/fahrzeug/${target.id}`}
-            className="mt-4 block text-sm text-volt-ink hover:text-volt-ink"
+            className="mt-4 block text-sm text-marke hover:text-marke"
           >
             Zurück zum Inserat →
           </Link>

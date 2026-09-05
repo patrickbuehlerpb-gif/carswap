@@ -6,41 +6,43 @@
  * teils auf Karten (weiss) und teils auf der Seitenfläche stehen.
  */
 @theme {
-  /* Flächen */
-  --color-canvas: #f7f8f6;
-  --color-surface: #ffffff;
-  --color-surface-2: #f3f5f0;
-  --color-surface-3: #e9ece4;
+  /* Flächen — warmes Papier statt kühlem Grau. Ein Fahrzeugwert soll aussehen
+     wie auf einem Blatt, nicht wie in einem Dashboard. */
+  --color-canvas: #f3efe6;
+  --color-surface: #fbf9f4;
+  --color-surface-2: #efebe1;
+  --color-surface-3: #e6e0d2;
 
   /* Linien */
-  --color-line: #e3e7dd;
-  --color-line-strong: #cfd5c6;
+  --color-line: #e2dcce;
+  --color-line-strong: #cbc3b1;
 
   /* Text */
-  --color-ink: #14171a;
-  --color-ink-2: #4e5860;
-  --color-ink-3: #656f78;
+  --color-ink: #141210;
+  --color-ink-2: #4c4740;
+  --color-ink-3: #6e685e;
 
-  /* Marke: helles Limette als Fläche, dunkles Limette für Text und Linien */
-  --color-volt: #c2ee3a;
-  --color-volt-hi: #d3f95c;
-  --color-volt-ink: #46700a;
+  /* Marke: tiefes Petrol als einzige Handlungsfarbe. Es ist dunkel, also
+     steht darauf helle Schrift (--color-onmarke), nicht die Textfarbe. */
+  --color-marke: #0e4c46;
+  --color-marke-hi: #146058;
+  --color-onmarke: #f3efe6;
 
-  /* Status */
-  --color-good: #157f3c;
-  --color-bad: #b42318;
-  --color-warn: #9a6206;
-  --color-info: #1d4ed8;
+  /* Status. «warn» ist zugleich die Geldfarbe: Beträge, die jemand zahlt,
+     stehen in Bernstein — dieselbe Rolle wie die Warnung, nur ruhiger. */
+  --color-good: #2c6a3f;
+  --color-bad: #9a2a1e;
+  --color-warn: #8f5d0a;
+  --color-info: #33437a;
 
-  /* Diagramm — mit scripts/validate_palette.js gegen helle Fläche geprüft:
-     CVD-Trennung ΔE 26.4 (Deuteranopie), Kontrast > 3:1 */
-  --color-chart-1: #4f7a12;
-  --color-chart-2: #2a78d6;
-  --color-chart-grid: #e6e9e0;
-  --color-chart-axis: #b9c0ad;
+  /* Diagramm — mit scripts/validate_palette.js gegen helle Fläche geprüft */
+  --color-chart-1: #0e4c46;
+  --color-chart-2: #b0730f;
+  --color-chart-grid: #e6e0d2;
+  --color-chart-axis: #bdb4a0;
 
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", "Menlo", monospace;
 }
 
 @layer base {
@@ -55,8 +57,8 @@
   }
 
   ::selection {
-    background: var(--color-volt);
-    color: var(--color-ink);
+    background: var(--color-marke);
+    color: var(--color-onmarke);
   }
 
   /* Sichtbarer Fokus für Tastaturbedienung */
@@ -71,7 +73,7 @@
   textarea:focus-visible,
   button:focus-visible,
   [tabindex]:focus-visible {
-    outline: 2px solid var(--color-volt-ink) !important;
+    outline: 2px solid var(--color-marke) !important;
     outline-offset: 2px;
     border-radius: 4px;
   }
@@ -83,18 +85,48 @@
 }
 
 @layer utilities {
+  /*
+   * Zahlen stehen durchgehend in der Monospace — Beträge, Laufleistungen,
+   * Zähler. Gleich breite Ziffern springen beim Aktualisieren nicht, und die
+   * Oberfläche bekommt den Ton eines Messblatts statt eines Prospekts.
+   */
   .tabular {
+    font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  /*
+   * Anzeigeschrift: dieselbe Familie, breit gelaufen und schwer. Der Abstand
+   * zur Standardoberfläche kommt über Breite und Gewicht — nicht über eine
+   * zweite Schrift, die geladen werden müsste.
+   */
+  .display {
+    font-variation-settings: "wdth" 112;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+  }
+
+  /*
+   * Beträge stehen in der Monospace. Gleich breite Ziffern springen beim
+   * Aktualisieren nicht, und der wichtigste Wert auf der Seite bekommt eine
+   * eigene Stimme neben dem Fliesstext.
+   */
+  .betrag {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.025em;
   }
 
   .grid-noise {
     background-image:
-      linear-gradient(to right, rgba(20, 23, 26, 0.045) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(20, 23, 26, 0.045) 1px, transparent 1px);
+      linear-gradient(to right, rgba(20, 18, 16, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(20, 18, 16, 0.05) 1px, transparent 1px);
     background-size: 56px 56px;
   }
 
   .card-shadow {
-    box-shadow: 0 1px 2px rgba(20, 23, 26, 0.04), 0 1px 1px rgba(20, 23, 26, 0.03);
+    box-shadow: 0 1px 2px rgba(20, 18, 16, 0.05), 0 1px 1px rgba(20, 18, 16, 0.03);
   }
 }

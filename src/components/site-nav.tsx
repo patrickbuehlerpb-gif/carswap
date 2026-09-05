@@ -55,7 +55,7 @@ export function NavLinks({
           >
             {item.label}
             {item.badge && openDeals > 0 && (
-              <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-volt px-1 text-[10px] font-semibold text-ink tabular">
+              <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-marke px-1 text-[10px] font-semibold text-onmarke tabular">
                 {openDeals}
               </span>
             )}
@@ -109,7 +109,7 @@ export function UserMenu({
         className="flex items-center gap-2 rounded-md px-1 py-1 hover:bg-surface-2"
       >
         <span
-          className="grid h-8 w-8 place-items-center rounded-full text-xs font-semibold text-ink"
+          className="grid h-8 w-8 place-items-center rounded-full text-xs font-semibold text-onmarke"
           style={{ background: avatarColor }}
         >
           {name.slice(0, 1).toUpperCase()}

@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "preflight": "tsx scripts/preflight.ts",
     "e2e": "playwright test",
-    "admin": "tsx scripts/make-admin.ts"
+    "admin": "tsx scripts/make-admin.ts",
+    "palette": "node scripts/validate_palette.mjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",

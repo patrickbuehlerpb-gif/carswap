@@ -26,12 +26,10 @@ export async function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-line bg-surface/85 backdrop-blur-md">
       <div className="mx-auto flex w-full max-w-7xl items-center gap-6 px-5 py-3 sm:px-8">
         <Link href="/" className="flex items-center gap-2.5">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-volt text-ink">
-            <SwapGlyph />
+          <span className="text-marke">
+            <Signet />
           </span>
-          <span className="text-[15px] font-semibold tracking-tight text-ink">
-            Car<span className="text-volt-ink">Swap</span>
-          </span>
+          <span className="display text-[19px] leading-none text-ink">CarSwap</span>
         </Link>
 
         <NavLinks signedIn={Boolean(user)} openDeals={openDeals} />
@@ -41,7 +39,7 @@ export async function SiteHeader() {
             <>
               <Link
                 href="/inserat/neu"
-                className="hidden rounded-md bg-volt px-3 py-1.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi sm:block"
+                className="hidden rounded-md bg-marke px-3 py-1.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi sm:block"
               >
                 Fahrzeug anbieten
               </Link>
@@ -57,7 +55,7 @@ export async function SiteHeader() {
               </Link>
               <Link
                 href="/konto/registrieren"
-                className="rounded-md bg-volt px-3 py-1.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi"
+                className="rounded-md bg-marke px-3 py-1.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
               >
                 Konto erstellen
               </Link>
@@ -70,11 +68,21 @@ export async function SiteHeader() {
   );
 }
 
-function SwapGlyph() {
+/**
+ * Die Gleichung: zwei Zeilen, gleich breit. Oben ein Fahrzeug, unten das
+ * andere — kürzer — plus der bernsteinfarbene Block, die Zuzahlung. Zusammen
+ * ergeben sie dieselbe Länge; das Zeichen ist die Aussage des Produkts.
+ *
+ * Der Block trägt die Geldfarbe fest, nicht currentColor: er bedeutet etwas
+ * anderes als die beiden Balken und soll sich auch dann absetzen, wenn das
+ * Signet in einer anderen Farbe steht.
+ */
+function Signet() {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2">
-      <path d="M4 8h13l-3-3" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M20 16H7l3 3" strokeLinecap="round" strokeLinejoin="round" />
+    <svg viewBox="0 0 32 32" className="h-[26px] w-[26px]" aria-hidden="true">
+      <rect x="5" y="9.9" width="22" height="4.6" rx="1.4" fill="currentColor" />
+      <rect x="5" y="17.3" width="14.4" height="4.6" rx="1.4" fill="currentColor" />
+      <rect x="21.4" y="17.3" width="5.6" height="4.6" rx="1.4" fill="#b0730f" />
     </svg>
   );
 }

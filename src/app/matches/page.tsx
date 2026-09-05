@@ -34,7 +34,7 @@ export default async function MatchesPage() {
           </p>
           <Link
             href="/inserat/neu"
-            className="mt-5 inline-block rounded-lg bg-volt px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi"
+            className="mt-5 inline-block rounded-lg bg-marke px-5 py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
           >
             Fahrzeug anbieten
           </Link>

@@ -20,12 +20,12 @@ export function Badge({
   className = "",
 }: {
   children: ReactNode;
-  tone?: "neutral" | "volt" | "good" | "bad" | "warn" | "info";
+  tone?: "neutral" | "marke" | "good" | "bad" | "warn" | "info";
   className?: string;
 }) {
   const tones: Record<string, string> = {
     neutral: "border-line-strong bg-surface-3 text-ink-2",
-    volt: "border-volt-ink/40 bg-volt/25 text-volt-ink",
+    marke: "border-marke/40 bg-marke/25 text-marke",
     good: "border-good/35 bg-good/12 text-good",
     bad: "border-bad/35 bg-bad/12 text-bad",
     warn: "border-warn/35 bg-warn/12 text-warn",
@@ -49,15 +49,15 @@ export function Stat({
   label: string;
   value: ReactNode;
   hint?: ReactNode;
-  tone?: "neutral" | "good" | "bad" | "volt";
+  tone?: "neutral" | "good" | "bad" | "marke";
 }) {
   const toneClass =
     tone === "good"
       ? "text-good"
       : tone === "bad"
         ? "text-bad"
-        : tone === "volt"
-          ? "text-volt-ink"
+        : tone === "marke"
+          ? "text-marke"
           : "text-ink";
   return (
     <div>
@@ -80,7 +80,7 @@ export function SectionHead({
   return (
     <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h2 className="text-lg font-semibold tracking-tight text-ink">{title}</h2>
+        <h2 className="text-lg display text-ink">{title}</h2>
         {sub && <p className="mt-1 max-w-2xl text-sm text-ink-3">{sub}</p>}
       </div>
       {action}
@@ -98,12 +98,12 @@ export function SpecRow({ label, value }: { label: string; value: ReactNode }) {
 }
 
 export function ScorePill({ score }: { score: number }) {
-  const tone = score >= 75 ? "text-volt-ink" : score >= 55 ? "text-ink-2" : "text-ink-3";
+  const tone = score >= 75 ? "text-marke" : score >= 55 ? "text-ink-2" : "text-ink-3";
   return (
     <div className="flex items-center gap-2">
       <div className="h-1.5 w-16 overflow-hidden rounded-full bg-line-strong">
         <div
-          className="h-full rounded-full bg-volt"
+          className="h-full rounded-full bg-marke"
           style={{ width: `${Math.max(4, score)}%` }}
         />
       </div>

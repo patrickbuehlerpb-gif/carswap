@@ -333,7 +333,7 @@ export function ListingForm({
               step={1_000}
               value={v.mileageKm}
               onChange={(e) => set("mileageKm", Number(e.target.value))}
-              className="w-full accent-volt-ink"
+              className="w-full accent-marke"
             />
           </Field>
 
@@ -401,7 +401,7 @@ export function ListingForm({
                     max={100}
                     value={v.batterySoh ?? 95}
                     onChange={(e) => set("batterySoh", Number(e.target.value))}
-                    className="w-full accent-volt-ink"
+                    className="w-full accent-marke"
                   />
                 </Field>
               )}
@@ -462,7 +462,7 @@ export function ListingForm({
               type="checkbox"
               checked={v.accidentFree}
               onChange={(e) => set("accidentFree", e.target.checked)}
-              className="accent-volt-ink"
+              className="accent-marke"
             />
             Unfallfrei
           </label>
@@ -577,7 +577,7 @@ export function ListingForm({
             <label
               className={`grid h-24 w-36 cursor-pointer place-items-center rounded-lg border border-dashed text-xs ${
                 uploadsEnabled
-                  ? "border-line-strong text-ink-3 hover:border-volt-ink hover:text-volt-ink"
+                  ? "border-line-strong text-ink-3 hover:border-marke hover:text-marke"
                   : "border-line text-ink-3 opacity-60"
               }`}
             >
@@ -620,7 +620,7 @@ export function ListingForm({
                     key={m}
                     type="button"
                     onClick={() => toggle("wishMakes", v.wishMakes, m)}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-volt-ink/45 bg-volt/30 px-2.5 py-1 text-xs text-volt-ink"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-marke/45 bg-marke/30 px-2.5 py-1 text-xs text-marke"
                   >
                     {m}
                     <span aria-hidden>×</span>
@@ -754,7 +754,7 @@ export function ListingForm({
             <p className="text-[11px] uppercase tracking-wider text-ink-3">Live-Bewertung</p>
             {valuation ? (
               <>
-                <p className="mt-1 text-3xl font-semibold tabular text-ink">
+                <p className="mt-1 text-3xl betrag text-ink">
                   {chf(valuation.value)}
                 </p>
                 <p className="mt-1 text-xs text-ink-3 tabular">
@@ -791,7 +791,7 @@ export function ListingForm({
           <button
             onClick={submit}
             disabled={pending || !v.model.trim()}
-            className="w-full rounded-lg bg-volt py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi disabled:opacity-50"
+            className="w-full rounded-lg bg-marke py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi disabled:opacity-50"
           >
             {pending
               ? "Wird gespeichert …"
@@ -815,7 +815,7 @@ export function ListingForm({
 }
 
 const input =
-  "w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-3 focus:border-volt-ink";
+  "w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-3 focus:border-marke";
 
 /** Für genau ein Eingabefeld — das umschliessende label verbindet Text und Feld. */
 function Field({
@@ -887,7 +887,7 @@ function Chip({
       title={title}
       className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
         active
-          ? "border-volt-ink/45 bg-volt/30 text-volt-ink"
+          ? "border-marke/45 bg-marke/30 text-marke"
           : "border-line bg-surface-2 text-ink-2 hover:border-line-strong hover:text-ink"
       }`}
     >

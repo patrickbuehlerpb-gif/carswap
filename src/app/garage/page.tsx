@@ -53,7 +53,7 @@ export default async function GaragePage({
         action={
           <Link
             href="/inserat/neu"
-            className="rounded-lg bg-volt px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi"
+            className="rounded-lg bg-marke px-4 py-2 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
           >
             Fahrzeug hinzufügen
           </Link>
@@ -61,7 +61,7 @@ export default async function GaragePage({
       />
 
       {willkommen && (
-        <Card className="border-volt-ink/40 bg-volt/20 p-5">
+        <Card className="border-marke/40 bg-marke/20 p-5">
           <h2 className="text-base font-semibold text-ink">Willkommen bei CarSwap</h2>
           <p className="mt-1 text-sm text-ink-2">
             Als Nächstes: Fahrzeug einstellen, damit wir passende Tauschpartner für dich suchen
@@ -91,7 +91,7 @@ export default async function GaragePage({
           </p>
           <Link
             href="/inserat/neu"
-            className="mt-5 inline-block rounded-lg bg-volt px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi"
+            className="mt-5 inline-block rounded-lg bg-marke px-5 py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
           >
             Fahrzeug einstellen
           </Link>
@@ -117,7 +117,7 @@ export default async function GaragePage({
                     />
                     <div className="mt-4 flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <h3 className="truncate text-lg font-semibold tracking-tight text-ink">
+                        <h3 className="truncate text-lg display text-ink">
                           {v.make} {v.model}
                         </h3>
                         <p className="truncate text-sm text-ink-3">{v.trim}</p>
@@ -161,7 +161,7 @@ export default async function GaragePage({
                         <p className="text-[11px] uppercase tracking-wider text-ink-3">
                           Aktueller Wert
                         </p>
-                        <p className="mt-1 text-3xl font-semibold tabular text-ink">
+                        <p className="mt-1 text-3xl betrag text-ink">
                           {chf(val.value)}
                         </p>
                         <p className="mt-0.5 text-xs text-ink-3 tabular">
@@ -213,7 +213,7 @@ export default async function GaragePage({
                                     {m.owner.location || m.owner.name} · Score {m.score}
                                   </span>
                                 </span>
-                                {m.mutual && <Badge tone="volt">beidseitig</Badge>}
+                                {m.mutual && <Badge tone="marke">beidseitig</Badge>}
                                 <span className="shrink-0 text-right text-sm">
                                   <span className="block text-[10px] uppercase tracking-wider text-ink-3">
                                     {m.cashDelta > 0 ? "du zahlst" : "du erhältst"}
@@ -245,7 +245,7 @@ export default async function GaragePage({
           title="Merkliste"
           sub="Inserate, die du dir gemerkt hast. Der Ausgleich wird laufend neu berechnet."
           action={
-            <Link href="/markt" className="text-sm text-volt-ink hover:underline">
+            <Link href="/markt" className="text-sm text-marke hover:underline">
               Weitere Fahrzeuge →
             </Link>
           }
@@ -276,7 +276,7 @@ function Summary({ label: l, value, tone }: { label: string; value: string; tone
   return (
     <div className="border-b border-line p-5 last:border-0 sm:border-b-0">
       <p className="text-[11px] uppercase tracking-wider text-ink-3">{l}</p>
-      <p className={`mt-1 text-2xl font-semibold tabular ${tone === "bad" ? "text-bad" : "text-ink"}`}>
+      <p className={`mt-1 text-2xl betrag ${tone === "bad" ? "text-bad" : "text-ink"}`}>
         {value}
       </p>
     </div>

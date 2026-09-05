@@ -27,7 +27,7 @@ export default async function DealsPage() {
           <p className="text-sm text-ink-2">Noch keine Tauschvorgänge.</p>
           <Link
             href="/matches"
-            className="mt-4 inline-block rounded-lg bg-volt px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi"
+            className="mt-4 inline-block rounded-lg bg-marke px-5 py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
           >
             Passende Fahrzeuge suchen
           </Link>

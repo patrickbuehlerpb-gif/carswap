@@ -31,7 +31,7 @@ export const users = pgTable(
     location: text("location").notNull().default(""),
     canton: text("canton").notNull().default(""),
     phone: text("phone"),
-    avatarColor: text("avatar_color").notNull().default("#c2ee3a"),
+    avatarColor: text("avatar_color").notNull().default("#0e4c46"),
     ratingSum: integer("rating_sum").notNull().default(0),
     ratingCount: integer("rating_count").notNull().default(0),
     swapsCompleted: integer("swaps_completed").notNull().default(0),

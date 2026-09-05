@@ -21,12 +21,12 @@ import type { RingStatusDb } from "@/lib/db/schema";
 
 const STATUS_META: Record<
   RingStatusDb,
-  { text: string; tone: "neutral" | "volt" | "good" | "bad" | "warn" | "info" }
+  { text: string; tone: "neutral" | "marke" | "good" | "bad" | "warn" | "info" }
 > = {
   vorschlag: { text: "Vorschlag offen", tone: "info" },
-  angenommen: { text: "Alle drei haben zugesagt", tone: "volt" },
-  treuhand: { text: "Geld im Treuhandkonto", tone: "volt" },
-  abwicklung: { text: "Auszahlung läuft", tone: "volt" },
+  angenommen: { text: "Alle drei haben zugesagt", tone: "marke" },
+  treuhand: { text: "Geld im Treuhandkonto", tone: "marke" },
+  abwicklung: { text: "Auszahlung läuft", tone: "marke" },
   abgeschlossen: { text: "Abgeschlossen", tone: "good" },
   abgelehnt: { text: "Abgelehnt", tone: "bad" },
   storniert: { text: "Storniert", tone: "bad" },
@@ -161,7 +161,7 @@ export function RingDetail({
                   key={s.status}
                   className={`rounded-md px-2 py-1 ${
                     i <= stepIndex
-                      ? "bg-volt/30 font-medium text-ink"
+                      ? "bg-marke/30 font-medium text-ink"
                       : "bg-surface-2 text-ink-3"
                   }`}
                 >
@@ -179,7 +179,7 @@ export function RingDetail({
                   key={p.user.id}
                   className={`rounded-lg border p-3 ${
                     p.user.id === meId
-                      ? "border-volt-ink/40 bg-volt/20"
+                      ? "border-marke/40 bg-marke/20"
                       : "border-line bg-surface-2"
                   }`}
                 >
@@ -281,7 +281,7 @@ export function RingDetail({
                           status === "ausgezahlt"
                             ? "good"
                             : status === "autorisiert" || status === "eingezogen"
-                              ? "volt"
+                              ? "marke"
                               : "neutral"
                         }
                       >
@@ -315,7 +315,7 @@ export function RingDetail({
                           e.target.checked ? [...cur, task] : cur.filter((t) => t !== task),
                         )
                       }
-                      className="h-4 w-4 rounded border-line accent-volt-ink"
+                      className="h-4 w-4 rounded border-line accent-marke"
                     />
                     {task}
                   </label>
@@ -333,7 +333,7 @@ export function RingDetail({
                 type="button"
                 disabled={!alleTasks || pending}
                 onClick={() => run(() => confirmRingHandoverAction(ring.id))}
-                className="rounded-lg bg-volt px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg bg-marke px-4 py-2 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Übergabe bestätigen
               </button>
@@ -391,7 +391,7 @@ export function RingDetail({
                   ) : (
                     <div
                       className={`rounded-lg border border-line p-3 ${
-                        m.authorId === meId ? "bg-volt/15" : "bg-surface-2"
+                        m.authorId === meId ? "bg-marke/15" : "bg-surface-2"
                       }`}
                     >
                       <div className="mb-1 flex items-center gap-2 text-xs text-ink-3">
@@ -466,7 +466,7 @@ export function RingDetail({
                   type="button"
                   disabled={pending}
                   onClick={() => run(() => acceptRingAction(ring.id))}
-                  className="rounded-lg bg-volt px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi disabled:opacity-50"
+                  className="rounded-lg bg-marke px-4 py-2 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi disabled:opacity-50"
                 >
                   Zusagen
                 </button>
@@ -514,7 +514,7 @@ export function RingDetail({
                     type="button"
                     disabled={pending || !paymentsEnabled}
                     onClick={() => run(() => startRingEscrowAction(ring.id))}
-                    className="rounded-lg bg-volt px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi disabled:opacity-50"
+                    className="rounded-lg bg-marke px-4 py-2 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi disabled:opacity-50"
                   >
                     {chf(meineOffenen[0].amount)} hinterlegen
                   </button>
@@ -550,7 +550,7 @@ export function RingDetail({
                     type="button"
                     disabled={pending}
                     onClick={() => run(() => startRingEscrowAction(ring.id))}
-                    className="rounded-lg bg-volt px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi disabled:opacity-50"
+                    className="rounded-lg bg-marke px-4 py-2 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi disabled:opacity-50"
                   >
                     Weiter zur Übergabe
                   </button>

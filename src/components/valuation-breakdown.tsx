@@ -56,7 +56,7 @@ export function ValuationBreakdown({
             Spanne {chf(valuation.low)} – {chf(valuation.high)}
           </p>
         </div>
-        <span className="text-2xl font-semibold tabular text-volt-ink">{chf(valuation.value)}</span>
+        <span className="text-2xl betrag text-marke">{chf(valuation.value)}</span>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">

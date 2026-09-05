@@ -70,7 +70,7 @@ export function MatchFinder({
                     onClick={() => setMineId(v.id)}
                     className={`flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition-colors ${
                       active
-                        ? "border-volt-ink/40 bg-volt/25"
+                        ? "border-marke/40 bg-marke/25"
                         : "border-line bg-surface-2 hover:border-line-strong"
                     }`}
                   >
@@ -202,7 +202,7 @@ export function MatchFinder({
                         key={p.user.id}
                         className={`rounded-lg border p-3 ${
                           p.user.id === me.id
-                            ? "border-volt-ink/40 bg-volt/20"
+                            ? "border-marke/40 bg-marke/20"
                             : "border-line bg-surface-2"
                         }`}
                       >
@@ -261,7 +261,7 @@ export function MatchFinder({
                           <Link
                             key={p.user.id}
                             href={`/fahrzeug/${p.gives.id}`}
-                            className="rounded-lg border border-line-strong px-3 py-1.5 text-sm text-ink-2 transition-colors hover:border-volt-ink/45 hover:text-volt-ink"
+                            className="rounded-lg border border-line-strong px-3 py-1.5 text-sm text-ink-2 transition-colors hover:border-marke/45 hover:text-marke"
                           >
                             {p.gives.make} {p.gives.model} ansehen
                           </Link>
@@ -282,7 +282,7 @@ export function MatchFinder({
                             setRingFehler(res.error ?? "Der Ring liess sich nicht anlegen.");
                           });
                         }}
-                        className="rounded-lg bg-volt px-3 py-1.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi disabled:opacity-50"
+                        className="rounded-lg bg-marke px-3 py-1.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi disabled:opacity-50"
                       >
                         Ring vorschlagen
                       </button>
@@ -353,16 +353,18 @@ function MatchRow({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <Link href={`/fahrzeug/${vehicle.id}`}>
-                <h4 className="text-[15px] font-semibold text-ink hover:text-volt-ink">
+                <h4 className="text-[15px] font-semibold text-ink hover:text-marke">
                   {vehicle.make} {vehicle.model}
                 </h4>
               </Link>
               <p className="text-xs text-ink-3 tabular">
-                {vehicle.trim} · {vehicle.year} · {km(vehicle.mileageKm)} · {vehicle.powerPs} PS
+                {[vehicle.trim, String(vehicle.year), km(vehicle.mileageKm), `${vehicle.powerPs} PS`]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
             </div>
             <div className="flex items-center gap-3">
-              {mutual && <Badge tone="volt">beidseitig</Badge>}
+              {mutual && <Badge tone="marke">beidseitig</Badge>}
               <ScorePill score={score} />
             </div>
           </div>
@@ -402,7 +404,7 @@ function MatchRow({
             </p>
             <Link
               href={`/tausch/${vehicle.id}?mine=${mineId}`}
-              className="rounded-lg bg-volt px-4 py-1.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi"
+              className="rounded-lg bg-marke px-4 py-1.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
             >
               Tausch durchrechnen
             </Link>
@@ -448,7 +450,7 @@ function Chip({
       onClick={onClick}
       className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
         active
-          ? "border-volt-ink/45 bg-volt/30 text-volt-ink"
+          ? "border-marke/45 bg-marke/30 text-marke"
           : "border-line bg-surface-2 text-ink-2 hover:border-line-strong hover:text-ink"
       }`}
     >

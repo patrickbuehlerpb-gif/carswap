@@ -47,7 +47,7 @@ export default function SoFunktioniertsPage() {
       <ol className="grid gap-4 sm:grid-cols-2">
         {STEPS.map((s) => (
           <Card key={s.n} as="li" className="p-5">
-            <span className="text-xs font-semibold tabular text-volt-ink">{s.n}</span>
+            <span className="text-xs font-semibold tabular text-marke">{s.n}</span>
             <h2 className="mt-2 text-base font-semibold text-ink">{s.t}</h2>
             <p className="mt-2 text-sm leading-relaxed text-ink-3">{s.d}</p>
           </Card>
@@ -63,7 +63,7 @@ export default function SoFunktioniertsPage() {
         </ul>
         <Link
           href="/konto/registrieren"
-          className="mt-5 inline-block rounded-lg bg-volt px-5 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi"
+          className="mt-5 inline-block rounded-lg bg-marke px-5 py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
         >
           Konto erstellen
         </Link>

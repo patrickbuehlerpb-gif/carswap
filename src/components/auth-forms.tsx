@@ -12,7 +12,7 @@ import {
 } from "@/app/actions/auth";
 
 const inputClass =
-  "w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-3 focus:border-volt-ink";
+  "w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-3 focus:border-marke";
 
 function Field({
   label,
@@ -38,7 +38,7 @@ function Submit({ children }: { children: React.ReactNode }) {
     <button
       type="submit"
       disabled={pending}
-      className="w-full rounded-lg bg-volt py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-volt-hi disabled:opacity-60"
+      className="w-full rounded-lg bg-marke py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi disabled:opacity-60"
     >
       {pending ? "Einen Moment …" : children}
     </button>
@@ -90,7 +90,7 @@ export function SignUpForm() {
       <Submit>Konto erstellen</Submit>
       <p className="text-center text-sm text-ink-3">
         Schon registriert?{" "}
-        <Link href="/konto/anmelden" className="text-volt-ink hover:underline">
+        <Link href="/konto/anmelden" className="text-marke hover:underline">
           Anmelden
         </Link>
       </p>
@@ -115,7 +115,7 @@ export function SignInForm({ next }: { next?: string }) {
         <Link href="/konto/passwort-vergessen" className="text-ink-3 hover:text-ink">
           Passwort vergessen?
         </Link>
-        <Link href="/konto/registrieren" className="text-volt-ink hover:underline">
+        <Link href="/konto/registrieren" className="text-marke hover:underline">
           Konto erstellen
         </Link>
       </div>
