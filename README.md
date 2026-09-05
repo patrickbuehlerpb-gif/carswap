@@ -374,8 +374,9 @@ src/
     rings.ts           Ringrechnung: Ausgleiche zerlegen, Ring prüfen
     rings-db.ts        Ringzustände: Zusage, Treuhandwechsel, Freigabe
     payments.ts        Stripe: Treuhand, Capture, Connect-Auszahlung
+    abschluss.ts       Abschluss eines Zweiertauschs: Geld, Halterwechsel
     treffer.ts         Täglicher Lauf: neue beidseitige Treffer per Mail
-    wartung.ts         Täglicher Lauf: Zahlungen freigeben, aufräumen
+    wartung.ts         Täglicher Lauf: Abschlüsse nachholen, aufräumen
     validation.ts      Zod-Schemata für alle Eingaben
 scripts/               Migration, Seed, Demo-Daten
 drizzle/               Erzeugte SQL-Migrationen
@@ -439,8 +440,19 @@ Treffern. Was er meldet und was nicht:
 
 ### Wartung — `/api/cron/wartung`, 03:00 UTC
 
-Der Lauf macht drei Dinge und ist beliebig oft wiederholbar:
+Der Lauf macht vier Dinge und ist beliebig oft wiederholbar:
 
+- **Steckengebliebene Abschlüsse nachholen.** Beide bestätigen die Übergabe,
+  das Geld wird eingezogen — und dann scheitert die Weiterleitung. Der Betrag
+  liegt dann auf dem Plattformkonto und gehört jemand anderem. Bisher heilte
+  das nur, wenn eine Seite von selbst zurückkam und noch einmal auf «Übergabe
+  bestätigen» drückte; kam niemand, blieb es liegen. Der Lauf sucht dieselbe
+  Lage, die auch der Knopf herstellt (alle haben bestätigt, der Vorgang steht
+  in «treuhand» oder «abwicklung») und stösst dieselbe Abwicklung an — sie ist
+  beliebig oft wiederholbar, weil Stripe über Idempotenzschlüssel weder doppelt
+  einzieht noch doppelt überweist. Fehlt der Gegenseite das Auszahlungskonto,
+  bekommt sie eine Erinnerung und der Vorgang bleibt unangetastet; die Autos
+  wechseln erst, wenn das Geld beim Empfänger ist.
 - **Verwaiste Zahlungen freigeben.** Beim Abbruch eines Tauschs wird die
   Reservierung sofort freigegeben. Scheitert das gerade an Stripe, bleibt sie
   auf der Karte des Nutzers stehen — der Lauf holt es nach und vermerkt einen
@@ -449,10 +461,9 @@ Der Lauf macht drei Dinge und ist beliebig oft wiederholbar:
   Zählerstände der Ratenbegrenzung. Verbrauchte Token bleiben einen Tag stehen,
   damit ein zweiter Klick auf denselben Link «bereits verwendet» meldet und
   nicht «unbekannt».
-- **Liegengebliebenes Geld melden.** Ein eingezogener Betrag ohne Weiterleitung
-  liegt auf dem Plattformkonto und gehört jemand anderem. Geheilt wird das nicht
-  automatisch — dazu müsste der ganze Abschluss erneut laufen —, aber es steht
-  in der Antwort, im Log und unter `/api/health`.
+- **Liegengebliebenes Geld melden.** Gemessen wird nach dem Nachholen: was dann
+  noch eingezogen und nicht weitergeleitet ist, konnte der Lauf nicht heilen.
+  Das steht in der Antwort, im Log und unter `/api/health`.
 
 ## Was vor dem Livegang noch fehlt
 
@@ -480,9 +491,6 @@ Der Lauf macht drei Dinge und ist beliebig oft wiederholbar:
 - **Rückbuchungen** (Chargebacks) und Erstattungen nach abgeschlossenem Tausch
   werden erkannt und beiden Seiten gemeldet, aber nicht automatisch geheilt —
   das braucht einen Streitfall-Prozess.
-- **Auszahlungen, die am Empfängerkonto scheitern**, bleiben liegen, bis jemand
-  die Übergabe erneut bestätigt. Ein Hintergrundlauf, der das von selbst
-  wiederholt, fehlt.
 - **Missbrauchsschutz**: automatische Betrugserkennung bei auffälligen
   Wertdifferenzen und eine Prüfung neuer Konten. Melden, benachrichtigen,
   abhaken, ein Inserat sperren und ein Konto stilllegen gibt es

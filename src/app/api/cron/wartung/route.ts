@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { darfLaufen } from "@/lib/cron-auth";
-import { gibVerwaisteZahlungenFrei, haengendeGelder, raeumeAuf } from "@/lib/wartung";
+import {
+  gibVerwaisteZahlungenFrei,
+  haengendeGelder,
+  holeAbschluesseNach,
+  raeumeAuf,
+} from "@/lib/wartung";
 
 export const dynamic = "force-dynamic";
 /** Der Lauf kann bei vielen Zahlungen dauern — Stripe wird der Reihe nach gefragt. */
@@ -9,9 +14,10 @@ export const maxDuration = 60;
 /**
  * Wartungslauf, gedacht für einen täglichen Cron (siehe vercel.json).
  *
- * Er gibt Zahlungen frei, die zu einem abgebrochenen Vorgang gehören, räumt
- * abgelaufene Sitzungen und Token weg und meldet, ob Geld auf dem
- * Plattformkonto liegt, das eigentlich jemand anderem gehört.
+ * Er holt steckengebliebene Abschlüsse nach, gibt Zahlungen frei, die zu einem
+ * abgebrochenen Vorgang gehören, räumt abgelaufene Sitzungen und Token weg und
+ * meldet, ob danach noch Geld auf dem Plattformkonto liegt, das eigentlich
+ * jemand anderem gehört.
  *
  * Wer ihn auslösen darf, entscheidet lib/cron-auth.
  */
@@ -23,6 +29,9 @@ export async function GET(request: Request) {
 
   const begonnen = Date.now();
   try {
+    // Zuerst nachholen, dann messen: sonst meldet der Lauf Geld als
+    // liegengeblieben, das er gerade selbst weitergeleitet hat.
+    const abschluesse = await holeAbschluesseNach();
     const zahlungen = await gibVerwaisteZahlungenFrei();
     const aufgeraeumt = await raeumeAuf();
     const liegengeblieben = await haengendeGelder();
@@ -36,6 +45,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       status: "ok",
+      abschluesse,
       zahlungen,
       aufgeraeumt,
       liegengeblieben,

@@ -6,6 +6,7 @@ import {
   deals,
   payments,
   rateLimits,
+  ringLegs,
   ringSwaps,
   sessions,
   type DealRow,
@@ -13,6 +14,8 @@ import {
   type RingSwapRow,
 } from "./db/schema";
 import { markPayment, releaseAuthorization, stripeConfigured } from "./payments";
+import { schliesseTauschAb, type AbschlussErgebnis } from "./abschluss";
+import { loadRing, schliesseRingAb, type RingErgebnis } from "./rings-db";
 
 /**
  * Wiederkehrende Aufräumarbeiten. Sie laufen über /api/cron/wartung und sind
@@ -115,9 +118,9 @@ export async function raeumeAuf(): Promise<{
  * Plattformkonto und gehört jemand anderem. Er entsteht, wenn die Weiterleitung
  * scheitert — meist, weil das Auszahlungskonto der Gegenseite fehlt.
  *
- * Geheilt wird er nicht automatisch, weil dazu der ganze Abschluss erneut
- * laufen müsste. Gemeldet wird er aber: über /api/health sieht die Betreiberin,
- * dass etwas liegt.
+ * Der Lauf versucht ihn zu heilen (siehe holeAbschluesseNach). Bleibt trotzdem
+ * etwas liegen — etwa weil das Auszahlungskonto der Gegenseite fehlt —, steht
+ * es hier und über /api/health, damit es der Betreiberin auffällt.
  */
 export async function haengendeGelder(): Promise<{ anzahl: number; summeMinor: number }> {
   const [row] = await db
@@ -128,4 +131,134 @@ export async function haengendeGelder(): Promise<{ anzahl: number; summeMinor: n
     .from(payments)
     .where(and(eq(payments.status, "eingezogen"), isNull(payments.stripeTransferId)));
   return row ?? { anzahl: 0, summeMinor: 0 };
+}
+
+/**
+ * Holt Abschlüsse nach, die steckengeblieben sind.
+ *
+ * Beide bestätigen die Übergabe, das Geld wird eingezogen — und dann scheitert
+ * die Weiterleitung. Der Betrag liegt dann auf dem Plattformkonto und gehört
+ * jemand anderem. Bisher heilte das nur, wenn eine der beiden Seiten von selbst
+ * zurückkam und noch einmal auf «Übergabe bestätigen» drückte. Kam niemand,
+ * blieb es liegen — und niemandem fiel es auf.
+ *
+ * Gesucht wird dieselbe Lage, die auch der Knopf herstellt: alle haben
+ * bestätigt, der Vorgang steht in «treuhand» oder «abwicklung». Angestossen
+ * wird dieselbe Abwicklung. Sie ist beliebig oft wiederholbar — was schon
+ * eingezogen ist, wird nicht doppelt eingezogen, was schon überwiesen ist,
+ * nicht doppelt überwiesen (Idempotenzschlüssel bei Stripe).
+ *
+ * Was der Lauf nicht heilen kann, zählt er: ein fehlendes Auszahlungskonto
+ * bleibt fehlend, bis die Person es einrichtet. Sie bekommt bei jedem Anlauf
+ * eine Erinnerung — höchstens eine am Tag, weil der Lauf einmal am Tag läuft.
+ */
+export interface NachgeholteAbschluesse {
+  /** Geprüfte Vorgänge. */
+  geprueft: number;
+  /** Jetzt fertig: Geld beim Empfänger, Fahrzeuge umgeschrieben. */
+  abgeschlossen: number;
+  /** Wartet auf ein Auszahlungskonto — die Person wurde erinnert. */
+  wartetAufKonto: number;
+  /** Braucht einen Menschen. */
+  festgefahren: number;
+}
+
+export async function holeAbschluesseNach(): Promise<NachgeholteAbschluesse> {
+  const ergebnis: NachgeholteAbschluesse = {
+    geprueft: 0,
+    abgeschlossen: 0,
+    wartetAufKonto: 0,
+    festgefahren: 0,
+  };
+
+  for (const deal of await offeneAbschluesse()) {
+    ergebnis.geprueft++;
+    try {
+      // Als Urheber der Systemnachricht der Initiator: der Lauf ist keine
+      // Person, und die Spalte verlangt eine.
+      werte(ergebnis, await schliesseTauschAb(deal, deal.initiatorId));
+    } catch (err) {
+      ergebnis.festgefahren++;
+      console.error(`[wartung] Abschluss von Tausch ${deal.id} fehlgeschlagen:`, err);
+    }
+  }
+
+  for (const ringId of await offeneRingAbschluesse()) {
+    ergebnis.geprueft++;
+    try {
+      const geladen = await loadRing(ringId);
+      if (!geladen) continue;
+      werteRing(ergebnis, await schliesseRingAb(geladen));
+    } catch (err) {
+      ergebnis.festgefahren++;
+      console.error(`[wartung] Abschluss von Ring ${ringId} fehlgeschlagen:`, err);
+    }
+  }
+
+  return ergebnis;
+}
+
+function werte(ziel: NachgeholteAbschluesse, e: AbschlussErgebnis): void {
+  switch (e.art) {
+    case "fertig":
+      ziel.abgeschlossen++;
+      return;
+    case "kein-auszahlungskonto":
+      ziel.wartetAufKonto++;
+      return;
+    // «belegt» heisst, jemand wickelt gerade selbst ab — kein Grund zur Sorge.
+    // «zahlung-ungueltig» hat den Vorgang zurück in die Zusage gesetzt, die
+    // Beteiligten sind über die Systemnachricht informiert.
+    case "belegt":
+    case "zahlung-ungueltig":
+    case "zahlungen-aus":
+      return;
+    default:
+      ziel.festgefahren++;
+  }
+}
+
+function werteRing(ziel: NachgeholteAbschluesse, e: RingErgebnis): void {
+  switch (e.art) {
+    case "fertig":
+      ziel.abgeschlossen++;
+      return;
+    case "kein-auszahlungskonto":
+      ziel.wartetAufKonto++;
+      return;
+    case "belegt":
+    case "zahlung-ungueltig":
+    case "zahlungen-aus":
+      return;
+    default:
+      ziel.festgefahren++;
+  }
+}
+
+/** Zweiertausche, bei denen beide bestätigt haben und trotzdem nichts fertig ist. */
+async function offeneAbschluesse(): Promise<DealRow[]> {
+  return await db
+    .select()
+    .from(deals)
+    .where(
+      and(
+        inArray(deals.status, ["treuhand", "abwicklung"]),
+        eq(deals.initiatorConfirmed, true),
+        eq(deals.counterpartyConfirmed, true),
+      ),
+    );
+}
+
+/** Ringe, bei denen alle drei bestätigt haben und trotzdem nichts fertig ist. */
+async function offeneRingAbschluesse(): Promise<string[]> {
+  const rows = await db
+    .select({
+      id: ringSwaps.id,
+      bestaetigt: raw<number>`count(${ringLegs.confirmedAt})::int`,
+    })
+    .from(ringSwaps)
+    .innerJoin(ringLegs, eq(ringLegs.ringId, ringSwaps.id))
+    .where(inArray(ringSwaps.status, ["treuhand", "abwicklung"]))
+    .groupBy(ringSwaps.id);
+  return rows.filter((r) => r.bestaetigt === 3).map((r) => r.id);
 }

@@ -30,19 +30,16 @@ import {
   advanceRingToEscrow,
   loadRing,
   releaseRingPayments,
-  reopenRingEscrow,
+  schliesseRingAb,
   transfersFor,
   type RingWithLegs,
 } from "@/lib/rings-db";
 import {
-  captureAndPayout,
   createRingCheckout,
   currentRingPayments,
   payoutReady,
   stripeConfigured,
   authorizationExpiresAt,
-  PaymentStateError,
-  PayoutBlockedError,
 } from "@/lib/payments";
 import { mailConfigured, sendMail, siteUrl } from "@/lib/mail";
 
@@ -669,265 +666,53 @@ export async function confirmRingHandoverAction(ringId: string): Promise<RingAct
 }
 
 /**
- * Wickelt einen von allen bestätigten Ring ab: erst sämtliche Beträge
- * einziehen und weiterleiten, danach die drei Fahrzeuge umschreiben. Solange
- * nicht alles Geld angekommen ist, wechselt kein Fahrzeug den Besitzer.
+ * Übersetzt das Ergebnis der Abwicklung in das, was die Oberfläche zeigt.
+ * Die Abwicklung selbst steht in lib/rings-db — der Wartungslauf stösst
+ * dieselbe an, nur ohne jemanden, dem er etwas sagen könnte.
  */
 async function settleRing(geladen: RingWithLegs): Promise<RingActionResult> {
-  const { ring, legs } = geladen;
-  const noetig = transfersFor(legs);
-
-  if (!noetig.length) {
-    const claimed = await claimRingForSettlement(ring.id);
-    if (!claimed) return { ok: true };
-    try {
-      await completeRing(claimed);
-    } catch (err) {
-      await releaseRingSettlement(ring.id);
-      console.error(`Abschluss von Ring ${ring.id} fehlgeschlagen:`, err);
+  const ergebnis = await schliesseRingAb(geladen);
+  switch (ergebnis.art) {
+    case "fertig":
+    case "belegt":
+      return { ok: true };
+    case "abschluss-gescheitert":
       return { error: "Der Abschluss hat nicht geklappt. Bitte die Seite neu laden." };
-    }
-    return { ok: true };
-  }
-
-  const vorhanden = await currentRingPayments(ring.id);
-  const zahlungen = noetig.map((t) =>
-    vorhanden.find((p) => p.payerId === t.payerId && p.payeeId === t.payeeId),
-  );
-
-  const brauchbar = zahlungen.every((zahlung) => {
-    if (!zahlung) return false;
-    if (zahlung.status === "eingezogen" || zahlung.status === "ausgezahlt") return true;
-    if (zahlung.status !== "autorisiert") return false;
-    return (authorizationExpiresAt(zahlung)?.getTime() ?? Infinity) >= Date.now();
-  });
-
-  if (!brauchbar) {
-    // Mindestens ein Betrag fehlt oder ist verfallen: zurück in die Zusage,
-    // damit neu eingezahlt werden kann. Auf keinen Fall die Fahrzeuge
-    // umschreiben.
-    const zurueck = await reopenRingEscrow(
-      ring.id,
-      "Mindestens eine hinterlegte Zahlung ist nicht mehr gültig.",
-    );
-    if (!zurueck) {
-      // Entweder war jemand anders schneller — dann ist hier nichts zu melden.
-      // Steht der Ring aber schon in der Abwicklung, fehlt Geld mitten im
-      // Abschluss, und das muss ein Mensch ansehen.
-      if (ring.status !== "abwicklung") return { ok: true };
-      console.error(`Ring ${ring.id} ist in Abwicklung, aber eine Zahlung ist nicht mehr gültig.`);
+    case "zahlungen-aus":
+      return { error: "Zahlungen sind auf dieser Installation nicht eingerichtet." };
+    case "zahlung-ungueltig":
+      return {
+        error:
+          "Mindestens eine hinterlegte Zahlung ist nicht mehr gültig. Eine Reservierung verfällt " +
+          "nach sieben Tagen. Der fehlende Betrag muss neu eingezahlt werden.",
+      };
+    case "geld-fehlt-mitten-im-abschluss":
       return {
         error:
           "Beim Abschluss fehlt ein hinterlegter Betrag. Die Autos sind nicht umgeschrieben. " +
           "Bitte meldet euch beim Support: das müssen wir von Hand klären.",
       };
-    }
-    return {
-      error:
-        "Mindestens eine hinterlegte Zahlung ist nicht mehr gültig. Eine Reservierung verfällt " +
-        "nach sieben Tagen. Der fehlende Betrag muss neu eingezahlt werden.",
-    };
-  }
-
-  if (!stripeConfigured()) {
-    return { error: "Zahlungen sind auf dieser Installation nicht eingerichtet." };
-  }
-
-  // Erst alle Empfängerkonten prüfen, dann erst einziehen. Sonst bliebe der
-  // Ring auf halbem Weg stehen: das erste Geld wäre schon geflossen, das
-  // zweite nicht überweisbar.
-  for (const zahlung of zahlungen) {
-    if (!(await payoutReady(zahlung!.payeeId))) {
-      await notify(
-        [zahlung!.payeeId],
-        "quitt: Auszahlungskonto fehlt noch",
-        "Euer Ringtausch ist übergeben und der Ausgleich liegt bereit. Sobald du dein " +
-          `Auszahlungskonto eingerichtet hast, wird er ausgezahlt.\n\n${siteUrl()}/konto\n`,
-      );
+    case "kein-auszahlungskonto":
       return {
         error:
-          "Wir können noch nicht auszahlen: bei einer Person fehlt das Auszahlungskonto. Wir " +
-          "haben ihr geschrieben. Danach könnt ihr die Übergabe noch einmal bestätigen.",
+          "Wir können noch nicht auszahlen: bei einer Person fehlt das Auszahlungskonto. Sobald " +
+          "das steht, könnt ihr die Übergabe noch einmal bestätigen.",
       };
-    }
-  }
-
-  const claimed = await claimRingForSettlement(ring.id);
-  if (!claimed) return { ok: true };
-
-  let bereitsGeflossen = false;
-  for (const zahlung of zahlungen) {
-    if (zahlung!.status === "ausgezahlt") {
-      bereitsGeflossen = true;
-      continue;
-    }
-    try {
-      const erledigt = await captureAndPayout(zahlung!);
-      if (erledigt.status !== "ausgezahlt") throw new Error("Auszahlung unvollständig");
-      bereitsGeflossen = true;
-    } catch (err) {
-      // Solange nichts geflossen ist, darf der Ring zurück in die Treuhand —
-      // danach nicht mehr, sonst liesse er sich abbrechen, obwohl schon Geld
-      // beim Empfänger liegt.
-      if (!bereitsGeflossen) await releaseRingSettlement(ring.id);
-      if (err instanceof PayoutBlockedError) {
-        return {
-          error:
-            "Wir können noch nicht auszahlen: bei einer Person fehlt das Auszahlungskonto. Sobald " +
-            "das steht, könnt ihr die Übergabe noch einmal bestätigen.",
-        };
-      }
-      if (err instanceof PaymentStateError) {
-        console.error(`Zahlung zu Ring ${ring.id} nicht abwickelbar:`, err);
-        return { error: err.message + " Bitte den Ausgleich neu einzahlen." };
-      }
-      console.error(`Auszahlung im Ring ${ring.id} fehlgeschlagen:`, err);
+    case "zahlung-nicht-abwickelbar":
+      return { error: ergebnis.grund + " Bitte den Ausgleich neu einzahlen." };
+    case "auszahlung-gescheitert":
       return {
-        error: bereitsGeflossen
+        error: ergebnis.teilweiseGeflossen
           ? "Ein Teil des Ausgleichs ist ausgezahlt, ein weiterer noch nicht. Die Fahrzeuge " +
             "sind noch nicht umgeschrieben — bitte in ein paar Minuten erneut bestätigen."
           : "Die Auszahlung ist fehlgeschlagen. Die Beträge sind sicher hinterlegt und die " +
             "Fahrzeuge sind noch nicht umgeschrieben — bitte in ein paar Minuten erneut bestätigen.",
       };
-    }
+    case "umschreiben-gescheitert":
+      return {
+        error:
+          "Der Ausgleich ist ausgezahlt, aber das Umschreiben der Autos hat nicht geklappt. " +
+          "Bestätigt gleich noch einmal. Hilft das nicht, meldet sich der Support.",
+      };
   }
-
-  try {
-    await completeRing(claimed);
-  } catch (err) {
-    // Das Geld ist bereits bei den Empfängern. Der Ring bleibt in
-    // «abwicklung» und lässt sich erneut anstossen — freigeben wäre falsch.
-    console.error(`Abschluss von Ring ${ring.id} nach erfolgter Auszahlung fehlgeschlagen:`, err);
-    return {
-      error:
-        "Der Ausgleich ist ausgezahlt, aber das Umschreiben der Autos hat nicht geklappt. " +
-        "Bestätigt gleich noch einmal. Hilft das nicht, meldet sich der Support.",
-    };
-  }
-  return { ok: true };
-}
-
-/** Übernimmt einen von allen bestätigten Ring exklusiv zur Abwicklung. */
-async function claimRingForSettlement(ringId: string): Promise<RingWithLegs | null> {
-  const rows = await db
-    .update(ringSwaps)
-    .set({ status: "abwicklung", updatedAt: new Date() })
-    .where(
-      and(
-        eq(ringSwaps.id, ringId),
-        inArray(ringSwaps.status, ["treuhand", "abwicklung"]),
-        raw`(select count(*) from ${ringLegs} where ${ringLegs.ringId} = ${ringId} and ${ringLegs.confirmedAt} is not null) = 3`,
-      ),
-    )
-    .returning({ id: ringSwaps.id });
-  if (!rows.length) return null;
-  return await loadRing(ringId);
-}
-
-/** Gibt einen zur Abwicklung übernommenen Ring wieder frei. */
-async function releaseRingSettlement(ringId: string): Promise<void> {
-  await db
-    .update(ringSwaps)
-    .set({ status: "treuhand", updatedAt: new Date() })
-    .where(and(eq(ringSwaps.id, ringId), eq(ringSwaps.status, "abwicklung")));
-}
-
-/** Schliesst den Ring ab: Halterwechsel, Inserate, Zähler, Sperren lösen. */
-async function completeRing(geladen: RingWithLegs): Promise<void> {
-  const { ring, legs } = geladen;
-  const vehicleIds = legs.map((l) => l.vehicleId);
-  const verworfeneDeals: { id: string; initiatorId: string }[] = [];
-  const verworfeneRinge: { id: string; initiatorId: string }[] = [];
-
-  await db.transaction(async (tx) => {
-    const fertig = await tx
-      .update(ringSwaps)
-      .set({ status: "abgeschlossen", completedAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(ringSwaps.id, ring.id), eq(ringSwaps.status, "abwicklung")))
-      .returning({ id: ringSwaps.id });
-    if (!fertig.length) return;
-
-    // Die drei Fahrzeuge rücken einen Platz weiter — jedes aber nur, wenn es
-    // noch der Person gehört, die es im Ring abgibt.
-    for (const leg of legs) {
-      const bewegt = await tx
-        .update(vehicles)
-        .set({ ownerId: leg.receiverId, updatedAt: new Date() })
-        .where(and(eq(vehicles.id, leg.vehicleId), eq(vehicles.ownerId, leg.userId)))
-        .returning({ id: vehicles.id });
-      if (!bewegt.length) {
-        throw new Error(
-          `Halterwechsel für Ring ${ring.id} abgebrochen: Fahrzeug ${leg.vehicleId} gehört nicht mehr der erwarteten Person.`,
-        );
-      }
-      // Das Inserat wandert mit. Ohne das könnte der neue Halter sein Fahrzeug
-      // nie wieder einstellen — auf listings.vehicle_id liegt ein Unique-Index.
-      await tx
-        .update(listings)
-        .set({ ownerId: leg.receiverId, status: "getauscht", updatedAt: new Date() })
-        .where(eq(listings.vehicleId, leg.vehicleId));
-    }
-
-    // Offene Zweiertausche zu denselben Fahrzeugen sind hinfällig
-    const deals2 = await tx
-      .update(deals)
-      .set({ status: "storniert", updatedAt: new Date() })
-      .where(
-        and(
-          inArray(deals.status, ["vorschlag", "verhandlung"]),
-          or(inArray(deals.fromVehicleId, vehicleIds), inArray(deals.toVehicleId, vehicleIds)),
-        ),
-      )
-      .returning({ id: deals.id, initiatorId: deals.initiatorId });
-    verworfeneDeals.push(...deals2);
-
-    // …und offene Ringvorschläge ebenso
-    const betroffen = await tx
-      .selectDistinct({ ringId: ringLegs.ringId })
-      .from(ringLegs)
-      .where(and(inArray(ringLegs.vehicleId, vehicleIds), ne(ringLegs.ringId, ring.id)));
-    if (betroffen.length) {
-      const ringe = await tx
-        .update(ringSwaps)
-        .set({ status: "storniert", updatedAt: new Date() })
-        .where(
-          and(
-            inArray(
-              ringSwaps.id,
-              betroffen.map((r) => r.ringId),
-            ),
-            eq(ringSwaps.status, "vorschlag"),
-          ),
-        )
-        .returning({ id: ringSwaps.id, initiatorId: ringSwaps.initiatorId });
-      verworfeneRinge.push(...ringe);
-    }
-
-    await tx.delete(dealVehicleLocks).where(eq(dealVehicleLocks.ringId, ring.id));
-
-    for (const leg of legs) {
-      await tx
-        .update(users)
-        .set({ swapsCompleted: raw`${users.swapsCompleted} + 1`, updatedAt: new Date() })
-        .where(eq(users.id, leg.userId));
-    }
-  });
-
-  for (const other of verworfeneDeals) {
-    await db.insert(dealMessages).values({
-      id: newId("msg"),
-      dealId: other.id,
-      authorId: other.initiatorId,
-      body: "Eines der Fahrzeuge wurde inzwischen in einem Ring getauscht — dieser Vorschlag ist hinfällig.",
-      system: true,
-    });
-  }
-  for (const other of verworfeneRinge) {
-    await addRingSystemMessage(
-      other.id,
-      other.initiatorId,
-      "Eines der Fahrzeuge wurde inzwischen anders getauscht — dieser Ring ist hinfällig.",
-    );
-  }
-  if (verworfeneDeals.length || verworfeneRinge.length) revalidatePath("/deals");
 }
