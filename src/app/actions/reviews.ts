@@ -86,8 +86,8 @@ export async function submitReviewAction(
   if (!angelegt) return { error: "Du hast diesen Tausch bereits bewertet." };
 
   revalidatePath(`/deals/${dealId}`);
-  revalidatePath(`/fahrzeug/${deal.toVehicleId}`);
-  revalidatePath(`/fahrzeug/${deal.fromVehicleId}`);
+  revalidatePath(`/auto/${deal.toVehicleId}`);
+  revalidatePath(`/auto/${deal.fromVehicleId}`);
   return { ok: true };
 }
 
@@ -160,6 +160,6 @@ export async function submitRingReviewAction(
   if (!angelegt) return { error: "Du hast diese Person zu diesem Ring bereits bewertet." };
 
   revalidatePath(`/ringe/${ringId}`);
-  for (const leg of legs) revalidatePath(`/fahrzeug/${leg.vehicleId}`);
+  for (const leg of legs) revalidatePath(`/auto/${leg.vehicleId}`);
   return { ok: true };
 }

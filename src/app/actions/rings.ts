@@ -176,8 +176,8 @@ export async function proposeRingAction(input: {
   if (gesperrt.length) {
     return {
       error:
-        "Eines der drei Fahrzeuge steckt bereits in einem zugesagten Tausch und ist bis zu " +
-        "dessen Abschluss gebunden.",
+        "Eines der drei Autos steckt schon in einem zugesagten Tausch. Bis der fertig ist, " +
+        "ist es gebunden.",
     };
   }
 
@@ -268,7 +268,7 @@ export async function proposeRingAction(input: {
 
   await notify(
     [eintragA.vehicle.ownerId, eintragB.vehicle.ownerId],
-    "CarSwap: Vorschlag für einen Ringtausch",
+    "quitt: Vorschlag für einen Ringtausch",
     `${me.name} schlägt einen Tausch über drei Parteien vor. Er kommt nur zustande, wenn alle ` +
       `drei zusagen.\n\n${siteUrl()}/ringe/${ringId}\n`,
   );
@@ -329,8 +329,8 @@ export async function acceptRingAction(ringId: string): Promise<RingActionResult
   if (gebunden.length) {
     return {
       error:
-        "Eines der drei Fahrzeuge steckt bereits in einem anderen zugesagten Tausch. " +
-        "Dieser muss zuerst abgeschlossen oder abgebrochen werden.",
+        "Eines der drei Autos steckt schon in einem anderen zugesagten Tausch. Der muss " +
+        "zuerst fertig oder abgebrochen sein.",
     };
   }
 
@@ -341,8 +341,8 @@ export async function acceptRingAction(ringId: string): Promise<RingActionResult
     if (zusage.grund === "gesperrt") {
       return {
         error:
-          "Eines der drei Fahrzeuge steckt bereits in einem anderen zugesagten Tausch. " +
-          "Dieser muss zuerst abgeschlossen oder abgebrochen werden.",
+          "Eines der drei Autos steckt schon in einem anderen zugesagten Tausch. Der muss " +
+          "zuerst fertig oder abgebrochen sein.",
       };
     }
     return { error: "Die Zusage hat nicht geklappt. Bitte die Seite neu laden und erneut versuchen." };
@@ -353,15 +353,15 @@ export async function acceptRingAction(ringId: string): Promise<RingActionResult
     ringId,
     me.id,
     vollstaendig
-      ? `${me.name} hat zugesagt — damit steht der Ring. Nächster Schritt ist die Treuhand-Einzahlung.`
+      ? `${me.name} hat zugesagt — damit steht der Ring. Als Nächstes wird der Ausgleich hinterlegt.`
       : `${me.name} hat zugesagt.`,
   );
 
   await notify(
     andere(geladen.legs, me.id),
-    vollstaendig ? "CarSwap: Ringtausch steht" : "CarSwap: Zusage zum Ringtausch",
+    vollstaendig ? "quitt: Ringtausch steht" : "quitt: Zusage zum Ringtausch",
     vollstaendig
-      ? `Alle drei haben zugesagt. Nächster Schritt ist die Treuhand-Einzahlung.\n\n${siteUrl()}/ringe/${ringId}\n`
+      ? `Alle drei haben zugesagt. Als Nächstes wird der Ausgleich hinterlegt.\n\n${siteUrl()}/ringe/${ringId}\n`
       : `${me.name} hat dem Ringtausch zugesagt.\n\n${siteUrl()}/ringe/${ringId}\n`,
   );
 
@@ -388,7 +388,7 @@ export async function declineRingAction(ringId: string): Promise<RingActionResul
   await addRingSystemMessage(ringId, me.id, `${me.name} hat den Ring abgelehnt.`);
   await notify(
     andere(geladen.legs, me.id),
-    "CarSwap: Ringtausch abgelehnt",
+    "quitt: Ringtausch abgelehnt",
     `${me.name} hat den Ringtausch abgelehnt. Ohne alle drei Zusagen kommt er nicht zustande.\n\n${siteUrl()}/ringe/${ringId}\n`,
   );
 
@@ -442,7 +442,7 @@ export async function cancelRingAction(ringId: string): Promise<RingActionResult
   await addRingSystemMessage(ringId, me.id, `${me.name} hat den Ring abgebrochen.`);
   await notify(
     andere(geladen.legs, me.id),
-    "CarSwap: Ringtausch abgebrochen",
+    "quitt: Ringtausch abgebrochen",
     `${me.name} hat den Ringtausch abgebrochen. Hinterlegte Beträge werden freigegeben.\n\n${siteUrl()}/ringe/${ringId}\n`,
   );
   revalidatePath(`/ringe/${ringId}`);
@@ -453,9 +453,9 @@ export async function cancelRingAction(ringId: string): Promise<RingActionResult
     if (fehler.length) {
       return {
         error:
-          "Der Ring ist abgebrochen. Mindestens ein hinterlegter Betrag liess sich dabei nicht " +
-          "sofort freigeben — eine Reservierung verfällt von selbst, bei einem bereits " +
-          "eingezogenen Betrag meldet sich der Support.",
+          "Der Ring ist abgebrochen. Mindestens einen hinterlegten Betrag konnten wir nicht " +
+          "sofort freigeben. Eine Reservierung verfällt von selbst. Ist schon abgebucht " +
+          "worden, meldet sich der Support.",
       };
     }
   }
@@ -486,7 +486,7 @@ export async function sendRingMessageAction(
   await db.insert(dealMessages).values({ id: newId("msg"), ringId, authorId: me.id, body });
   await notify(
     andere(geladen.legs, me.id),
-    "CarSwap: neue Nachricht im Ringtausch",
+    "quitt: neue Nachricht im Ringtausch",
     `${me.name} hat euch geschrieben.\n\n${siteUrl()}/ringe/${ringId}\n`,
   );
 
@@ -566,14 +566,14 @@ export async function startRingEscrowAction(ringId: string): Promise<RingActionR
   if (!(await payoutReady(offen.payeeId))) {
     await notify(
       [offen.payeeId],
-      "CarSwap: Auszahlungskonto einrichten",
-      "Für euren Ringtausch steht die Treuhand-Einzahlung an. Damit der Ausgleich bei dir " +
+      "quitt: Auszahlungskonto einrichten",
+      "Bei eurem Ringtausch wird als Nächstes der Ausgleich hinterlegt. Damit er bei dir " +
         `ankommt, richte bitte zuerst dein Auszahlungskonto ein.\n\n${siteUrl()}/konto\n`,
     );
     return {
       error:
-        "Der Empfänger deiner Einzahlung hat sein Auszahlungskonto noch nicht eingerichtet. " +
-        "Wir haben ihn eben benachrichtigt — sobald das erledigt ist, kannst du einzahlen.",
+        "Wer dein Geld bekommt, hat noch kein Auszahlungskonto. Wir haben ihm eben " +
+        "geschrieben. Sobald das steht, kannst du einzahlen.",
     };
   }
 
@@ -610,7 +610,7 @@ export async function confirmRingHandoverAction(ringId: string): Promise<RingAct
   const geladen = await loadMyRing(ringId, me.id);
   if (!geladen) return { error: "Ringtausch nicht gefunden." };
   if (geladen.ring.status !== "treuhand" && geladen.ring.status !== "abwicklung") {
-    return { error: "Die Übergabe lässt sich erst nach der Treuhand-Einzahlung bestätigen." };
+    return { error: "Die Übergabe kannst du erst bestätigen, wenn der Ausgleich hinterlegt ist." };
   }
 
   let alle = false;
@@ -654,7 +654,7 @@ export async function confirmRingHandoverAction(ringId: string): Promise<RingAct
   if (!alle) {
     await notify(
       andere(frisch.legs, me.id),
-      "CarSwap: Übergabe bestätigt",
+      "quitt: Übergabe bestätigt",
       `${me.name} hat die Übergabe bestätigt. Sobald alle drei bestätigt haben, wird der ` +
         `Ausgleich ausgezahlt und die Fahrzeuge werden umgeschrieben.\n\n${siteUrl()}/ringe/${ringId}\n`,
     );
@@ -718,14 +718,14 @@ async function settleRing(geladen: RingWithLegs): Promise<RingActionResult> {
       console.error(`Ring ${ring.id} ist in Abwicklung, aber eine Zahlung ist nicht mehr gültig.`);
       return {
         error:
-          "Beim Abschluss fehlt ein hinterlegter Betrag. Die Fahrzeuge sind nicht umgeschrieben. " +
-          "Bitte meldet euch beim Support — das muss von Hand geklärt werden.",
+          "Beim Abschluss fehlt ein hinterlegter Betrag. Die Autos sind nicht umgeschrieben. " +
+          "Bitte meldet euch beim Support: das müssen wir von Hand klären.",
       };
     }
     return {
       error:
-        "Mindestens eine hinterlegte Zahlung ist nicht mehr gültig — eine Reservierung " +
-        "verfällt nach sieben Tagen. Der fehlende Ausgleich muss neu eingezahlt werden.",
+        "Mindestens eine hinterlegte Zahlung ist nicht mehr gültig. Eine Reservierung verfällt " +
+        "nach sieben Tagen. Der fehlende Betrag muss neu eingezahlt werden.",
     };
   }
 
@@ -740,15 +740,14 @@ async function settleRing(geladen: RingWithLegs): Promise<RingActionResult> {
     if (!(await payoutReady(zahlung!.payeeId))) {
       await notify(
         [zahlung!.payeeId],
-        "CarSwap: Auszahlungskonto fehlt noch",
+        "quitt: Auszahlungskonto fehlt noch",
         "Euer Ringtausch ist übergeben und der Ausgleich liegt bereit. Sobald du dein " +
           `Auszahlungskonto eingerichtet hast, wird er ausgezahlt.\n\n${siteUrl()}/konto\n`,
       );
       return {
         error:
-          "Der Ausgleich kann noch nicht ausgezahlt werden, weil ein Auszahlungskonto fehlt. " +
-          "Wir haben die betroffene Person benachrichtigt — danach lässt sich die Übergabe " +
-          "erneut bestätigen.",
+          "Wir können noch nicht auszahlen: bei einer Person fehlt das Auszahlungskonto. Wir " +
+          "haben ihr geschrieben. Danach könnt ihr die Übergabe noch einmal bestätigen.",
       };
     }
   }
@@ -774,8 +773,8 @@ async function settleRing(geladen: RingWithLegs): Promise<RingActionResult> {
       if (err instanceof PayoutBlockedError) {
         return {
           error:
-            "Der Ausgleich kann noch nicht ausgezahlt werden, weil ein Auszahlungskonto fehlt. " +
-            "Sobald das eingerichtet ist, lässt sich die Übergabe erneut bestätigen.",
+            "Wir können noch nicht auszahlen: bei einer Person fehlt das Auszahlungskonto. Sobald " +
+            "das steht, könnt ihr die Übergabe noch einmal bestätigen.",
         };
       }
       if (err instanceof PaymentStateError) {
@@ -801,8 +800,8 @@ async function settleRing(geladen: RingWithLegs): Promise<RingActionResult> {
     console.error(`Abschluss von Ring ${ring.id} nach erfolgter Auszahlung fehlgeschlagen:`, err);
     return {
       error:
-        "Der Ausgleich ist ausgezahlt, das Umschreiben der Fahrzeuge hat aber nicht geklappt. " +
-        "Bitte gleich erneut bestätigen — hilft das nicht, meldet sich der Support.",
+        "Der Ausgleich ist ausgezahlt, aber das Umschreiben der Autos hat nicht geklappt. " +
+        "Bestätigt gleich noch einmal. Hilft das nicht, meldet sich der Support.",
     };
   }
   return { ok: true };

@@ -28,7 +28,7 @@ export function VehicleCard({
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-xl border border-line bg-surface card-shadow transition-colors hover:border-line-strong">
-      <Link href={`/fahrzeug/${vehicle.id}`} className="block">
+      <Link href={`/auto/${vehicle.id}`} className="block">
         {photo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -51,7 +51,7 @@ export function VehicleCard({
 
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div className="flex items-start justify-between gap-3">
-          <Link href={`/fahrzeug/${vehicle.id}`} className="min-w-0">
+          <Link href={`/auto/${vehicle.id}`} className="min-w-0">
             <h3 className="truncate text-[15px] font-semibold tracking-tight text-ink group-hover:text-marke">
               {vehicle.make} {vehicle.model}
             </h3>
@@ -110,7 +110,7 @@ export function VehicleCard({
                 {owner.location || owner.name}
               </span>
             ) : (
-              <span className="text-xs text-ink-3">Dein Fahrzeug</span>
+              <span className="text-xs text-ink-3">Dein Auto</span>
             )}
             {score !== undefined && score > 0 && <ScorePill score={score} />}
           </div>

@@ -136,39 +136,40 @@ export function MatchFinder({
         <div className="space-y-8">
           <MatchGroup
             title="Beide Seiten wollen"
-            sub={`Das Inserat entspricht deiner Suche — und die Gegenseite sucht ausdrücklich ein Fahrzeug wie deinen ${vehicleFullTitle(mine)}. Höchste Abschlusswahrscheinlichkeit.`}
+            sub={`Diese Autos passen zu dir, und ihre Besitzer suchen ausdrücklich eines wie deinen ${vehicleFullTitle(mine)}. Hier klappt es am ehesten.`}
             items={both}
             mineId={mine.id}
-            empty="Aktuell keine beidseitige Übereinstimmung. Schau beim Ringtausch — dort löst sich das oft über eine dritte Partei."
+            empty="Gerade will keine Gegenseite auch deines. Schau beim Ringtausch — über eine dritte Person geht es oft doch."
           />
           <MatchGroup
             title="Du willst — die Gegenseite hat andere Wünsche"
-            sub="Diese Fahrzeuge passen zu deiner Suche, stehen aber auf keiner passenden Wunschliste. Eine Anfrage kann sich trotzdem lohnen, vor allem mit etwas mehr Ausgleich."
+            sub="Diese Autos passen zu dir, aber ihre Besitzer suchen etwas anderes. Fragen kann sich trotzdem lohnen — vor allem, wenn du etwas drauflegst."
             items={onlyMe}
             mineId={mine.id}
             empty="Nichts gefunden, was zu deiner Suche passt. Erweitere die Kriterien."
           />
           <MatchGroup
             title="Die Gegenseite will — du hast anderes gesucht"
-            sub="Hier würde dein Fahrzeug sofort genommen. Falls du bei den Suchkriterien flexibel bist, sind das die schnellsten Abschlüsse."
+            sub="Dein Auto würde hier sofort genommen. Wenn du bei deinen Kriterien flexibel bist, geht es hier am schnellsten."
             items={onlyThem}
             mineId={mine.id}
-            empty="Niemand sucht ausserhalb deiner Kriterien ein Fahrzeug wie deines."
+            empty="Niemand sucht ausserhalb deiner Kriterien ein Auto wie deines."
           />
         </div>
       ) : (
         <section>
           <h3 className="mb-1 text-sm font-semibold text-ink">Dreiertausch</h3>
           <p className="mb-2 max-w-3xl text-sm text-ink-3">
-            Du gibst dein Fahrzeug an jemanden, der es sucht — und bekommst deines von einer
-            dritten Partei. Alle drei Ausgleichszahlungen summieren sich zu null.
+            Du gibst dein Auto an jemanden, der genau das sucht. Deines bekommst du von einer
+            dritten Person. Was die eine zahlt, bekommt eine andere — unter dem Strich bleibt
+            nichts liegen.
           </p>
           <p className="mb-4 max-w-3xl rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-ink-2">
             <span className="font-semibold text-ink">So läuft er ab:</span> Du schlägst den Ring
-            vor, die beiden anderen sagen zu oder ab. Erst mit allen drei Zusagen sind die
-            Fahrzeuge gebunden; danach hinterlegen alle, die etwas draufzahlen, ihren Ausgleich auf
-            dem Treuhandkonto. Ausgezahlt und umgeschrieben wird erst, wenn alle drei die Übergabe
-            bestätigt haben. Springt jemand ab, geht alles zurück — es bewegt sich kein Fahrzeug.
+            vor, die beiden anderen sagen zu oder ab. Erst wenn alle drei zugesagt haben, sind die
+            Autos gebunden. Dann hinterlegt jeder, der draufzahlt, seinen Betrag bei uns.
+            Ausgezahlt und umgeschrieben wird erst, wenn alle drei die Übergabe bestätigt haben.
+            Springt jemand ab, geht alles zurück und kein Auto bewegt sich.
           </p>
           {ringFehler && (
             <p className="mb-4 max-w-3xl rounded-lg border border-bad/40 bg-bad/10 px-3 py-2 text-xs text-ink">
@@ -176,7 +177,7 @@ export function MatchFinder({
             </p>
           )}
           {rings.length === 0 ? (
-            <EmptyBox text="Für diese Kombination liess sich kein Ring bilden. Erweitere deine Suchkriterien oder wähle ein anderes Fahrzeug." />
+            <EmptyBox text="Für diese Kombination fanden wir keinen Ring. Erweitere deine Kriterien oder wähle ein anderes Auto." />
           ) : (
             <ul className="space-y-4">
               {rings.map((r) => (
@@ -260,7 +261,7 @@ export function MatchFinder({
                         .map((p) => (
                           <Link
                             key={p.user.id}
-                            href={`/fahrzeug/${p.gives.id}`}
+                            href={`/auto/${p.gives.id}`}
                             className="rounded-lg border border-line-strong px-3 py-1.5 text-sm text-ink-2 transition-colors hover:border-marke/45 hover:text-marke"
                           >
                             {p.gives.make} {p.gives.model} ansehen
@@ -341,7 +342,7 @@ function MatchRow({
   return (
     <Card as="li" className="p-4">
       <div className="flex flex-col gap-4 sm:flex-row">
-        <Link href={`/fahrzeug/${vehicle.id}`} className="shrink-0">
+        <Link href={`/auto/${vehicle.id}`} className="shrink-0">
           <VehicleVisual
             id={vehicle.id}
             body={vehicle.body}
@@ -352,7 +353,7 @@ function MatchRow({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <Link href={`/fahrzeug/${vehicle.id}`}>
+              <Link href={`/auto/${vehicle.id}`}>
                 <h4 className="text-[15px] font-semibold text-ink hover:text-marke">
                   {vehicle.make} {vehicle.model}
                 </h4>

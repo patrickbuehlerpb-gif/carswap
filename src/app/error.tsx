@@ -19,7 +19,7 @@ export default function Error({
     <Card className="mx-auto mt-10 max-w-lg p-10 text-center">
       <h1 className="text-lg font-semibold text-ink">Da ist etwas schiefgelaufen</h1>
       <p className="mt-2 text-sm text-ink-3">
-        Der Fehler wurde protokolliert. Versuch es nochmals — bleibt es dabei, melde dich bei uns.
+        Der Fehler ist bei uns notiert. Versuch es nochmals. Bleibt es dabei, melde dich.
       </p>
       {error.digest && (
         <p className="mt-3 text-xs text-ink-3 tabular">Fehlerkennung: {error.digest}</p>

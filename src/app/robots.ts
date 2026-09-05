@@ -5,7 +5,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      allow: ["/", "/markt", "/fahrzeug/", "/wert", "/so-funktionierts"],
+      allow: ["/", "/markt", "/auto/", "/wert", "/so-funktionierts"],
       // Persönliche Bereiche gehören nicht in den Index
       disallow: ["/konto", "/garage", "/deals", "/matches", "/inserat", "/tausch", "/api/"],
     },

@@ -21,7 +21,7 @@ export default async function InseratBearbeitenPage({
 
   const vehicle = await getVehicle(id);
   if (!vehicle) notFound();
-  if (vehicle.ownerId !== me.id) redirect(`/fahrzeug/${id}`);
+  if (vehicle.ownerId !== me.id) redirect(`/auto/${id}`);
 
   const view = await getListingByVehicle(id);
   const wish = view?.listing.wish;
@@ -63,7 +63,7 @@ export default async function InseratBearbeitenPage({
     <div className="space-y-6">
       <SectionHead
         title={`${vehicle.make} ${vehicle.model} bearbeiten`}
-        sub="Halte vor allem den Kilometerstand aktuell — davon hängt die Bewertung am stärksten ab."
+        sub="Halte vor allem den Kilometerstand aktuell. Davon hängt der Wert am stärksten ab."
         action={<ListingControls vehicleId={vehicle.id} status={view?.listing.status ?? "aktiv"} />}
       />
       <ListingForm

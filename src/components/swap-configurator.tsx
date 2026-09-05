@@ -95,10 +95,10 @@ export function SwapConfigurator({
   return (
     <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
       <div className="min-w-0 space-y-6">
-        {/* Auswahl des eigenen Fahrzeugs */}
+        {/* Auswahl des eigenen Autos */}
         <Card className="p-5">
           <p className="text-[11px] uppercase tracking-wider text-ink-3">
-            Welches Fahrzeug gibst du ab?
+            Welches Auto gibst du ab?
           </p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {myVehicles.map((v) => {
@@ -145,7 +145,7 @@ export function SwapConfigurator({
         <Card className="p-5">
           <p className="text-[11px] uppercase tracking-wider text-ink-3">Direktvergleich</p>
           <p className="mt-1 text-[11px] text-ink-3 sm:hidden">
-            Tabelle horizontal scrollen für beide Fahrzeuge
+            Tabelle horizontal scrollen für beide Autos
           </p>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[420px] text-sm">
@@ -201,7 +201,7 @@ export function SwapConfigurator({
           </div>
         </Card>
 
-        {/* Wertverlauf beider Fahrzeuge */}
+        {/* Wertverlauf beider Autos */}
         <Card className="p-5">
           <p className="text-[11px] uppercase tracking-wider text-ink-3">
             Wertentwicklung im Vergleich
@@ -289,8 +289,8 @@ export function SwapConfigurator({
           <div className="mt-4 space-y-2 border-t border-line pt-4 text-xs">
             <StatusLine
               ok={fit.ok}
-              good={`Dein Fahrzeug entspricht der Wunschliste von ${owner.name}`}
-              bad={fit.misses[0] ?? "Dein Fahrzeug steht nicht auf der Wunschliste"}
+              good={`Dein Auto entspricht der Wunschliste von ${owner.name}`}
+              bad={fit.misses[0] ?? "Dein Auto steht nicht auf der Wunschliste"}
             />
             <StatusLine
               ok={withinTheirRange}
@@ -325,7 +325,7 @@ export function SwapConfigurator({
             {pending ? "Wird gesendet …" : "Tauschvorschlag senden"}
           </button>
           <p className="mt-2 text-center text-[11px] text-ink-3">
-            Unverbindlich. Geld fliesst erst nach beidseitiger Zusage über das Treuhandkonto.
+            Unverbindlich. Geld fliesst erst, wenn beide zugesagt haben — und auch dann erst nach der Übergabe.
           </p>
         </Card>
 
@@ -337,14 +337,14 @@ export function SwapConfigurator({
               Gegenangebot machen.
             </li>
             <li className="flex gap-3">
-              <Step n={2} /> Bei Einigung wird der Ausgleich auf dem Treuhandkonto hinterlegt.
+              <Step n={2} /> Seid ihr euch einig, hinterlegt die zahlende Seite den Ausgleich bei uns.
             </li>
             <li className="flex gap-3">
               <Step n={3} /> Nach beidseitiger Übergabebestätigung erfolgt die Auszahlung.
             </li>
           </ol>
           <Link
-            href={`/fahrzeug/${target.id}`}
+            href={`/auto/${target.id}`}
             className="mt-4 block text-sm text-marke hover:text-marke"
           >
             Zurück zum Inserat →

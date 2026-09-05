@@ -9,68 +9,68 @@ export default function AgbPage() {
   return (
     <LegalPage title="Allgemeine Geschäftsbedingungen" updated="September 2026">
       <Todo>
-        Diese Fassung beschreibt, wie die Plattform tatsächlich funktioniert. Sie muss vor der
-        öffentlichen Freischaltung anwaltlich geprüft werden — insbesondere die Abgrenzung der
-        Treuhandfunktion gegenüber dem Geldwäschereigesetz und die Gewährleistung beim Tausch
-        unter Privatpersonen.
+        Diese Fassung beschreibt, wie die Plattform wirklich funktioniert. Vor der öffentlichen
+        Freischaltung muss sie eine Anwältin prüfen. Zwei Fragen vor allem: Fällt das Verwahren
+        von Ausgleichszahlungen unter das Geldwäschereigesetz? Und wie weit reicht die
+        Gewährleistung beim Tausch unter Privatpersonen?
       </Todo>
 
-      <H2>1. Was CarSwap ist</H2>
+      <H2>1. Was quitt ist</H2>
       <p>
-        CarSwap ist ein Marktplatz, auf dem Privatpersonen Fahrzeuge direkt gegeneinander tauschen.
-        Der Tauschvertrag kommt ausschliesslich zwischen den beiden Nutzenden zustande. CarSwap ist
-        nicht Vertragspartei, nicht Verkäuferin und nicht Vermittlerin im rechtlichen Sinn.
+        Auf quitt tauschen Privatpersonen ihre Autos direkt gegeneinander. Der Vertrag kommt
+        zwischen den beiden Personen zustande, nicht mit uns. Wir sind weder Vertragspartei noch
+        Verkäuferin noch Vermittlerin im rechtlichen Sinn.
       </p>
 
-      <H2>2. Bewertungen sind Schätzungen</H2>
+      <H2>2. Werte sind Schätzungen</H2>
       <p>
-        Die angezeigten Fahrzeugwerte stammen aus einem Rechenmodell auf Basis der von den
-        Nutzenden eingetragenen Angaben. Sie sind eine Orientierung, kein Gutachten und keine
-        Zusicherung. Der tatsächlich vereinbarte Ausgleich wird zwischen den Parteien frei
-        ausgehandelt.
+        Die angezeigten Werte kommen aus einem Rechenmodell. Es rechnet mit dem, was die
+        Nutzenden selbst eingetragen haben. Das ist eine Orientierung, kein Gutachten und keine
+        Zusicherung. Was am Ende bezahlt wird, handeln die beiden Seiten frei aus.
       </p>
 
-      <H2>3. Angaben zum Fahrzeug</H2>
+      <H2>3. Angaben zum Auto</H2>
       <p>
-        Wer ein Fahrzeug einstellt, sichert zu, dass die Angaben nach bestem Wissen richtig und
-        vollständig sind — insbesondere Kilometerstand, Unfallfreiheit und bekannte Mängel. Wer
-        wesentliche Mängel verschweigt, haftet der Gegenseite gegenüber.
+        Wer ein Auto einstellt, sichert zu, dass die Angaben nach bestem Wissen stimmen und
+        vollständig sind. Das gilt besonders für Kilometerstand, Unfallfreiheit und bekannte
+        Mängel. Wer einen wesentlichen Mangel verschweigt, haftet dafür gegenüber der anderen
+        Seite.
       </p>
 
-      <H2>4. Treuhand</H2>
+      <H2>4. Wie das Geld verwahrt wird</H2>
       <p>
-        Bei einer Wertdifferenz wird der Ausgleich über Stripe reserviert. Der Betrag wird erst
-        eingezogen und weitergeleitet, wenn beide Seiten die Übergabe bestätigt haben. Bricht eine
-        Partei vorher ab, wird die Reservierung freigegeben oder der Betrag erstattet.
+        Ist ein Auto mehr wert als das andere, wird die Differenz über Stripe reserviert. Der
+        Betrag wird erst eingezogen und weitergeleitet, wenn beide Seiten die Übergabe bestätigt
+        haben. Bricht jemand vorher ab, geben wir die Reservierung frei oder erstatten den Betrag.
       </p>
       <p>
-        Die Autorisierung einer Kartenzahlung verfällt nach sieben Tagen. Wird die Übergabe bis
-        dahin nicht von beiden Seiten bestätigt, muss die Einzahlung wiederholt werden.
+        Eine reservierte Kartenzahlung verfällt nach sieben Tagen. Wird die Übergabe bis dahin
+        nicht von beiden bestätigt, muss neu eingezahlt werden.
       </p>
 
       <H2>5. Gewährleistung</H2>
       <p>
-        Beim Tausch unter Privatpersonen gilt das Schweizerische Obligationenrecht. Ein Ausschluss
-        der Gewährleistung ist zulässig, greift aber nicht bei absichtlich verschwiegenen Mängeln.
-        CarSwap empfiehlt beiden Seiten, den Zustand vor der Übergabe schriftlich festzuhalten.
+        Beim Tausch unter Privatpersonen gilt das Schweizerische Obligationenrecht. Ihr dürft die
+        Gewährleistung ausschliessen, aber der Ausschluss greift nicht bei einem Mangel, den
+        jemand absichtlich verschwiegen hat. Haltet den Zustand vor der Übergabe schriftlich fest.
       </p>
 
       <H2>6. Halterwechsel</H2>
       <p>
-        Der Halterwechsel, die Versicherung und allfällige Steuern sind Sache der beteiligten
-        Personen. CarSwap stellt dafür eine Checkliste bereit, übernimmt aber keine Behördengänge.
+        Halterwechsel, Versicherung und allfällige Steuern sind Sache der beteiligten Personen.
+        Wir stellen eine Checkliste bereit, gehen aber nicht für euch aufs Amt.
       </p>
 
       <H2>7. Kosten</H2>
       <p>
-        Die Nutzung der Plattform ist derzeit kostenlos. Bei Zahlungen über Stripe fallen die
-        Gebühren von Stripe an; sie werden vor der Einzahlung ausgewiesen.
+        Die Plattform ist derzeit kostenlos. Bei Zahlungen über Stripe fallen die Gebühren von
+        Stripe an. Sie stehen da, bevor du einzahlst.
       </p>
 
       <H2>8. Sperrung</H2>
       <p>
         Konten mit offensichtlich falschen Angaben, gefälschten Fahrzeugdaten oder betrügerischer
-        Absicht können ohne Vorankündigung gesperrt werden.
+        Absicht sperren wir ohne Vorankündigung.
       </p>
     </LegalPage>
   );

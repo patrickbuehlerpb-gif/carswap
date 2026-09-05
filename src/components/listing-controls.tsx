@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { archiveVehicleAction, setListingStatusAction } from "@/app/actions/listings";
 
-/** Inserat pausieren oder Fahrzeug archivieren. */
+/** Inserat pausieren oder Auto archivieren. */
 export function ListingControls({
   vehicleId,
   status,
@@ -41,7 +41,7 @@ export function ListingControls({
         </button>
         <button
           onClick={() => {
-            if (!confirm("Fahrzeug wirklich aus der Garage nehmen?")) return;
+            if (!confirm("Auto wirklich aus der Garage nehmen?")) return;
             run(() => archiveVehicleAction(vehicleId), () => router.push("/garage"));
           }}
           disabled={pending}

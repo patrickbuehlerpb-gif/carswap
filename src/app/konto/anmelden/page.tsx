@@ -17,7 +17,7 @@ export default async function AnmeldenPage({
   return (
     <Card className="p-6 sm:p-7">
       <h1 className="text-xl display text-ink">Anmelden</h1>
-      <p className="mt-1 mb-6 text-sm text-ink-3">Willkommen zurück bei CarSwap.</p>
+      <p className="mt-1 mb-6 text-sm text-ink-3">Willkommen zurück bei quitt.</p>
       {zurueckgesetzt && (
         <p className="mb-4 rounded-lg border border-good/35 bg-good/12 p-3 text-sm text-good">
           Passwort geändert. Melde dich mit dem neuen Passwort an.

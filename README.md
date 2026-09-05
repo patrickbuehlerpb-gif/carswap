@@ -1,10 +1,15 @@
-# CarSwap
+# quitt
 
-Eine Tauschbörse für Autos zwischen Privatpersonen. Statt zu verkaufen und
-danach zu kaufen — zwei Transaktionen, zwei Verhandlungen, zwei Mal
-Händlermarge — wird direkt Fahrzeug gegen Fahrzeug getauscht. Weil die Werte
-nie exakt gleich sind, berechnet die Plattform die Differenz transparent und
-wickelt sie über ein Treuhandkonto ab.
+Eine Tauschbörse für Autos zwischen Privatpersonen. Verkaufen und danach kaufen
+sind zwei Geschäfte, zwei Verhandlungen und zweimal Händlermarge. Hier wird
+direkt Auto gegen Auto getauscht. Weil zwei Autos nie genau gleich viel wert
+sind, rechnet die Plattform die Differenz nachvollziehbar aus und verwahrt sie,
+bis beide Seiten die Übergabe bestätigt haben.
+
+Im Produkt heisst das Wort «Treuhand» nirgends so. Es wird beschrieben, was
+passiert: der Betrag wird hinterlegt, er liegt bei uns, er wird ausgezahlt.
+Intern trägt der Zustand weiterhin den Namen `treuhand` — das ist der
+Fachbegriff für das, was der Code tut, und er steht in der Datenbank.
 
 Die Anwendung läuft gegen eine PostgreSQL-Datenbank mit eigener
 Benutzerverwaltung, echten Inseraten und Stripe-Zahlungen. Demo-Daten gibt es
@@ -393,7 +398,7 @@ Nach dem ersten Deployment:
 - **Impressum, Datenschutz und AGB** müssen juristisch geprüft werden.
   Insbesondere ist zu klären, ob die Treuhandfunktion unter das
   Geldwäschereigesetz fällt — die Konstruktion über Stripe Connect ist darauf
-  ausgelegt, dass nie CarSwap selbst Gelder Dritter hält. Die Firmenangaben
+  ausgelegt, dass nie quitt selbst Gelder Dritter hält. Die Firmenangaben
   kommen aus `OPERATOR_NAME`, `OPERATOR_ADDRESS`, `OPERATOR_EMAIL` und
   `OPERATOR_LEGAL_FORM` und `OPERATOR_UID`, optional dazu `OPERATOR_REGISTER`
   und `OPERATOR_PHONE`. Fehlt eines davon, benennt die Seite es einzeln —

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { contentSecurityPolicy } from "@/lib/security-headers";
 
-const COOKIE = "carswap_session";
+const COOKIE = "quitt_session";
 const MAX_AGE = 30 * 24 * 60 * 60;
 
 /**

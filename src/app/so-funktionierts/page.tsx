@@ -7,33 +7,33 @@ export const metadata: Metadata = { title: "So funktioniert es" };
 const STEPS = [
   {
     n: "01",
-    t: "Fahrzeug einstellen",
-    d: "Eckdaten, Zustand und Ausstattung eintragen. Die Bewertung entsteht live aus Restwertkurve, Laufleistung, Zustand und Marktlage — du siehst sofort, worauf sie beruht.",
+    t: "Auto einstellen",
+    d: "Du trägst Eckdaten, Zustand und Ausstattung ein. Den Wert rechnen wir dabei sofort mit — und zeigen dir, woraus er entsteht.",
   },
   {
     n: "02",
-    t: "Wunschliste definieren",
-    d: "Marken, Karosserieform, Antrieb und dein finanzieller Rahmen. Daran entscheidet sich, wem wir dein Fahrzeug zeigen.",
+    t: "Sagen, was du suchst",
+    d: "Marken, Karosserieform, Antrieb, und wie viel du drauflegen würdest. Danach entscheidet sich, wem wir dein Auto zeigen.",
   },
   {
     n: "03",
-    t: "Match finden",
-    d: "Wir sortieren nach der Frage, die zählt: Wollen beide? Passt es direkt nicht, suchen wir Dreiertausche, bei denen sich die Wünsche über eine dritte Partei auflösen.",
+    t: "Passenden Tausch finden",
+    d: "Wir sortieren nach der Frage, die zählt: wollen beide? Wenn es zu zweit nicht aufgeht, suchen wir eine dritte Person, über die es doch geht.",
   },
   {
     n: "04",
     t: "Verhandeln",
-    d: "Der berechnete Ausgleich ist der Startpunkt, nicht das Ergebnis. Beide Seiten sehen, um wie viel ein Angebot davon abweicht.",
+    d: "Der gerechnete Ausgleich ist ein Vorschlag, kein Preis. Ihr könnt beide bieten, und beide sehen, wie weit ein Gebot davon abweicht.",
   },
   {
     n: "05",
-    t: "Treuhand",
-    d: "Nach der Zusage wird der Ausgleich über Stripe reserviert — belastet wird erst nach der Übergabe. Damit geht niemand in Vorleistung.",
+    t: "Geld hinterlegen",
+    d: "Wer draufzahlt, hinterlegt den Betrag nach der Zusage. Er wird nur reserviert, nicht abgebucht. So geht niemand in Vorleistung.",
   },
   {
     n: "06",
-    t: "Übergabe",
-    d: "Checkliste abarbeiten, beide bestätigen. Danach wird der Betrag ausgezahlt und die Fahrzeuge wechseln in euren Garagen den Besitzer.",
+    t: "Übergeben",
+    d: "Ihr geht die Checkliste durch und bestätigt beide. Dann zahlen wir das Geld aus, und die Autos wechseln in euren Garagen den Besitzer.",
   },
 ];
 
@@ -42,7 +42,7 @@ export default function SoFunktioniertsPage() {
     <div className="mx-auto w-full max-w-4xl">
       <SectionHead
         title="So funktioniert ein Tausch"
-        sub="Von der ersten Eingabe bis zum Halterwechsel — sechs Schritte, keine Händlermarge."
+        sub="Sechs Schritte von der ersten Eingabe bis zum Halterwechsel. Ohne Händler dazwischen."
       />
       <ol className="grid gap-4 sm:grid-cols-2">
         {STEPS.map((s) => (
@@ -55,11 +55,11 @@ export default function SoFunktioniertsPage() {
       </ol>
 
       <Card className="mt-8 p-6">
-        <h2 className="text-base font-semibold text-ink">Was CarSwap nicht macht</h2>
+        <h2 className="text-base font-semibold text-ink">Was wir nicht machen</h2>
         <ul className="mt-3 space-y-2 text-sm text-ink-2">
-          <li>· Fahrzeuge prüfen oder begutachten — das bleibt Sache der beiden Parteien.</li>
-          <li>· Für die Richtigkeit der Angaben einstehen. Die Bewertung ist nur so gut wie das, was eingetragen wurde.</li>
-          <li>· Behördengänge übernehmen. Halterwechsel und Versicherung erledigt ihr selbst.</li>
+          <li>· Wir prüfen die Autos nicht. Das müsst ihr selbst tun, vor der Übergabe.</li>
+          <li>· Wir stehen nicht dafür ein, dass die Angaben stimmen. Der Wert ist nur so gut wie das, was jemand eingetragen hat.</li>
+          <li>· Wir gehen nicht aufs Strassenverkehrsamt. Halterwechsel und Versicherung macht ihr selbst.</li>
         </ul>
         <Link
           href="/konto/registrieren"

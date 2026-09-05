@@ -145,7 +145,7 @@ export function ValueChart({
         onPointerLeave={() => setHover(null)}
       >
         <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img"
-          aria-label="Wertverlauf des Fahrzeugs mit Prognoseband">
+          aria-label="Wertverlauf des Autos mit Prognoseband">
           <defs>
             <linearGradient id={`fill-${uid}`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={accent} stopOpacity="0.18" />

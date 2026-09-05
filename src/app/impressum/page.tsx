@@ -33,8 +33,8 @@ export default function ImpressumPage() {
         </div>
       ) : (
         <p>
-          Die vollständigen Angaben zur Betreiberin sind noch nicht hinterlegt. Bis dahin ist diese
-          Plattform nicht für den öffentlichen Betrieb bestimmt.
+          Die Angaben zur Betreiberin fehlen noch. Solange sie fehlen, ist diese Seite nicht für
+          den öffentlichen Betrieb bestimmt.
         </p>
       )}
 
@@ -50,9 +50,8 @@ export default function ImpressumPage() {
 
       <H2>Haftung für Inhalte</H2>
       <p>
-        Inserate stammen von Nutzerinnen und Nutzern. CarSwap prüft weder die Fahrzeuge noch die
-        Angaben dazu. Für die Richtigkeit der Fahrzeugdaten ist ausschliesslich die inserierende
-        Person verantwortlich.
+        Die Inserate stammen von Nutzerinnen und Nutzern. Wir prüfen weder die Autos noch die
+        Angaben dazu. Dafür ist allein verantwortlich, wer inseriert.
       </p>
     </LegalPage>
   );

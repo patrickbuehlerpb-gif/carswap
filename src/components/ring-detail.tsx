@@ -25,7 +25,7 @@ const STATUS_META: Record<
 > = {
   vorschlag: { text: "Vorschlag offen", tone: "info" },
   angenommen: { text: "Alle drei haben zugesagt", tone: "marke" },
-  treuhand: { text: "Geld im Treuhandkonto", tone: "marke" },
+  treuhand: { text: "Geld ist hinterlegt", tone: "marke" },
   abwicklung: { text: "Auszahlung läuft", tone: "marke" },
   abgeschlossen: { text: "Abgeschlossen", tone: "good" },
   abgelehnt: { text: "Abgelehnt", tone: "bad" },
@@ -40,7 +40,7 @@ const STATUS_META: Record<
 const STEPS: { status: RingStatusDb; label: string }[] = [
   { status: "vorschlag", label: "Vorschlag" },
   { status: "angenommen", label: "Zusagen" },
-  { status: "treuhand", label: "Treuhand" },
+  { status: "treuhand", label: "Einzahlung" },
   { status: "abgeschlossen", label: "Übergabe" },
 ];
 
@@ -49,7 +49,7 @@ const HANDOVER_TASKS = [
   "Probefahrt und Zustandskontrolle erfolgt",
   "Kaufverträge unterschrieben",
   "Halterwechsel beim Strassenverkehrsamt gemeldet",
-  "Versicherung auf das neue Fahrzeug umgeschrieben",
+  "Versicherung auf das neue Auto umgeschrieben",
   "Schlüssel, Ladekabel und Serviceheft übergeben",
 ];
 
@@ -90,7 +90,7 @@ export function RingDetail({
   const meIndex = ring.participants.findIndex((p) => p.user.id === meId);
   const me = ring.participants[meIndex];
   const nachId = new Map(ring.participants.map((p) => [p.user.id, p]));
-  // Ich bekomme das Fahrzeug der Person, die mich als Empfänger nennt.
+  // Ich bekomme das Auto der Person, die mich als Empfänger nennt.
   const iGet = ring.participants.find((p) => p.receiverId === meId)!;
 
   const meta = STATUS_META[ring.status];
@@ -244,9 +244,9 @@ export function RingDetail({
           <Card className="p-5">
             <h2 className="mb-1 text-sm font-semibold text-ink">Ausgleich</h2>
             <p className="mb-3 text-xs text-ink-3">
-              Im Ring zahlt niemand an die Person, von der er das Fahrzeug bekommt — der Topf wird
-              so aufgeteilt, dass am Ende jeder genau seinen Ausgleich hat. Jeder Betrag liegt bis
-              zur Übergabe auf dem Treuhandkonto.
+              Im Ring zahlt niemand an die Person, von der er das Auto bekommt. Wir teilen den
+              Betrag so auf, dass am Ende jeder genau seinen Ausgleich hat. Bis zur Übergabe liegt
+              alles bei uns.
               {meineZahlungen.length > 1 &&
                 " Auf dich entfallen zwei Wege — die Zahlungsgebühr fällt deshalb zweimal an."}
             </p>
@@ -301,7 +301,7 @@ export function RingDetail({
             <h2 className="mb-1 text-sm font-semibold text-ink">Übergabe</h2>
             <p className="mb-3 text-xs text-ink-3">
               Drei Übergaben, jede zwischen zwei Personen. Erst wenn alle drei bestätigt haben,
-              wird der Ausgleich ausgezahlt und die Fahrzeuge werden umgeschrieben.
+              wird der Ausgleich ausgezahlt und die Autos werden umgeschrieben.
             </p>
             <ul className="mb-4 space-y-1.5">
               {HANDOVER_TASKS.map((task) => (
@@ -357,7 +357,7 @@ export function RingDetail({
             <h2 className="mb-1 text-sm font-semibold text-ink">Bewertungen</h2>
             <p className="mb-2 text-xs text-ink-3">
               Im Ring hattest du mit beiden zu tun: {nachId.get(me.receiverId)?.user.name} hat dein
-              Fahrzeug übernommen, von {iGet.user.name} hast du deines bekommen. Beide Übergaben
+              Auto übernommen, von {iGet.user.name} hast du deines bekommen. Beide Übergaben
               können ganz unterschiedlich gelaufen sein — deshalb je eine eigene Bewertung.
             </p>
             {ring.participants
@@ -458,7 +458,7 @@ export function RingDetail({
           {ring.status === "vorschlag" && !me.accepted && (
             <div className="space-y-3">
               <p className="text-sm text-ink-2">
-                Der Ring kommt nur zustande, wenn alle drei zusagen. Bis dahin bleibt dein Fahrzeug
+                Der Ring kommt nur zustande, wenn alle drei zusagen. Bis dahin bleibt dein Auto
                 frei und ist an nichts gebunden.
               </p>
               <div className="flex gap-2">
@@ -506,7 +506,7 @@ export function RingDetail({
               {meineOffenen.length > 0 ? (
                 <>
                   <p className="text-sm text-ink-2">
-                    Hinterlege deinen Ausgleich auf dem Treuhandkonto.
+                    Hinterlege deinen Ausgleich. Wir halten ihn, bis alle drei die Übergabe bestätigt haben.
                     {meineZahlungen.length > 1 &&
                       ` Bei dir sind es ${meineZahlungen.length} Beträge, noch offen: ${meineOffenen.length}.`}
                   </p>
@@ -566,14 +566,14 @@ export function RingDetail({
 
           {ring.status === "treuhand" && (
             <p className="text-sm text-ink-2">
-              Das Geld liegt bereit. Übergebt die Fahrzeuge und bestätigt es hier — links steht die
+              Das Geld liegt bereit. Übergebt die Autos und bestätigt es hier — links steht die
               Checkliste.
             </p>
           )}
 
           {ring.status === "abwicklung" && (
             <p className="text-sm text-ink-2">
-              Alle drei haben bestätigt. Der Ausgleich wird ausgezahlt und die Fahrzeuge werden
+              Alle drei haben bestätigt. Der Ausgleich wird ausgezahlt und die Autos werden
               umgeschrieben.
             </p>
           )}
@@ -591,7 +591,7 @@ export function RingDetail({
           {(ring.status === "abgelehnt" || ring.status === "storniert") && (
             <p className="text-sm text-ink-2">
               Dieser Ring kommt nicht zustande. Hinterlegte Beträge werden freigegeben — es hat sich
-              kein Fahrzeug bewegt.
+              kein Auto bewegt.
             </p>
           )}
         </Card>
@@ -601,7 +601,7 @@ export function RingDetail({
             <h2 className="mb-2 text-sm font-semibold text-ink">Abbrechen</h2>
             <p className="mb-3 text-xs text-ink-3">
               Springt eine Partei ab, wird der ganze Ring rückabgewickelt: alle hinterlegten Beträge
-              gehen zurück, kein Fahrzeug wechselt den Besitzer.
+              gehen zurück, kein Auto wechselt den Besitzer.
             </p>
             <button
               type="button"

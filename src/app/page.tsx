@@ -27,7 +27,7 @@ export default async function HomePage() {
   const rings =
     myCar && publicMe ? findRingSwaps(myCar, pool, undefined, publicMe, 1) : [];
 
-  // Das Fahrzeug für den Wertverlauf: eigenes zuerst, sonst ein Inserat
+  // Das Auto für den Wertverlauf: eigenes zuerst, sonst ein Inserat
   const showcase: Vehicle | null = myCar ?? pool[0]?.vehicle ?? null;
   const evShare = pool.length
     ? Math.round((pool.filter((l) => l.vehicle.fuel === "elektro").length / pool.length) * 100)
@@ -45,7 +45,7 @@ export default async function HomePage() {
         <div className="relative grid gap-10 p-7 sm:p-10 lg:grid-cols-[1.1fr_1fr] lg:p-12">
           <div className="flex flex-col justify-center">
             <Badge tone="marke" className="w-fit">
-              Direkttausch zwischen Privatpersonen
+              Autotausch zwischen Privatpersonen
             </Badge>
             <h1 className="mt-5 text-4xl display leading-[1.06] text-ink sm:text-5xl">
               Tausche dein Auto.
@@ -55,17 +55,17 @@ export default async function HomePage() {
               ohne Inseratezirkus.
             </h1>
             <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-ink-2">
-              Verkaufen und kaufen sind zwei Transaktionen, zwei Preisverhandlungen und zwei
-              Enttäuschungen. CarSwap macht daraus eine: Fahrzeug gegen Fahrzeug. Die Wertdifferenz
-              rechnen wir nachvollziehbar aus — ausgeglichen wird sie zwischen euch, über ein
-              Treuhandkonto.
+              Verkaufen und kaufen sind zwei Geschäfte, zwei Verhandlungen, zwei Enttäuschungen.
+              Bei quitt ist es eines: dein Auto gegen ein anderes. Ist eines mehr wert, zahlt die
+              eine Seite der anderen die Differenz. Wir rechnen sie aus und halten das Geld, bis
+              beide die Übergabe bestätigt haben.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <Link
                 href={me ? (myCar ? "/matches" : "/inserat/neu") : "/konto/registrieren"}
                 className="rounded-lg bg-marke px-5 py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
               >
-                {me ? (myCar ? "Passende Tausche finden" : "Fahrzeug einstellen") : "Kostenlos starten"}
+                {me ? (myCar ? "Passende Tausche finden" : "Auto einstellen") : "Kostenlos starten"}
               </Link>
               <Link
                 href="/wert"
@@ -93,7 +93,7 @@ export default async function HomePage() {
           {matches[0] && myCar ? (
             <Card className="self-center p-5">
               <p className="text-[11px] uppercase tracking-wider text-ink-3">
-                Dein aktueller Bestmatch
+                Passt gerade am besten zu dir
               </p>
               <SwapPreview from={myCar} to={matches[0].vehicle} cash={matches[0].cashDelta} />
               <Link
@@ -108,9 +108,9 @@ export default async function HomePage() {
               <p className="text-[11px] uppercase tracking-wider text-ink-3">So läuft es ab</p>
               <ol className="mt-4 space-y-4">
                 {[
-                  ["Fahrzeug einstellen", "Daten, Zustand, Wunschliste — die Bewertung entsteht automatisch."],
-                  ["Match annehmen", "Wir zeigen nur Tausche, bei denen auch die Gegenseite dich sucht."],
-                  ["Treuhand & Übergabe", "Der Ausgleich wird erst nach beidseitiger Bestätigung ausgezahlt."],
+                  ["Auto einstellen", "Du gibst Daten und Zustand ein. Den Wert rechnen wir sofort aus."],
+                  ["Tausch aussuchen", "Wir zeigen dir nur Autos, deren Besitzer auch deines suchen."],
+                  ["Übergeben", "Das Geld liegt bei uns, bis ihr beide die Übergabe bestätigt habt."],
                 ].map(([title, body], i) => (
                   <li key={title} className="flex gap-3">
                     <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-marke text-xs font-semibold text-onmarke tabular">
@@ -140,11 +140,11 @@ export default async function HomePage() {
       {showcase && (
         <section>
           <SectionHead
-            title="Was ist mein Fahrzeug gerade wert?"
-            sub="Kein einzelner Schätzpreis, sondern der Verlauf: woher der Wert kommt, wo er hingeht und wie sicher die Prognose ist."
+            title="Was ist mein Auto gerade wert?"
+            sub="Nicht nur eine Zahl, sondern der ganze Verlauf. Du siehst, woher der Wert kommt, wohin er geht und wie sicher das ist."
             action={
               <Link href="/wert" className="text-sm text-marke hover:underline">
-                Eigenes Fahrzeug bewerten →
+                Eigenes Auto bewerten →
               </Link>
             }
           />
@@ -157,7 +157,7 @@ export default async function HomePage() {
         <section>
           <SectionHead
             title="Wenn zwei nicht zusammenpassen, helfen drei"
-            sub="Das Grundproblem jedes Tauschmarkts: Du willst das Auto von A, aber A will deines nicht. Über einen Ringtausch löst sich das trotzdem auf."
+            sub="Du willst ein bestimmtes Auto, aber dessen Besitzer will deines nicht. Zu dritt geht es trotzdem: jeder gibt an den Nächsten weiter."
             action={
               <Link href="/matches" className="text-sm text-marke hover:underline">
                 Alle Ringtausche →
@@ -203,10 +203,9 @@ export default async function HomePage() {
               ))}
             </div>
             <p className="mt-5 border-t border-line pt-4 text-xs text-ink-3">
-              Alle drei Ausgleichszahlungen summieren sich zu null — es fliesst nur Geld zwischen
-              den Teilnehmern, nicht aus dem System heraus. Abgewickelt wird der Ring in einem Zug:
-              gebunden ist er erst mit allen drei Zusagen, ausgezahlt und umgeschrieben erst, wenn
-              alle drei die Übergabe bestätigt haben.
+              Was die eine Person zahlt, bekommt eine andere. Unter dem Strich bleibt nichts
+              liegen. Der Ring gilt erst, wenn alle drei zugesagt haben. Und die Autos wechseln
+              erst, wenn alle drei die Übergabe bestätigt haben.
             </p>
           </Card>
         </section>
@@ -219,8 +218,8 @@ export default async function HomePage() {
             title={myCar ? "Aktuell für dich passend" : "Neu auf dem Marktplatz"}
             sub={
               myCar
-                ? `Berechnet für deinen ${vehicleFullTitle(myCar)} mit ${km(myCar.mileageKm)}.`
-                : "Diese Fahrzeuge stehen gerade zum Tausch."
+                ? `Gerechnet für deinen ${vehicleFullTitle(myCar)} mit ${km(myCar.mileageKm)}.`
+                : "Diese Autos stehen gerade zum Tausch."
             }
             action={
               <Link href="/markt" className="text-sm text-marke hover:underline">

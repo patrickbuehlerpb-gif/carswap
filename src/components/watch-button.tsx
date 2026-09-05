@@ -11,7 +11,7 @@ export function WatchButton({
   signedIn,
 }: {
   listingId: string;
-  /** Für den Rücksprung nach der Anmeldung — die Route heisst /fahrzeug/<Fahrzeug>. */
+  /** Für den Rücksprung nach der Anmeldung — die Route heisst /auto/<id>. */
   vehicleId: string;
   initialActive: boolean;
   signedIn: boolean;
@@ -23,7 +23,7 @@ export function WatchButton({
 
   function toggle() {
     if (!signedIn) {
-      router.push(`/konto/anmelden?next=/fahrzeug/${vehicleId}`);
+      router.push(`/konto/anmelden?next=/auto/${vehicleId}`);
       return;
     }
     // Optimistisch umschalten und bei Fehler zurücknehmen

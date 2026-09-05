@@ -109,7 +109,7 @@ describe("Sperren und stilllegen", () => {
 
     als(admin);
     const res = await blockListingAction(meldungId, "");
-    expect(res.error).toMatch(/verbindlich zugesagter Tausch/);
+    expect(res.error).toMatch(/zugesagter Tausch/);
   });
 
   it("legt das Konto still: anmelden ja, handeln nein", async () => {

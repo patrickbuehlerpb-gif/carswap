@@ -146,7 +146,7 @@ async function main() {
   const fehler = befunde.filter((b) => b.grad === "fehler");
   const warnungen = befunde.filter((b) => b.grad === "warnung");
 
-  console.log("\nCarSwap — startklar?\n");
+  console.log("\nquitt — startklar?\n");
   for (const b of befunde) {
     console.log(`  ${zeichen[b.grad]} ${b.titel}`);
     if (b.folge) console.log(`      ${b.folge}`);

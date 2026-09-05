@@ -7,7 +7,7 @@ import { db } from "../db";
 import { newId } from "../db/ids";
 import { authTokens, sessions, users, type UserRow } from "../db/schema";
 
-const COOKIE = "carswap_session";
+const COOKIE = "quitt_session";
 const TTL_MS = 30 * 24 * 60 * 60 * 1000;
 /** Ab dieser Restlaufzeit wird die Sitzung beim Zugriff verlängert. */
 const REFRESH_BELOW_MS = 25 * 24 * 60 * 60 * 1000;

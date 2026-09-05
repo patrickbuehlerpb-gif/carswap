@@ -25,11 +25,11 @@ const plexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "CarSwap — Autos tauschen statt verkaufen",
-    template: "%s · CarSwap",
+    default: "quitt — Autos tauschen statt verkaufen",
+    template: "%s · quitt",
   },
   description:
-    "Die Tauschbörse für Privatpersonen: Fahrzeug gegen Fahrzeug, die Wertdifferenz nachvollziehbar berechnet und über ein Treuhandkonto abgewickelt. Inklusive Wertverlauf, Matching und Übergabe.",
+    "Tausche dein Auto direkt gegen ein anderes. Wir rechnen aus, was es wert ist, und halten die Differenz, bis beide die Übergabe bestätigt haben.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -49,8 +49,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="mt-auto border-t border-line bg-surface">
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-5 py-8 text-xs text-ink-3 sm:flex-row sm:items-center sm:justify-between sm:px-8">
             <p>
-              CarSwap — Fahrzeugtausch zwischen Privatpersonen. Bewertungen sind
-              Modellrechnungen und keine verbindlichen Angebote.
+              quitt — Autotausch zwischen Privatpersonen. Alle Werte auf dieser Seite sind
+              gerechnet, nicht geboten.
             </p>
             <nav className="flex flex-wrap gap-x-5 gap-y-2">
               <a href="/impressum" className="hover:text-ink">Impressum</a>

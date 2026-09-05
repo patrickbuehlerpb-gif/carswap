@@ -29,7 +29,7 @@ export async function SiteHeader() {
           <span className="text-marke">
             <Signet />
           </span>
-          <span className="display text-[19px] leading-none text-ink">CarSwap</span>
+          <Wortmarke className="text-[21px] text-ink" />
         </Link>
 
         <NavLinks signedIn={Boolean(user)} openDeals={openDeals} />
@@ -41,7 +41,7 @@ export async function SiteHeader() {
                 href="/inserat/neu"
                 className="hidden rounded-md bg-marke px-3 py-1.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi sm:block"
               >
-                Fahrzeug anbieten
+                Auto anbieten
               </Link>
               <UserMenu name={user.name} avatarColor={user.avatarColor} isAdmin={user.isAdmin} />
             </>
@@ -69,7 +69,24 @@ export async function SiteHeader() {
 }
 
 /**
- * Die Gleichung: zwei Zeilen, gleich breit. Oben ein Fahrzeug, unten das
+ * Wortmarke: die beiden t teilen sich einen Querbalken. Das ist ein
+ * Gleichheitszeichen mitten im Namen — und dieselbe Form wie die beiden Balken
+ * des Signets daneben.
+ */
+export function Wortmarke({ className = "" }: { className?: string }) {
+  return (
+    <span className={`display leading-none ${className}`}>
+      qui
+      <span className="relative tracking-[-0.07em]">
+        tt
+        <i className="absolute bottom-[0.395em] left-[0.045em] right-[0.04em] block h-[0.088em] rounded-[0.03em] bg-current" />
+      </span>
+    </span>
+  );
+}
+
+/**
+ * Die Gleichung: zwei Zeilen, gleich breit. Oben ein Auto, unten das
  * andere — kürzer — plus der bernsteinfarbene Block, die Zuzahlung. Zusammen
  * ergeben sie dieselbe Länge; das Zeichen ist die Aussage des Produkts.
  *

@@ -31,13 +31,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const v = await getVehicle(id);
-  return { title: v ? vehicleFullTitle(v) : "Fahrzeug" };
+  return { title: v ? vehicleFullTitle(v) : "Auto" };
 }
 
 export default async function VehiclePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const me = await getSessionUser();
-  // Archivierte Fahrzeuge sieht nur noch, wem sie gehören.
+  // Archivierte Autos sieht nur noch, wem sie gehören.
   const vehicle = me ? await getVehicle(id) : await getPublicVehicle(id);
   if (!vehicle) notFound();
   if (vehicle.archivedAt && vehicle.ownerId !== me?.id) notFound();
@@ -64,7 +64,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
   const history = valueHistory(vehicle, 24, 18, asOf);
   const perMonth = depreciationPerMonth(vehicle, asOf);
 
-  // Wie würden meine eigenen Fahrzeuge in den Wunsch des Inserenten passen?
+  // Wie würden meine eigenen Autos in den Wunsch des Inserenten passen?
   const offers = myVehicles.map((mine) => {
     const fit = listing ? fitsWish(listing.wish, mine) : null;
     const cash = cashDelta(mine, vehicle, listing?.askPremium ?? 0);
@@ -189,7 +189,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
           <section>
             <SectionHead
               title="Wertverlauf"
-              sub="Rückblick bis zur Erstzulassung und Prognose für die kommenden 18 Monate."
+              sub="Zurück bis zur Erstzulassung, nach vorn 18 Monate."
             />
             <Card className="p-5 sm:p-6">
               <div className="mb-5 flex flex-wrap items-end gap-8">
@@ -221,7 +221,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
           <section>
             <SectionHead
               title="Wie der Wert zustande kommt"
-              sub="Jeder Faktor ist einzeln ausgewiesen — so lässt sich über den Preis diskutieren, statt über ein Bauchgefühl."
+              sub="Jeder Posten steht einzeln da. So könnt ihr über Zahlen reden statt über ein Bauchgefühl."
             />
             <Card className="p-5">
               <ValuationBreakdown vehicle={vehicle} valuation={valuation} />
@@ -233,9 +233,9 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
         <div className="min-w-0 space-y-5 lg:sticky lg:top-24 lg:self-start">
           {isMine ? (
             <Card className="p-5">
-              <Badge tone="marke">Dein Fahrzeug</Badge>
+              <Badge tone="marke">Dein Auto</Badge>
               <p className="mt-3 text-sm text-ink-2">
-                Dieses Fahrzeug steht in deiner Garage. Du kannst es als Tauschobjekt einsetzen.
+                Dieses Auto steht in deiner Garage. Du kannst es als Tauschobjekt einsetzen.
               </p>
               <Link
                 href="/matches"
@@ -254,7 +254,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
             <Card className="p-5">
               <p className="text-sm text-ink-2">
                 Melde dich an, um einen Tausch vorzuschlagen. Wir berechnen dir dann sofort die
-                Wertdifferenz zu deinem eigenen Fahrzeug.
+                Wertdifferenz zu deinem eigenen Auto.
               </p>
               <Link
                 href={`/konto/registrieren`}
@@ -263,7 +263,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
                 Konto erstellen
               </Link>
               <Link
-                href={`/konto/anmelden?next=/fahrzeug/${vehicle.id}`}
+                href={`/konto/anmelden?next=/auto/${vehicle.id}`}
                 className="mt-2 block py-1 text-center text-sm text-ink-3 hover:text-ink"
               >
                 Ich habe schon ein Konto
@@ -272,20 +272,20 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
           ) : myVehicles.length === 0 ? (
             <Card className="p-5">
               <p className="text-sm text-ink-2">
-                Für einen Tauschvorschlag brauchst du ein eigenes Fahrzeug im Konto.
+                Für einen Tauschvorschlag brauchst du ein eigenes Auto im Konto.
               </p>
               <Link
                 href="/inserat/neu"
                 className="mt-4 block rounded-lg bg-marke py-2.5 text-center text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
               >
-                Fahrzeug einstellen
+                Auto einstellen
               </Link>
             </Card>
           ) : (
             <>
               <Card className="p-5">
                 <p className="text-[11px] uppercase tracking-wider text-ink-3">
-                  Tausch gegen dein Fahrzeug
+                  Tausch gegen dein Auto
                 </p>
                 <div className="mt-3 space-y-2">
                   {offers.map((o) => (
@@ -312,7 +312,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
                       </div>
                       <p className="mt-1 text-xs text-ink-3">
                         {o.fit?.ok
-                          ? `${owner?.name ?? "Die Gegenseite"} sucht so ein Fahrzeug`
+                          ? `${owner?.name ?? "Die Gegenseite"} sucht so ein Auto`
                           : (o.fit?.misses[0] ?? "passt nicht zur Wunschliste")}
                       </p>
                     </div>

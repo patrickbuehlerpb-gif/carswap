@@ -240,16 +240,16 @@ export function ListingForm({
         setError(res.error);
         return;
       }
-      router.push(`/fahrzeug/${res.vehicleId ?? vehicleId}`);
+      router.push(`/auto/${res.vehicleId ?? vehicleId}`);
     });
   }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_minmax(0,380px)]">
       <div className="min-w-0 space-y-6">
-        {/* ---- Fahrzeug ---- */}
+        {/* ---- Auto ---- */}
         <Card className="p-5 sm:p-6">
-          <h2 className="text-base font-semibold text-ink">Fahrzeug</h2>
+          <h2 className="text-base font-semibold text-ink">Auto</h2>
           <p className="mt-1 text-sm text-ink-3">
             Je genauer die Angaben, desto belastbarer die Bewertung — und desto weniger
             Rückfragen bekommst du.
@@ -284,7 +284,7 @@ export function ListingForm({
           <Field
             label="Version / Ausführung"
             className="mt-4"
-            hint="Nur zur Beschreibung. In die Bewertung fliessen Neupreis, Leistung, Reichweite und Batteriezustand ein — trag die Werte deiner Version dort ein."
+            hint="Nur zur Beschreibung. Für den Wert zählen Neupreis, Leistung, Reichweite und Batteriezustand. Trag die Werte deiner Version dort ein."
           >
             <input
               value={v.trim}
@@ -393,7 +393,7 @@ export function ListingForm({
               {v.fuel === "elektro" && (
                 <Field
                   label={`Batteriezustand — ${v.batterySoh ?? 95} % SoH`}
-                  hint="Aus dem Batteriezertifikat oder der Fahrzeug-App."
+                  hint="Aus dem Batteriezertifikat oder der Auto-App."
                 >
                   <input
                     type="range"
@@ -470,7 +470,7 @@ export function ListingForm({
           <FieldGroup
             label="Ausstattung"
             className="mt-5"
-            hint="Für Beschreibung und Matching. In den Schätzwert fliesst sie nicht zusätzlich ein — sie steckt bereits im eingetragenen Neupreis."
+            hint="Für die Beschreibung und die Suche. Auf den Wert zählt sie nicht noch einmal: sie steckt schon im Neupreis, den du eingetragen hast."
           >
             <div className="flex flex-wrap gap-1.5">
               {availableFeatures.map((f) => (
@@ -604,8 +604,8 @@ export function ListingForm({
         <Card className="p-5 sm:p-6">
           <h2 className="text-base font-semibold text-ink">Was suchst du im Tausch?</h2>
           <p className="mt-1 text-sm text-ink-3">
-            Danach richtet sich, wem wir dein Fahrzeug zeigen. Je offener die Liste, desto mehr
-            Treffer — je enger, desto passender.
+            Danach entscheidet sich, wem wir dein Auto zeigen. Je offener die Liste, desto mehr
+            Treffer. Je enger, desto passender.
           </p>
 
           <FieldGroup

@@ -237,8 +237,8 @@ export async function deleteAccountAction(
   if (offen.length) {
     return {
       error:
-        "Zu deinem Konto läuft noch ein verbindlich zugesagter Tausch. Er muss erst abgeschlossen " +
-        "oder abgebrochen sein.",
+        "Zu deinem Konto läuft noch ein zugesagter Tausch. Der muss erst fertig oder " +
+        "abgebrochen sein.",
     };
   }
 
@@ -258,8 +258,8 @@ export async function deleteAccountAction(
   if (offenerRing.length) {
     return {
       error:
-        "Zu deinem Konto läuft noch ein verbindlich zugesagter Ringtausch. Er muss erst " +
-        "abgeschlossen oder abgebrochen sein.",
+        "Zu deinem Konto läuft noch ein zugesagter Ringtausch. Der muss erst fertig oder " +
+        "abgebrochen sein.",
     };
   }
 
@@ -280,8 +280,8 @@ export async function deleteAccountAction(
   if (offeneZahlung.length) {
     return {
       error:
-        "Zu deinem Konto ist noch ein Betrag hinterlegt oder unterwegs. Bitte melde dich beim " +
-        "Support — sobald die Zahlung abgeschlossen oder freigegeben ist, lässt sich das Konto löschen.",
+        "Zu deinem Konto liegt noch Geld bei uns oder ist unterwegs. Melde dich beim Support. " +
+        "Sobald die Zahlung durch oder freigegeben ist, kannst du das Konto löschen.",
     };
   }
 

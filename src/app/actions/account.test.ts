@@ -131,7 +131,7 @@ describe("Kontolöschung", () => {
     });
     als(a);
     const res = await deleteAccountAction("LÖSCHEN");
-    expect(res.error).toMatch(/verbindlich zugesagter Tausch/);
+    expect(res.error).toMatch(/zugesagter Tausch/);
     const [row] = await db.select().from(users).where(eq(users.id, a));
     expect(row.deletedAt).toBeNull();
   });
@@ -161,7 +161,7 @@ describe("Kontolöschung", () => {
 
     als(a);
     const res = await deleteAccountAction("LÖSCHEN");
-    expect(res.error).toMatch(/hinterlegt oder unterwegs/);
+    expect(res.error).toMatch(/liegt noch Geld bei uns oder ist unterwegs/);
     const [row] = await db.select().from(users).where(eq(users.id, a));
     expect(row.deletedAt).toBeNull();
   });

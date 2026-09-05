@@ -12,7 +12,7 @@ export default async function RegistrierenPage() {
     <Card className="p-6 sm:p-7">
       <h1 className="text-xl display text-ink">Konto erstellen</h1>
       <p className="mt-1 mb-6 text-sm text-ink-3">
-        Danach kannst du dein Fahrzeug einstellen und Tauschvorschläge erhalten.
+        Danach kannst du dein Auto einstellen und Tauschvorschläge erhalten.
       </p>
       <SignUpForm />
     </Card>

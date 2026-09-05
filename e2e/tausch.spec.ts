@@ -73,7 +73,7 @@ async function inserieren(
   await page.getByRole("button", { name: wunschMarke, exact: true }).first().click();
 
   await page.getByRole("button", { name: /Inserat veröffentlichen/i }).click();
-  await page.waitForURL("**/fahrzeug/**");
+  await page.waitForURL("**/auto/**");
   return page.url();
 }
 
@@ -83,7 +83,7 @@ test("zwei Konten tauschen ein Fahrzeug und bewerten sich", async ({ page }) => 
   /* ---- Anna inseriert ---- */
   const anna = await registrieren(page, "Anna Test");
   const annasAuto = await inserieren(page, "Polestar", "2", 55_000, "Kia");
-  expect(annasAuto).toContain("/fahrzeug/");
+  expect(annasAuto).toContain("/auto/");
   await abmelden(page);
 
   /* ---- Bruno inseriert und schlägt den Tausch vor ---- */
@@ -117,7 +117,7 @@ test("zwei Konten tauschen ein Fahrzeug und bewerten sich", async ({ page }) => 
   await anmelden(page, anna);
   await page.goto(dealUrl);
   await page.getByRole("button", { name: /Angebot annehmen/ }).click();
-  await expect(page.getByText("Angenommen")).toBeVisible();
+  await expect(page.getByText("Angenommen", { exact: true })).toBeVisible();
 
   // Ohne Wertdifferenz führt der Weg direkt zur Übergabe
   await page.getByRole("button", { name: /Weiter zur Übergabe/ }).click();

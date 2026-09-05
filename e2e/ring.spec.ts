@@ -96,7 +96,7 @@ async function inserieren(
   await page.getByRole("button", { name: wunschMarke, exact: true }).first().click();
 
   await page.getByRole("button", { name: /Inserat veröffentlichen/i }).click();
-  await page.waitForURL("**/fahrzeug/**");
+  await page.waitForURL("**/auto/**");
 }
 
 test("drei Konten wickeln einen Ring ab und bewerten sich", async ({ page }) => {

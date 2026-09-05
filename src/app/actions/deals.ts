@@ -191,7 +191,7 @@ export async function proposeSwapAction(input: {
 
   await notify(
     targetListing.listing.ownerId,
-    "CarSwap: neuer Tauschvorschlag",
+    "quitt: neuer Tauschvorschlag",
     `${me.name} schlägt einen Tausch für deinen ${targetListing.vehicle.make} ${targetListing.vehicle.model} vor.\n\n` +
       `${siteUrl()}/deals/${dealId}\n`,
   );
@@ -269,7 +269,7 @@ export async function sendDealMessageAction(
   const otherId = deal.initiatorId === me.id ? deal.counterpartyId : deal.initiatorId;
   await notify(
     otherId,
-    "CarSwap: neue Nachricht zu deinem Tausch",
+    "quitt: neue Nachricht zu deinem Tausch",
     `${me.name} hat dir geschrieben.\n\n${siteUrl()}/deals/${dealId}\n`,
   );
 
@@ -334,8 +334,8 @@ export async function acceptDealAction(dealId: string): Promise<ActionResult> {
   if (gebunden.length) {
     return {
       error:
-        "Eines der beiden Fahrzeuge steckt bereits in einem anderen zugesagten Tausch. " +
-        "Dieser muss zuerst abgeschlossen oder abgebrochen werden.",
+        "Eines der beiden Autos steckt schon in einem anderen zugesagten Tausch. Der muss " +
+        "zuerst fertig oder abgebrochen sein.",
     };
   }
 
@@ -391,8 +391,8 @@ export async function acceptDealAction(dealId: string): Promise<ActionResult> {
     if (isUniqueViolation(err)) {
       return {
         error:
-          "Eines der beiden Fahrzeuge steckt bereits in einem anderen zugesagten Tausch. " +
-          "Dieser muss zuerst abgeschlossen oder abgebrochen werden.",
+          "Eines der beiden Autos steckt schon in einem anderen zugesagten Tausch. Der muss " +
+          "zuerst fertig oder abgebrochen sein.",
       };
     }
     console.error("Zusage fehlgeschlagen:", err);
@@ -404,8 +404,8 @@ export async function acceptDealAction(dealId: string): Promise<ActionResult> {
   const otherId = deal.initiatorId === me.id ? deal.counterpartyId : deal.initiatorId;
   await notify(
     otherId,
-    "CarSwap: Tausch angenommen",
-    `${me.name} hat euren Tausch angenommen. Nächster Schritt ist die Treuhand-Einzahlung.\n\n${siteUrl()}/deals/${dealId}\n`,
+    "quitt: Tausch angenommen",
+    `${me.name} hat euren Tausch angenommen. Als Nächstes wird der Ausgleich hinterlegt.\n\n${siteUrl()}/deals/${dealId}\n`,
   );
 
   revalidatePath(`/deals/${dealId}`);
@@ -496,9 +496,9 @@ export async function cancelDealAction(dealId: string): Promise<ActionResult> {
       await markPayment(payment.id, payment.status, `Freigabe nach Abbruch fehlgeschlagen: ${err}`);
       return {
         error:
-          "Der Tausch ist abgebrochen. Die hinterlegte Zahlung liess sich dabei nicht sofort " +
-          "freigeben — eine Reservierung verfällt von selbst, bei einem bereits eingezogenen " +
-          "Betrag meldet sich der Support.",
+          "Der Tausch ist abgebrochen. Den hinterlegten Betrag konnten wir nicht sofort " +
+          "freigeben. Eine Reservierung verfällt von selbst. Ist schon abgebucht worden, " +
+          "meldet sich der Support bei dir.",
       };
     }
   }
@@ -553,14 +553,14 @@ export async function startEscrowAction(dealId: string): Promise<ActionResult> {
   if (!(await payoutReady(parties.payeeId))) {
     await notify(
       parties.payeeId,
-      "CarSwap: Auszahlungskonto einrichten",
-      "Für euren Tausch steht die Treuhand-Einzahlung an. Damit der Ausgleich bei dir ankommt, " +
+      "quitt: Auszahlungskonto einrichten",
+      "Bei eurem Tausch wird als Nächstes der Ausgleich hinterlegt. Damit er bei dir ankommt, " +
         `richte bitte zuerst dein Auszahlungskonto ein.\n\n${siteUrl()}/konto\n`,
     );
     return {
       error:
-        "Die Gegenseite hat ihr Auszahlungskonto noch nicht eingerichtet. Wir haben sie eben " +
-        "benachrichtigt — sobald das erledigt ist, kannst du einzahlen.",
+        "Die Gegenseite hat noch kein Auszahlungskonto. Wir haben ihr eben geschrieben. " +
+        "Sobald das steht, kannst du einzahlen.",
     };
   }
 
@@ -591,7 +591,7 @@ export async function confirmHandoverAction(dealId: string): Promise<ActionResul
   // ist steckengeblieben. Ein erneuter Aufruf setzt dort fort, statt den
   // Tausch in diesem Zustand einzusperren.
   if (deal.status !== "treuhand" && deal.status !== "abwicklung") {
-    return { error: "Die Übergabe lässt sich erst nach der Treuhand-Einzahlung bestätigen." };
+    return { error: "Die Übergabe kannst du erst bestätigen, wenn der Ausgleich hinterlegt ist." };
   }
 
   const iAmInitiator = deal.initiatorId === me.id;
@@ -624,7 +624,7 @@ export async function confirmHandoverAction(dealId: string): Promise<ActionResul
     const otherId = iAmInitiator ? deal.counterpartyId : deal.initiatorId;
     await notify(
       otherId,
-      "CarSwap: Übergabe bestätigt",
+      "quitt: Übergabe bestätigt",
       `${me.name} hat die Übergabe bestätigt. Sobald du das ebenfalls tust, wird der Ausgleich ausgezahlt.\n\n${siteUrl()}/deals/${dealId}\n`,
     );
     revalidatePath(`/deals/${dealId}`);
@@ -707,8 +707,8 @@ async function settleDeal(deal: DealRow, actorId: string): Promise<ActionResult>
     );
     return {
       error:
-        "Die hinterlegte Zahlung ist nicht mehr gültig — eine Reservierung verfällt nach sieben " +
-        "Tagen. Bitte den Ausgleich erneut einzahlen.",
+        "Die hinterlegte Zahlung ist nicht mehr gültig. Eine Reservierung verfällt nach sieben " +
+        "Tagen. Bitte zahl den Ausgleich noch einmal ein.",
     };
   }
 
@@ -730,15 +730,14 @@ async function settleDeal(deal: DealRow, actorId: string): Promise<ActionResult>
     if (err instanceof PayoutBlockedError) {
       await notify(
         payment.payeeId,
-        "CarSwap: Auszahlungskonto fehlt noch",
+        "quitt: Auszahlungskonto fehlt noch",
         "Euer Tausch ist übergeben und der Ausgleich liegt bereit. Sobald du dein " +
           `Auszahlungskonto eingerichtet hast, wird er ausgezahlt.\n\n${siteUrl()}/konto\n`,
       );
       return {
         error:
-          "Der Ausgleich kann noch nicht ausgezahlt werden, weil das Auszahlungskonto der " +
-          "Gegenseite fehlt. Wir haben sie benachrichtigt — danach lässt sich die Übergabe " +
-          "erneut bestätigen.",
+          "Wir können noch nicht auszahlen: der Gegenseite fehlt das Auszahlungskonto. Wir haben " +
+          "ihr geschrieben. Danach kannst du die Übergabe noch einmal bestätigen.",
       };
     }
     if (err instanceof PaymentStateError) {
@@ -748,8 +747,8 @@ async function settleDeal(deal: DealRow, actorId: string): Promise<ActionResult>
     console.error("Auszahlung fehlgeschlagen:", err);
     return {
       error:
-        "Die Auszahlung ist fehlgeschlagen. Der Betrag ist sicher hinterlegt und die Fahrzeuge " +
-        "sind noch nicht umgeschrieben — bitte in ein paar Minuten erneut bestätigen.",
+        "Die Auszahlung hat nicht geklappt. Der Betrag liegt sicher, und die Autos sind noch " +
+        "nicht umgeschrieben. Bestätige in ein paar Minuten noch einmal.",
     };
   }
 
@@ -757,8 +756,8 @@ async function settleDeal(deal: DealRow, actorId: string): Promise<ActionResult>
     await releaseSettlement(deal.id);
     return {
       error:
-        "Die Auszahlung ist nicht vollständig durchgelaufen. Die Fahrzeuge sind noch nicht " +
-        "umgeschrieben — bitte erneut bestätigen.",
+        "Die Auszahlung ist nicht ganz durchgelaufen. Die Autos sind noch nicht umgeschrieben. " +
+        "Bitte bestätige noch einmal.",
     };
   }
 
@@ -770,8 +769,8 @@ async function settleDeal(deal: DealRow, actorId: string): Promise<ActionResult>
     console.error(`Abschluss von Tausch ${deal.id} nach erfolgter Auszahlung fehlgeschlagen:`, err);
     return {
       error:
-        "Der Ausgleich ist ausgezahlt, das Umschreiben der Fahrzeuge hat aber nicht geklappt. " +
-        "Bitte gleich erneut bestätigen — hilft das nicht, meldet sich der Support.",
+        "Der Ausgleich ist ausgezahlt, aber das Umschreiben der Autos hat nicht geklappt. " +
+        "Bestätige gleich noch einmal. Hilft das nicht, meldet sich der Support.",
     };
   }
   return { ok: true };

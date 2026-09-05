@@ -21,7 +21,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     return [
       ...statisch,
       ...listings.map((l) => ({
-        url: `${base}/fahrzeug/${l.vehicle.id}`,
+        url: `${base}/auto/${l.vehicle.id}`,
         changeFrequency: "weekly" as const,
         priority: 0.6,
       })),

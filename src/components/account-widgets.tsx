@@ -144,7 +144,7 @@ export function PayoutSetup({
   if (!configured) {
     return (
       <p className="rounded-lg border border-line bg-surface-2 p-3 text-sm text-ink-3">
-        Zahlungen sind auf dieser Installation noch nicht eingerichtet. Tausche ohne Wertdifferenz
+        Zahlungen sind hier noch nicht eingerichtet. Tausche, bei denen niemand draufzahlt,
         funktionieren trotzdem.
       </p>
     );
@@ -153,8 +153,8 @@ export function PayoutSetup({
   if (enabled) {
     return (
       <p className="rounded-lg border border-good/35 bg-good/12 p-3 text-sm text-good">
-        Dein Auszahlungskonto ist bereit. Ausgleichszahlungen werden nach der Übergabe automatisch
-        überwiesen.
+        Dein Auszahlungskonto ist bereit. Was du bekommst, überweisen wir nach der Übergabe von
+        selbst.
       </p>
     );
   }
@@ -194,7 +194,7 @@ export function PayoutSetup({
         )}
       </div>
       <p className="text-xs text-ink-3">
-        Die Identitätsprüfung übernimmt Stripe. CarSwap sieht deine Bankdaten nicht.
+        Die Identitätsprüfung übernimmt Stripe. quitt sieht deine Bankdaten nicht.
       </p>
     </div>
   );
@@ -210,8 +210,8 @@ export function StilllegungsHinweis({ grund }: { grund: string | null }) {
     <div className="rounded-xl border border-bad/40 bg-bad/8 p-4">
       <p className="text-sm font-semibold text-ink">Dein Konto ist stillgelegt</p>
       <p className="mt-1 text-sm text-ink-2">
-        Du kommst weiterhin an deine laufenden Tausche und an deine Daten. Neue Inserate,
-        Tauschvorschläge und Bewertungen sind gesperrt.
+        An deine laufenden Tausche und an deine Daten kommst du weiterhin. Neue Inserate,
+        Vorschläge und Bewertungen sind gesperrt.
         {grund ? ` Grund: ${grund}` : ""}
       </p>
     </div>
@@ -235,7 +235,7 @@ export function DatenUndLoeschung() {
       const url = URL.createObjectURL(new Blob([res.json], { type: "application/json" }));
       const a = document.createElement("a");
       a.href = url;
-      a.download = "carswap-meine-daten.json";
+      a.download = "quitt-meine-daten.json";
       a.click();
       URL.revokeObjectURL(url);
     });
@@ -279,12 +279,11 @@ export function DatenUndLoeschung() {
         ) : (
           <div className="space-y-2">
             <p className="text-sm text-ink-2">
-              Dein Konto wird gelöscht: Name, Adresse und Kontaktdaten werden entfernt, deine
-              Fahrzeuge verschwinden aus dem Markt. Abgeschlossene Tausche bleiben aus
-              buchhalterischen Gründen bestehen, sind danach aber nicht mehr dir zugeordnet.
-              Dein Auszahlungskonto bei Stripe wird von uns getrennt; die Daten dort untersteht
-              deren gesetzlichen Aufbewahrungsfristen und müssen bei Stripe gelöscht werden. Das
-              lässt sich nicht rückgängig machen.
+              Wir entfernen Name, Adresse und Kontaktdaten. Deine Autos verschwinden aus dem
+              Markt. Abgeschlossene Tausche bleiben bestehen — die brauchen wir für die
+              Buchhaltung —, sind danach aber nicht mehr dir zugeordnet. Dein Auszahlungskonto bei
+              Stripe trennen wir von deinem Konto. Die Daten dort liegen bei Stripe und müssen
+              auch dort gelöscht werden. Rückgängig machen lässt sich das alles nicht.
             </p>
             <label className="block text-sm text-ink-2">
               Zum Bestätigen <span className="font-semibold text-ink">LÖSCHEN</span> eintippen

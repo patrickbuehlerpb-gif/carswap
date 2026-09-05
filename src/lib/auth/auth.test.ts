@@ -43,7 +43,7 @@ describe("Anmeldeziel", () => {
 
   it("lässt harmlose Punkte im Pfad zu", () => {
     expect(sicheresZiel("/deals/../garage")).toBe("/garage");
-    expect(sicheresZiel("/fahrzeug/veh_1.2")).toBe("/fahrzeug/veh_1.2");
+    expect(sicheresZiel("/auto/veh_1.2")).toBe("/auto/veh_1.2");
   });
 });
 

@@ -11,7 +11,7 @@ export const RING_STATUS_META: Record<
 > = {
   vorschlag: { text: "Vorschlag offen", tone: "info" },
   angenommen: { text: "Alle drei haben zugesagt", tone: "marke" },
-  treuhand: { text: "Geld im Treuhandkonto", tone: "marke" },
+  treuhand: { text: "Geld ist hinterlegt", tone: "marke" },
   abwicklung: { text: "Auszahlung läuft", tone: "marke" },
   abgeschlossen: { text: "Abgeschlossen", tone: "good" },
   abgelehnt: { text: "Abgelehnt", tone: "bad" },

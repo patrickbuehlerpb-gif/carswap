@@ -55,7 +55,7 @@ export default async function RingPage({
       </nav>
       <SectionHead
         title="Ringtausch"
-        sub="Drei Parteien, drei Fahrzeuge, ein Vorgang: A gibt an B, B an C, C an A. Der Ring kommt nur zustande, wenn alle drei zusagen — und wird nur abgeschlossen, wenn alle drei die Übergabe bestätigen."
+        sub="Drei Personen, drei Autos, ein Tausch: jeder gibt seines an den Nächsten weiter. Der Ring gilt erst, wenn alle drei zusagen. Und er ist erst fertig, wenn alle drei die Übergabe bestätigt haben."
       />
       <RingDetail
         ring={ring}
@@ -65,7 +65,7 @@ export default async function RingPage({
         paymentsEnabled={stripeConfigured()}
         escrowNotice={
           treuhand === "ok"
-            ? "Einzahlung bestätigt — der Betrag liegt auf dem Treuhandkonto."
+            ? "Danke. Der Betrag ist hinterlegt und liegt jetzt bei uns."
             : treuhand === "abgebrochen"
               ? "Die Einzahlung wurde abgebrochen. Du kannst es jederzeit erneut versuchen."
               : null

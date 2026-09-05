@@ -314,7 +314,7 @@ async function flagRefundAfterCompletion(
   for (const person of empfaenger) {
     await sendMail({
       to: person.email,
-      subject: "CarSwap: Rückerstattung zu einem abgeschlossenen Tausch",
+      subject: "quitt: Rückerstattung zu einem abgeschlossenen Tausch",
       text:
         "Zu eurem Tausch wurde der Ausgleich zurückerstattet, obwohl der Vorgang bereits " +
         `abgeschlossen war. Bitte meldet euch beim Support.\n\n${adresse}\n`,

@@ -55,17 +55,17 @@ export default async function GaragePage({
             href="/inserat/neu"
             className="rounded-lg bg-marke px-4 py-2 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
           >
-            Fahrzeug hinzufügen
+            Auto hinzufügen
           </Link>
         }
       />
 
       {willkommen && (
         <Card className="border-marke/40 bg-marke/20 p-5">
-          <h2 className="text-base font-semibold text-ink">Willkommen bei CarSwap</h2>
+          <h2 className="text-base font-semibold text-ink">Willkommen bei quitt</h2>
           <p className="mt-1 text-sm text-ink-2">
-            Als Nächstes: Fahrzeug einstellen, damit wir passende Tauschpartner für dich suchen
-            können. Wir haben dir ausserdem eine E-Mail zur Bestätigung deiner Adresse geschickt.
+            Stell als Nächstes dein Auto ein. Dann suchen wir passende Tauschpartner für dich.
+            Wir haben dir ausserdem eine E-Mail geschickt, um deine Adresse zu bestätigen.
           </p>
         </Card>
       )}
@@ -73,7 +73,7 @@ export default async function GaragePage({
       {!me.emailVerified && <ResendVerification />}
 
       <Card className="grid grid-cols-2 divide-line sm:grid-cols-4 sm:divide-x">
-        <Summary label="Fahrzeuge" value={String(myVehicles.length)} />
+        <Summary label="Autos" value={String(myVehicles.length)} />
         <Summary label="Gesamtwert" value={chf(total)} />
         <Summary label="Wertverlust / Monat" value={chf(totalLoss)} tone="bad" />
         <Summary
@@ -84,16 +84,15 @@ export default async function GaragePage({
 
       {myVehicles.length === 0 ? (
         <Card className="p-12 text-center">
-          <h2 className="text-base font-semibold text-ink">Noch kein Fahrzeug hinterlegt</h2>
+          <h2 className="text-base font-semibold text-ink">Deine Garage ist noch leer</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-ink-3">
-            Sobald dein Fahrzeug eingetragen ist, siehst du hier den Wertverlauf und passende
-            Tauschmöglichkeiten.
+            Sobald dein Auto drin ist, siehst du hier seinen Wertverlauf und passende Tausche.
           </p>
           <Link
             href="/inserat/neu"
             className="mt-5 inline-block rounded-lg bg-marke px-5 py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
           >
-            Fahrzeug einstellen
+            Auto einstellen
           </Link>
         </Card>
       ) : (
@@ -147,7 +146,7 @@ export default async function GaragePage({
                         Bearbeiten
                       </Link>
                       <Link
-                        href={`/fahrzeug/${v.id}`}
+                        href={`/auto/${v.id}`}
                         className="rounded-lg border border-line-strong px-3 py-1.5 text-xs text-ink-2 transition-colors hover:border-ink-3 hover:text-ink"
                       >
                         Inserat ansehen
@@ -243,10 +242,10 @@ export default async function GaragePage({
       <section>
         <SectionHead
           title="Merkliste"
-          sub="Inserate, die du dir gemerkt hast. Der Ausgleich wird laufend neu berechnet."
+          sub="Autos, die du dir gemerkt hast. Den Ausgleich rechnen wir laufend neu."
           action={
             <Link href="/markt" className="text-sm text-marke hover:underline">
-              Weitere Fahrzeuge →
+              Weitere Autos →
             </Link>
           }
         />

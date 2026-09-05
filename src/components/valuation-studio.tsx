@@ -44,7 +44,7 @@ interface Draft {
   features: string[];
 }
 
-/** Ausgangswerte für Besucher ohne eigenes Fahrzeug im Konto. */
+/** Ausgangswerte für Besucher ohne eigenes Auto im Konto. */
 const BLANK: Draft = {
   make: "VW",
   model: "ID.7",
@@ -126,7 +126,7 @@ export function ValuationStudio({
   // Eingabe springt.
   const vehicle = useMemo(() => toVehicle(draft, source), [draft, source]);
   // Ein leeres Datumsfeld ergibt ein ungültiges Datum. Ohne diese Prüfung
-  // rechnete das Modell so, als wäre das Fahrzeug heute zugelassen worden,
+  // rechnete das Modell so, als wäre das Auto heute zugelassen worden,
   // und zeigte eine praktisch waagrechte Kurve als Ergebnis.
   const bewertbar = hasValuationInput(vehicle);
   const valuation = useMemo(() => valuate(vehicle, asOf), [vehicle, asOf]);
@@ -630,12 +630,12 @@ function Mini({
 function recommendation(value: number, perMonth: number, d: Draft): string {
   const rel = Math.abs(perMonth) / value;
   if (rel > 0.011) {
-    return `Dieses Fahrzeug verliert derzeit rund ${chf(Math.abs(perMonth))} pro Monat — über ein Prozent seines Werts. Ein Tausch in den nächsten Monaten kostet dich deutlich weniger als ein Jahr Abwarten. Achte darauf, dass dein Tauschpartner ein Fahrzeug mit flacherer Kurve anbietet.`;
+    return `Dein Auto verliert gerade rund ${chf(Math.abs(perMonth))} im Monat. Das ist mehr als ein Prozent seines Werts. Ein Tausch in den nächsten Monaten kostet dich deutlich weniger als ein Jahr warten. Achte darauf, dass die Gegenseite ein Auto anbietet, das langsamer verliert.`;
   }
   if (d.mileageKm > 120_000) {
-    return `Der Wertverlust ist mit ${chf(Math.abs(perMonth))} pro Monat moderat, weil der grösste Teil bereits eingetreten ist. Bei dieser Laufleistung schlagen künftig eher Reparaturen als Wertverlust zu Buche — ein Tausch in ein jüngeres Fahrzeug ist vor allem eine Frage des Reparaturrisikos.`;
+    return `Mit ${chf(Math.abs(perMonth))} im Monat verliert dein Auto wenig — der grösste Teil ist schon weg. Bei dieser Laufleistung kosten dich künftig eher Reparaturen als der Wertverlust. Ein jüngeres Auto ist vor allem eine Frage des Reparaturrisikos.`;
   }
-  return `Mit ${chf(Math.abs(perMonth))} Wertverlust pro Monat liegt dein Fahrzeug im normalen Bereich. Du hast keinen akuten Zeitdruck — nutze das, um auf ein Angebot mit beidseitiger Passung zu warten, statt die Differenz mit Bargeld zu überbrücken.`;
+  return `Mit ${chf(Math.abs(perMonth))} im Monat liegt dein Auto im normalen Bereich. Du hast keine Eile. Nutz das und warte auf einen Tausch, den beide Seiten wollen, statt die Differenz mit Geld zu überbrücken.`;
 }
 
 function upgrade(c: Condition): Condition {

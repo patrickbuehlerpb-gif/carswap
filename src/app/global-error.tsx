@@ -22,7 +22,7 @@ export default function GlobalError({
         }}
       >
         <div style={{ textAlign: "center", padding: "2rem" }}>
-          <h1 style={{ fontSize: "1.25rem", margin: 0 }}>CarSwap ist gerade nicht erreichbar</h1>
+          <h1 style={{ fontSize: "1.25rem", margin: 0 }}>quitt ist gerade nicht erreichbar</h1>
           <p style={{ color: "#656f78", marginTop: "0.5rem" }}>
             {error.digest ? `Fehlerkennung: ${error.digest}` : "Bitte später erneut versuchen."}
           </p>

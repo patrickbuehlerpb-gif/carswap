@@ -20,14 +20,24 @@ import { cashDelta } from "@/lib/matching";
 import type { DealDetail as DealDetailData } from "@/lib/queries";
 import type { DealStatus, Vehicle } from "@/lib/types";
 
-const STEPS: DealStatus[] = ["vorschlag", "verhandlung", "angenommen", "treuhand", "abgeschlossen"];
+/**
+ * Eigene Beschriftung für die Fortschrittsleiste. Der interne Zustandsname
+ * taugt dafür nicht — er stand vorher klein geschrieben in der Oberfläche.
+ */
+const STEPS: { status: DealStatus; label: string }[] = [
+  { status: "vorschlag", label: "Vorschlag" },
+  { status: "verhandlung", label: "Verhandlung" },
+  { status: "angenommen", label: "Zusage" },
+  { status: "treuhand", label: "Einzahlung" },
+  { status: "abgeschlossen", label: "Übergabe" },
+];
 
 const HANDOVER_TASKS = [
   "Fahrzeugausweise beidseitig geprüft",
   "Probefahrt und Zustandskontrolle erfolgt",
   "Kaufverträge (zwei Richtungen) unterschrieben",
   "Halterwechsel beim Strassenverkehrsamt gemeldet",
-  "Versicherung auf das neue Fahrzeug umgeschrieben",
+  "Versicherung auf das neue Auto umgeschrieben",
   "Schlüssel, Ladekabel und Serviceheft übergeben",
 ];
 
@@ -85,7 +95,9 @@ export function DealDetail({
   const meta = STATUS_META[deal.status];
   // Die Abwicklung ist ein Zwischenschritt der Treuhandphase, kein eigener Punkt
   // in der Fortschrittsleiste.
-  const stepIndex = STEPS.indexOf(deal.status === "abwicklung" ? "treuhand" : deal.status);
+  const stepIndex = STEPS.findIndex(
+    (s) => s.status === (deal.status === "abwicklung" ? "treuhand" : deal.status),
+  );
   const active = !["abgeschlossen", "abgelehnt", "storniert"].includes(deal.status);
   const allTasksDone = tasks.length === HANDOVER_TASKS.length;
 
@@ -144,20 +156,20 @@ export function DealDetail({
           {deal.status === "abgelehnt" || deal.status === "storniert" ? (
             <p className="mt-4 text-sm text-ink-3">
               {deal.status === "abgelehnt"
-                ? "Dieser Vorgang wurde abgelehnt. Du kannst jederzeit einen neuen Vorschlag machen."
+                ? "Der Vorschlag wurde abgelehnt. Du kannst jederzeit einen neuen machen."
                 : "Dieser Tausch wurde abgebrochen. Eine hinterlegte Zahlung wurde freigegeben."}
             </p>
           ) : (
             <ol className="mt-5 flex gap-1">
               {STEPS.map((s, i) => (
-                <li key={s} className="flex-1">
+                <li key={s.status} className="flex-1">
                   <div className={`h-1 rounded-full ${i <= stepIndex ? "bg-marke" : "bg-line-strong"}`} />
                   <p
                     className={`mt-2 text-[10px] uppercase tracking-wide sm:text-[11px] ${
                       i <= stepIndex ? "text-ink-2" : "text-ink-3"
                     }`}
                   >
-                    {s}
+                    {s.label}
                   </p>
                 </li>
               ))}
@@ -165,7 +177,7 @@ export function DealDetail({
           )}
         </Card>
 
-        {/* Fahrzeuge */}
+        {/* Autos */}
         <Card className="p-5">
           <div className="grid gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
             <SideCard vehicle={iGive} caption="Du gibst" />
@@ -362,7 +374,7 @@ export function DealDetail({
                   <>
                     Beide Seiten sind sich einig. Jetzt wird der Ausgleich von{" "}
                     <span className="font-semibold tabular text-ink">{chf(Math.abs(myCash))}</span>{" "}
-                    hinterlegt. Freigegeben wird er erst, wenn beide Fahrzeuge übergeben sind.
+                    hinterlegt. Freigegeben wird er erst, wenn beide Autos übergeben sind.
                   </>
                 ) : (
                   <>
@@ -416,7 +428,7 @@ export function DealDetail({
               <p className="mt-3 text-sm text-ink-2">
                 {payment
                   ? "Der Betrag ist reserviert. Arbeitet die Checkliste ab und bestätigt anschliessend die Übergabe — danach erfolgt die Auszahlung."
-                  : "Kein Ausgleich nötig. Arbeitet die Checkliste ab und bestätigt die Übergabe."}
+                  : "Es zahlt niemand drauf. Geht die Checkliste durch und bestätigt die Übergabe."}
               </p>
 
               <div className="mt-4 flex gap-2 text-xs">
@@ -472,7 +484,7 @@ export function DealDetail({
                 <>
                   <p className="mt-4 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm text-ink-2">
                     Beide Bestätigungen liegen vor, die Auszahlung ist aber noch nicht
-                    durchgelaufen. Die Fahrzeuge sind bewusst noch nicht umgeschrieben — sie
+                    durchgelaufen. Die Autos sind bewusst noch nicht umgeschrieben — sie
                     wechseln erst, wenn das Geld beim Empfänger ist.
                   </p>
                   <button
@@ -499,7 +511,7 @@ export function DealDetail({
             <>
               <p className="mt-3 rounded-lg border border-line bg-surface-2 p-3 text-sm text-ink-2">
                 Beide haben die Übergabe bestätigt. Der Ausgleich wird eingezogen und
-                weitergeleitet — danach werden die Fahrzeuge umgeschrieben. Das dauert nur einen
+                weitergeleitet — danach werden die Autos umgeschrieben. Das dauert nur einen
                 Moment.
               </p>
               <button
@@ -519,7 +531,7 @@ export function DealDetail({
           {deal.status === "abgeschlossen" && (
             <>
               <p className="mt-3 text-sm text-ink-2">
-                Tausch abgeschlossen. Der Ausgleich wurde freigegeben und die Fahrzeuge sind in
+                Tausch abgeschlossen. Der Ausgleich wurde freigegeben und die Autos sind in
                 euren Garagen umgeschrieben.
               </p>
               <ReviewForm
@@ -571,11 +583,11 @@ export function DealDetail({
         </Card>
 
         <Card className="p-5">
-          <p className="text-[11px] uppercase tracking-wider text-ink-3">Wie die Treuhand wirkt</p>
+          <p className="text-[11px] uppercase tracking-wider text-ink-3">Was mit dem Geld passiert</p>
           <p className="mt-2 text-sm leading-relaxed text-ink-3">
-            Der Ausgleich wird bei der Zusage reserviert, aber erst nach beidseitiger
-            Übergabebestätigung eingezogen und ausgezahlt. Damit trägt keine der beiden Seiten das
-            Risiko, in Vorleistung zu gehen — der klassische Schwachpunkt beim Privattausch.
+            Bei der Zusage reservieren wir den Betrag. Abgebucht und ausgezahlt wird er erst,
+            wenn beide die Übergabe bestätigt haben. So muss niemand in Vorleistung gehen. Genau
+            daran scheitern private Tausche sonst.
           </p>
         </Card>
       </div>
@@ -624,7 +636,7 @@ function SideCard({
         {vehicle.year} · {km(vehicle.mileageKm)}
       </p>
       <Link
-        href={`/fahrzeug/${vehicle.id}`}
+        href={`/auto/${vehicle.id}`}
         className="mt-1.5 inline-block text-xs text-marke hover:underline"
       >
         Details →

@@ -60,7 +60,7 @@ export default async function DealPage({
       </nav>
       <SectionHead
         title="Tauschvorgang"
-        sub="Verhandlung, Zusage, Treuhand und Übergabe an einem Ort — inklusive Checkliste für den Halterwechsel."
+        sub="Verhandeln, zusagen, Geld hinterlegen, übergeben. Alles an einem Ort, mit Checkliste für den Halterwechsel."
       />
       <DealDetail
         detail={detail}
@@ -71,7 +71,7 @@ export default async function DealPage({
         meineBewertung={meineBewertung}
         escrowNotice={
           treuhand === "ok"
-            ? "Einzahlung bestätigt — der Betrag liegt auf dem Treuhandkonto."
+            ? "Danke. Der Betrag ist hinterlegt und liegt jetzt bei uns."
             : treuhand === "abgebrochen"
               ? "Die Einzahlung wurde abgebrochen. Du kannst es jederzeit erneut versuchen."
               : null

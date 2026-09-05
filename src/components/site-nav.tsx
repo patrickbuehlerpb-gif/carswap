@@ -127,7 +127,7 @@ export function UserMenu({
               Meine Garage
             </MenuLink>
             <MenuLink href="/inserat/neu" onClick={() => setOpen(false)}>
-              Fahrzeug anbieten
+              Auto anbieten
             </MenuLink>
             <MenuLink href="/deals" onClick={() => setOpen(false)}>
               Meine Tausche

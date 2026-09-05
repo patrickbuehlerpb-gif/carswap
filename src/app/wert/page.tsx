@@ -15,8 +15,8 @@ export default async function WertPage() {
   return (
     <div>
       <SectionHead
-        title="Was ist mein Fahrzeug wert?"
-        sub="Kein einzelner Schätzpreis, sondern eine nachvollziehbare Rechnung: Restwertkurve des Segments, Laufleistung gegenüber der Norm, Zustand, Ausstattung und die aktuelle Marktlage — jeder Faktor einzeln ausgewiesen."
+        title="Was ist mein Auto wert?"
+        sub="Keine einzelne Schätzung, sondern eine Rechnung, die du nachvollziehen kannst. Alter, Kilometer, Zustand, Ausstattung und Marktlage stehen einzeln da."
       />
       <ValuationStudio myVehicles={myVehicles} asOf={currentMonth()} />
     </div>

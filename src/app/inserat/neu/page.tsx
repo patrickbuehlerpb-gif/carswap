@@ -5,7 +5,7 @@ import { SectionHead } from "@/components/ui";
 import { getSessionUser } from "@/lib/auth/session";
 import { currentMonth } from "@/lib/valuation";
 
-export const metadata: Metadata = { title: "Fahrzeug anbieten" };
+export const metadata: Metadata = { title: "Auto anbieten" };
 export const dynamic = "force-dynamic";
 
 export default async function NeuesInseratPage() {
@@ -15,8 +15,8 @@ export default async function NeuesInseratPage() {
   return (
     <div>
       <SectionHead
-        title="Fahrzeug anbieten"
-        sub="Die Bewertung entsteht live aus deinen Angaben. Was du hier einträgst, ist die Grundlage jeder Wertdifferenz — also lieber genau als optimistisch."
+        title="Auto anbieten"
+        sub="Der Wert entsteht beim Tippen. Was du hier einträgst, ist die Grundlage für jeden Ausgleich — trag also lieber genau ein als optimistisch."
       />
       <ListingForm
         mode="create"

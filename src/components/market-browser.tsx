@@ -42,7 +42,7 @@ export function MarketBrowser({
   );
 
   const matches = useMemo(() => {
-    // Ohne eigenes Fahrzeug gibt es keine Zuzahlung — dann werden die
+    // Ohne eigenes Auto gibt es keine Zuzahlung — dann werden die
     // Inserate nur gefiltert und nach Aktualität gezeigt.
     const all = myVehicle
       ? findMatches(myVehicle, pool, { wish: { makes, bodies, fuels, minYear }, onlyMutual })
@@ -110,9 +110,9 @@ export function MarketBrowser({
             <p className="mt-2 rounded-lg border border-dashed border-line-strong p-3 text-xs text-ink-3">
               {signedIn ? (
                 <>
-                  Stelle dein Fahrzeug ein, dann rechnen wir jede Zuzahlung direkt dagegen.{" "}
+                  Stelle dein Auto ein, dann rechnen wir jede Zuzahlung direkt dagegen.{" "}
                   <Link href="/inserat/neu" className="text-marke hover:underline">
-                    Fahrzeug anbieten
+                    Auto anbieten
                   </Link>
                 </>
               ) : (
@@ -120,7 +120,7 @@ export function MarketBrowser({
                   <Link href="/konto/registrieren" className="text-marke hover:underline">
                     Konto erstellen
                   </Link>{" "}
-                  und Fahrzeug einstellen, um Zuzahlungen zu sehen.
+                  und Auto einstellen, um Zuzahlungen zu sehen.
                 </>
               )}
             </p>
@@ -224,7 +224,7 @@ export function MarketBrowser({
           <span>
             <span className="block text-sm font-medium text-ink">Nur beidseitige Treffer</span>
             <span className="mt-0.5 block text-xs text-ink-3">
-              Die Gegenseite sucht ausdrücklich ein Fahrzeug wie deines.
+              Die Gegenseite sucht ausdrücklich ein Auto wie deines.
             </span>
           </span>
         </label>

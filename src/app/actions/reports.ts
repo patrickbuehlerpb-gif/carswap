@@ -73,11 +73,11 @@ export async function reportListingAction(
   if (empfaenger) {
     await sendMail({
       to: empfaenger,
-      subject: `CarSwap: Meldung zu einem Inserat (${parsed.data.reason})`,
+      subject: `quitt: Meldung zu einem Inserat (${parsed.data.reason})`,
       text:
         `Gemeldet von ${me.name} (${me.email})\n` +
         `Fahrzeug: ${ziel.vehicle.make} ${ziel.vehicle.model}\n` +
-        `${siteUrl()}/fahrzeug/${vehicleId}\n\n` +
+        `${siteUrl()}/auto/${vehicleId}\n\n` +
         `Grund: ${parsed.data.reason}\n` +
         `${parsed.data.note || "(keine weiteren Angaben)"}\n`,
     });
@@ -125,8 +125,8 @@ export async function blockListingAction(
   if (gebunden.length) {
     return {
       error:
-        "Zu diesem Fahrzeug läuft ein verbindlich zugesagter Tausch. Der muss zuerst geklärt " +
-        "werden — ihn hier abzubrechen würde Geld bewegen.",
+        "Zu diesem Auto läuft ein zugesagter Tausch. Den müsst ihr zuerst klären: ihn hier " +
+        "abzubrechen würde Geld bewegen.",
     };
   }
 

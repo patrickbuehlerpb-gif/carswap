@@ -81,7 +81,7 @@ export default async function MeldungenPage() {
     <div>
       <SectionHead
         title="Gemeldete Inserate"
-        sub="Was Nutzerinnen und Nutzer als auffällig markiert haben — neueste zuerst."
+        sub="Was Nutzerinnen und Nutzer gemeldet haben. Neueste zuerst."
       />
 
       {rows.length === 0 ? (
@@ -108,7 +108,7 @@ export default async function MeldungenPage() {
                           <div className="flex flex-wrap items-center gap-2">
                             <Badge tone="warn">{bezeichnung.get(report.reason) ?? report.reason}</Badge>
                             <Link
-                              href={`/fahrzeug/${vehicle.id}`}
+                              href={`/auto/${vehicle.id}`}
                               className="text-sm font-medium text-ink hover:text-marke"
                             >
                               {vehicle.make} {vehicle.model}
@@ -138,7 +138,7 @@ export default async function MeldungenPage() {
                   <li key={g.listingId}>
                     <Card className="flex flex-wrap items-center justify-between gap-3 p-3">
                       <div className="min-w-0 text-sm">
-                        <Link href={`/fahrzeug/${g.vehicleId}`} className="text-ink hover:text-marke">
+                        <Link href={`/auto/${g.vehicleId}`} className="text-ink hover:text-marke">
                           {g.titel}
                         </Link>
                         <span className="ml-2 text-xs text-ink-3">
@@ -184,7 +184,7 @@ export default async function MeldungenPage() {
               <ul className="space-y-2">
                 {erledigt.map(({ report, vehicle }) => (
                   <li key={report.id} className="text-sm text-ink-3">
-                    <Link href={`/fahrzeug/${vehicle.id}`} className="hover:text-ink">
+                    <Link href={`/auto/${vehicle.id}`} className="hover:text-ink">
                       {vehicle.make} {vehicle.model}
                     </Link>{" "}
                     · {bezeichnung.get(report.reason) ?? report.reason} ·{" "}

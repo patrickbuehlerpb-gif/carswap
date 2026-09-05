@@ -12,7 +12,7 @@ export const STATUS_META: Record<
   vorschlag: { text: "Vorschlag offen", tone: "info" },
   verhandlung: { text: "In Verhandlung", tone: "warn" },
   angenommen: { text: "Angenommen", tone: "marke" },
-  treuhand: { text: "Geld im Treuhandkonto", tone: "marke" },
+  treuhand: { text: "Geld ist hinterlegt", tone: "marke" },
   abwicklung: { text: "Auszahlung läuft", tone: "marke" },
   abgeschlossen: { text: "Abgeschlossen", tone: "good" },
   abgelehnt: { text: "Abgelehnt", tone: "bad" },
@@ -35,7 +35,7 @@ export function DealList({ deals }: { deals: DealView[] }) {
           <div className="rounded-xl border border-dashed border-line-strong p-10 text-center">
             <p className="text-sm text-ink-3">Keine laufenden Tausche.</p>
             <Link href="/matches" className="mt-2 inline-block text-sm text-marke hover:underline">
-              Passende Fahrzeuge suchen →
+              Passende Autos suchen →
             </Link>
           </div>
         ) : (
@@ -67,7 +67,7 @@ function DealRow({ view }: { view: DealView }) {
   const { deal, fromVehicle, toVehicle, other, iAmInitiator } = view;
   const meta = STATUS_META[deal.status];
 
-  // Aus meiner Sicht: gebe ich das Fahrzeug ab oder erhalte ich es?
+  // Aus meiner Sicht: gebe ich das Auto ab oder erhalte ich es?
   const iGive = iAmInitiator ? fromVehicle : toVehicle;
   const iGet = iAmInitiator ? toVehicle : fromVehicle;
   const myCash = iAmInitiator ? deal.cashDelta : -deal.cashDelta;

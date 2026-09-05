@@ -20,7 +20,7 @@ export default async function DealsPage() {
     <div>
       <SectionHead
         title="Deine Tausche"
-        sub="Direkte Tausche und Ringe über drei Parteien an einem Ort. Beide durchlaufen dieselben Stationen: Vorschlag, Zusage, Treuhand und Übergabe — beim direkten Tausch ist der Betrag bis zur Zusage verhandelbar, im Ring ergibt er sich aus den drei Fahrzeugwerten."
+        sub="Tausche zu zweit und zu dritt an einem Ort. Beide laufen gleich ab: Vorschlag, Zusage, Geld hinterlegen, übergeben. Zu zweit könnt ihr über den Betrag verhandeln, im Ring ergibt er sich aus den Werten der drei Autos."
       />
       {deals.length === 0 && rings.length === 0 ? (
         <Card className="p-12 text-center">
@@ -29,7 +29,7 @@ export default async function DealsPage() {
             href="/matches"
             className="mt-4 inline-block rounded-lg bg-marke px-5 py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
           >
-            Passende Fahrzeuge suchen
+            Passende Autos suchen
           </Link>
         </Card>
       ) : (
@@ -40,7 +40,7 @@ export default async function DealsPage() {
                 Ringtausche <span className="text-ink-3 tabular">({rings.length})</span>
               </h2>
               <p className="mb-3 text-xs text-ink-3">
-                Über drei Parteien: dein Fahrzeug geht an die eine, du bekommst das der anderen.
+                Über drei Parteien: dein Auto geht an die eine, du bekommst das der anderen.
               </p>
               <RingList rings={rings} meId={me.id} />
             </section>

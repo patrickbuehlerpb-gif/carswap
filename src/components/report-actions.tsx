@@ -41,8 +41,8 @@ export function ReportActions({ reportId }: { reportId: string }) {
       <div className="w-full max-w-sm space-y-2 sm:w-64">
         <p className="text-xs text-ink-2">
           {modus === "sperren"
-            ? "Das Inserat verschwindet aus dem Markt und lässt sich vom Besitzer nicht wieder aktivieren. Offene Vorschläge dazu werden storniert."
-            : "Die Person kann sich weiterhin anmelden und an ihre Tausche und Daten, aber nicht mehr inserieren oder tauschen. Alle aktiven Inserate werden gesperrt."}
+            ? "Das Inserat verschwindet aus dem Markt. Der Besitzer kann es nicht wieder aktivieren. Offene Vorschläge dazu werden storniert."
+            : "Die Person kann sich weiterhin anmelden und kommt an ihre Tausche und Daten. Inserieren und tauschen kann sie nicht mehr. Alle aktiven Inserate werden pausiert."}
         </p>
         <input
           value={grund}

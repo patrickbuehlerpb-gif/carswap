@@ -23,20 +23,20 @@ export default async function MatchesPage() {
     <div>
       <SectionHead
         title="Passende Tausche"
-        sub="Ein Tausch kommt nur zustande, wenn beide Seiten wollen. Deshalb wird hier nicht nur gefiltert, was dir gefällt, sondern auch, wer dein Fahrzeug sucht — und wenn es direkt nicht passt, über wen es doch geht."
+        sub="Ein Tausch klappt nur, wenn beide wollen. Deshalb zeigen wir dir nicht nur, was dir gefällt, sondern auch, wer dein Auto sucht. Und wenn es zu zweit nicht aufgeht, wer als Dritter dazwischen passt."
       />
       {myVehicles.length === 0 || !publicMe ? (
         <Card className="p-12 text-center">
-          <h2 className="text-base font-semibold text-ink">Noch kein Fahrzeug hinterlegt</h2>
+          <h2 className="text-base font-semibold text-ink">Du hast noch kein Auto eingestellt</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-ink-3">
-            Das Matching braucht dein Fahrzeug, um Wertdifferenz und Passung zu berechnen. Stelle es
-            ein — das dauert wenige Minuten.
+            Ohne dein Auto können wir nichts rechnen und nichts vergleichen. Stell es ein, das
+            dauert ein paar Minuten.
           </p>
           <Link
             href="/inserat/neu"
             className="mt-5 inline-block rounded-lg bg-marke px-5 py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
           >
-            Fahrzeug anbieten
+            Auto anbieten
           </Link>
         </Card>
       ) : (

@@ -46,7 +46,7 @@ export default async function KontoPage({
       <Card className="p-5 sm:p-6">
         <h2 className="text-base font-semibold text-ink">Profil</h2>
         <p className="mt-1 mb-5 text-sm text-ink-3">
-          Name und Ort sehen andere Nutzer bei deinen Inseraten. Die Telefonnummer bleibt intern.
+          Name und Ort stehen bei deinen Inseraten. Die Telefonnummer sieht nur, wer dir zugesagt hat.
         </p>
         <AccountForm
           name={me.name}
@@ -62,8 +62,8 @@ export default async function KontoPage({
           <div>
             <h2 className="text-base font-semibold text-ink">Auszahlungen</h2>
             <p className="mt-1 text-sm text-ink-3">
-              Wenn dein Fahrzeug weniger wert ist als das getauschte, erhältst du die Differenz.
-              Dafür brauchen wir ein von Stripe geprüftes Auszahlungskonto.
+              Ist dein Auto weniger wert als das andere, bekommst du die Differenz. Dafür brauchst
+              du ein Auszahlungskonto, das Stripe geprüft hat.
             </p>
           </div>
           <Badge tone={me.stripePayoutsEnabled ? "good" : "warn"}>

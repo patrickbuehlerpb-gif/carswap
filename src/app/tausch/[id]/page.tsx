@@ -35,23 +35,23 @@ export default async function TauschPage({
 
   const view = await getListingByVehicle(id);
   if (!view || view.listing.status !== "aktiv") notFound();
-  if (view.vehicle.ownerId === me.id) redirect(`/fahrzeug/${id}`);
+  if (view.vehicle.ownerId === me.id) redirect(`/auto/${id}`);
 
   const myVehicles = await getMyVehicles(me.id);
 
   if (myVehicles.length === 0) {
     return (
       <Card className="p-12 text-center">
-        <h1 className="text-lg font-semibold text-ink">Erst dein Fahrzeug, dann der Tausch</h1>
+        <h1 className="text-lg font-semibold text-ink">Erst dein Auto, dann der Tausch</h1>
         <p className="mx-auto mt-2 max-w-md text-sm text-ink-3">
-          Ein Tauschvorschlag braucht ein Fahrzeug auf deiner Seite — daraus ergibt sich die
-          Wertdifferenz.
+          Ohne ein Auto auf deiner Seite gibt es nichts zu vergleichen und keinen Ausgleich zu
+          rechnen.
         </p>
         <Link
           href="/inserat/neu"
           className="mt-5 inline-block rounded-lg bg-marke px-5 py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
         >
-          Fahrzeug einstellen
+          Auto einstellen
         </Link>
       </Card>
     );
@@ -61,7 +61,7 @@ export default async function TauschPage({
     <div>
       <SectionHead
         title={`Tausch gegen ${view.vehicle.make} ${view.vehicle.model}`}
-        sub="Der Ausgleich ergibt sich aus der Differenz der beiden Marktwerte. Du kannst davon abweichen — die Gegenseite sieht dann, um wie viel."
+        sub="Der Ausgleich ist die Differenz der beiden Werte. Du kannst einen anderen Betrag bieten. Die Gegenseite sieht dann, um wie viel du abweichst."
       />
       <SwapConfigurator
         target={view.vehicle}

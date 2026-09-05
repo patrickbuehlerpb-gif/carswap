@@ -252,7 +252,7 @@ describe("Ring vorschlagen", () => {
 
     als(a);
     const res = await proposeRingAction({ vehicleIds: [vA, vB, vC] });
-    expect(res.error).toMatch(/bereits in einem zugesagten Tausch/);
+    expect(res.error).toMatch(/schon in einem zugesagten Tausch/);
   });
 
   it("legt für dieselbe Runde keinen zweiten Vorschlag an", async () => {
@@ -407,7 +407,7 @@ describe("Treuhand und Abschluss mit Ausgleich", () => {
 
     // Eine Übergabe lässt sich in diesem Zustand nicht bestätigen.
     als(a);
-    expect((await confirmRingHandoverAction(ringId)).error).toMatch(/erst nach der Treuhand/);
+    expect((await confirmRingHandoverAction(ringId)).error).toMatch(/wenn der Ausgleich hinterlegt ist/);
 
     const transfers = await noetigeZahlungen(ringId);
     expect(transfers).toHaveLength(2);
@@ -539,7 +539,7 @@ describe("Ring und Zweiertausch teilen sich die Fahrzeugsperre", () => {
 
     als(d);
     const zweiter = await proposeRingAction({ vehicleIds: [vD, vB, vC] });
-    expect(zweiter.error).toMatch(/bereits in einem zugesagten Tausch/);
+    expect(zweiter.error).toMatch(/schon in einem zugesagten Tausch/);
     void a;
     void vA;
   });

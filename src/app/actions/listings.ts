@@ -122,8 +122,8 @@ export async function updateListingAction(vehicleId: string, raw: unknown): Prom
   if (await inVerbindlichemTausch(vehicleId)) {
     return {
       error:
-        "Zu diesem Fahrzeug läuft ein verbindlich zugesagter Tausch. Die Angaben lassen sich " +
-        "erst wieder ändern, wenn er abgeschlossen oder abgebrochen ist.",
+        "Zu diesem Auto läuft ein zugesagter Tausch. Die Angaben kannst du erst wieder ändern, " +
+        "wenn er fertig oder abgebrochen ist.",
     };
   }
 
@@ -159,7 +159,7 @@ export async function updateListingAction(vehicleId: string, raw: unknown): Prom
   await deleteBlobs(verwaist);
 
   revalidatePath("/garage");
-  revalidatePath(`/fahrzeug/${vehicleId}`);
+  revalidatePath(`/auto/${vehicleId}`);
   revalidatePath("/markt");
   return { ok: true, vehicleId };
 }
