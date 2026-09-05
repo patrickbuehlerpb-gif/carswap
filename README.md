@@ -258,7 +258,15 @@ Ein Durchlauf durch den ganzen Ablauf gegen `next start`: zwei Konten
 registrieren, je ein Fahrzeug inserieren, Vorschlag, Zusage, Übergabe von
 beiden Seiten bestätigen, Halterwechsel in der Garage prüfen und bewerten.
 Bewusst ohne Wertdifferenz — dieser Weg kommt ohne Stripe aus und deckt
-trotzdem die ganze Zustandsmaschine ab.
+trotzdem die ganze Zustandsmaschine ab. Dazu kommen der Ringtausch über drei
+Konten, Passwort- und Adresswechsel, die Fotogalerie, die Betriebsübersicht
+und die Prüfung auf Barrierefreiheit.
+
+`npm run e2e` baut vorher. Das ist keine Bequemlichkeit: `next start` liefert
+aus, was zuletzt gebaut wurde, nicht den Stand der Dateien — ohne Bauen prüft
+der Lauf womöglich alten Code und meldet ein falsches Grün. Wer seit dem
+letzten Bauen nichts geändert hat, spart die halbe Minute mit
+`npm run e2e:schnell`.
 
 Geprüft wird gegen den Produktions-Build, nicht gegen `next dev`: Middleware,
 Sicherheitsrichtlinie und Serverkomponenten verhalten sich dort anders. Chromium
@@ -460,6 +468,7 @@ src/
     abschluss.ts       Abschluss eines Zweiertauschs: Geld, Halterwechsel
     treffer.ts         Täglicher Lauf: neue beidseitige Treffer per Mail
     wartung.ts         Täglicher Lauf: Abschlüsse nachholen, aufräumen
+    lagebericht.ts     Was die Betreiberin heute wissen muss — sonst nichts
     validation.ts      Zod-Schemata für alle Eingaben
 scripts/               Migration, Seed, Demo-Daten
 drizzle/               Erzeugte SQL-Migrationen
@@ -547,6 +556,13 @@ Der Lauf macht vier Dinge und ist beliebig oft wiederholbar:
 - **Liegengebliebenes Geld melden.** Gemessen wird nach dem Nachholen: was dann
   noch eingezogen und nicht weitergeleitet ist, konnte der Lauf nicht heilen.
   Das steht in der Antwort, im Log und unter `/api/health`.
+- **Lagebericht schicken.** Zum Schluss geht eine Mail an `OPERATOR_EMAIL` —
+  aber nur, wenn etwas zu tun ist: offene Rückbuchungen (die haben eine Frist
+  und stehen zuoberst), liegengebliebenes Geld, Abschlüsse, die der Lauf nicht
+  durchbrachte, Vorgänge, die seit mehr als drei Tagen mit hinterlegtem Geld
+  warten, und offene Meldungen. Ist alles in Ordnung, kommt nichts. Eine
+  tägliche «alles gut»-Mail liest nach einer Woche niemand mehr — und dann
+  geht auch die eine unter, die zählt.
 
 ## Was vor dem Livegang noch fehlt
 

@@ -39,6 +39,13 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
+    /*
+     * `next start` liefert aus, was zuletzt gebaut wurde — nicht den Stand
+     * der Dateien. Wer hier direkt `playwright test` aufruft, prüft deshalb
+     * womöglich einen alten Build und bekommt ein falsches Grün. `npm run e2e`
+     * baut vorher; `npm run e2e:schnell` überspringt das bewusst, wenn seit
+     * dem letzten Bauen nichts am Code geändert wurde.
+     */
     command: `npm run start -- --port ${PORT}`,
     url: `http://127.0.0.1:${PORT}/markt`,
     reuseExistingServer: false,

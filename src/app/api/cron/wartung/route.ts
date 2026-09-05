@@ -6,6 +6,7 @@ import {
   holeAbschluesseNach,
   raeumeAuf,
 } from "@/lib/wartung";
+import { erstelleLagebericht } from "@/lib/lagebericht";
 
 export const dynamic = "force-dynamic";
 /** Der Lauf kann bei vielen Zahlungen dauern — Stripe wird der Reihe nach gefragt. */
@@ -15,9 +16,10 @@ export const maxDuration = 60;
  * Wartungslauf, gedacht für einen täglichen Cron (siehe vercel.json).
  *
  * Er holt steckengebliebene Abschlüsse nach, gibt Zahlungen frei, die zu einem
- * abgebrochenen Vorgang gehören, räumt abgelaufene Sitzungen und Token weg und
+ * abgebrochenen Vorgang gehören, räumt abgelaufene Sitzungen und Token weg,
  * meldet, ob danach noch Geld auf dem Plattformkonto liegt, das eigentlich
- * jemand anderem gehört.
+ * jemand anderem gehört — und schickt der Betreiberin einen Lagebericht, falls
+ * etwas zu tun ist.
  *
  * Wer ihn auslösen darf, entscheidet lib/cron-auth.
  */
@@ -36,6 +38,10 @@ export async function GET(request: Request) {
     const aufgeraeumt = await raeumeAuf();
     const liegengeblieben = await haengendeGelder();
 
+    // Ganz zum Schluss, damit der Bericht den Stand nach dem Aufräumen zeigt
+    // und nicht den davor. Verschickt wird nur, wenn etwas zu tun ist.
+    const lagebericht = await erstelleLagebericht(abschluesse);
+
     if (liegengeblieben.anzahl > 0) {
       console.warn(
         `Wartung: ${liegengeblieben.anzahl} eingezogene Zahlung(en) über ` +
@@ -49,6 +55,11 @@ export async function GET(request: Request) {
       zahlungen,
       aufgeraeumt,
       liegengeblieben,
+      lagebericht: {
+        punkte: lagebericht.punkte.map((p) => p.kurz),
+        verschickt: lagebericht.verschickt,
+        grund: lagebericht.grund,
+      },
       dauerMs: Date.now() - begonnen,
     });
   } catch (err) {
