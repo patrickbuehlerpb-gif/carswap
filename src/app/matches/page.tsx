@@ -6,7 +6,7 @@ import { Card, SectionHead } from "@/components/ui";
 import { getSessionUser } from "@/lib/auth/session";
 import { getActiveListings, getMyVehicles, getPublicUser } from "@/lib/queries";
 
-export const metadata: Metadata = { title: "Matches" };
+export const metadata: Metadata = { title: "Treffer" };
 export const dynamic = "force-dynamic";
 
 export default async function MatchesPage() {

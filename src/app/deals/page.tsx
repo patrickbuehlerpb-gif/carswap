@@ -40,7 +40,7 @@ export default async function DealsPage() {
                 Ringtausche <span className="text-ink-3 tabular">({rings.length})</span>
               </h2>
               <p className="mb-3 text-xs text-ink-3">
-                Über drei Parteien: dein Auto geht an die eine, du bekommst das der anderen.
+                Zu dritt: dein Auto geht an die eine Person, du bekommst das der anderen.
               </p>
               <RingList rings={rings} meId={me.id} />
             </section>

@@ -600,8 +600,8 @@ export function RingDetail({
           <Card className="p-5">
             <h2 className="mb-2 text-sm font-semibold text-ink">Abbrechen</h2>
             <p className="mb-3 text-xs text-ink-3">
-              Springt eine Partei ab, wird der ganze Ring rückabgewickelt: alle hinterlegten Beträge
-              gehen zurück, kein Auto wechselt den Besitzer.
+              Springt einer ab, wird der ganze Ring zurückgedreht: alle hinterlegten Beträge gehen
+              zurück, und kein Auto wechselt den Besitzer.
             </p>
             <button
               type="button"

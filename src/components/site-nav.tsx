@@ -17,7 +17,7 @@ const PUBLIC_NAV: NavItem[] = [
 ];
 
 const PRIVATE_NAV: NavItem[] = [
-  { href: "/matches", label: "Matches" },
+  { href: "/matches", label: "Treffer" },
   { href: "/garage", label: "Garage" },
   { href: "/deals", label: "Tausche", badge: true },
 ];
