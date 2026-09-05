@@ -22,7 +22,7 @@ import {
 import { destroyOtherSessions, destroySession, requireUser } from "@/lib/auth/session";
 import { hashPassword, passwordProblem, verifyPassword } from "@/lib/auth/password";
 import { consumeToken, issueToken } from "@/lib/auth/tokens";
-import { sendMail, siteUrl } from "@/lib/mail";
+import { mailConfigured, sendMail, siteUrl } from "@/lib/mail";
 import { emailSchema } from "@/lib/validation";
 import { deleteBlobs } from "@/lib/blob";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
@@ -254,7 +254,7 @@ export async function requestEmailChangeAction(
     .where(eq(users.id, me.id));
 
   const token = await issueToken(me.id, "change_email");
-  await sendMail({
+  const zustellung = await sendMail({
     to: neueAdresse,
     subject: "autotauschen: neue E-Mail-Adresse bestätigen",
     text:
@@ -278,6 +278,17 @@ export async function requestEmailChangeAction(
   });
 
   revalidatePath("/konto");
+  // Hier hängt mehr daran als eine Auskunft: Ohne den Link an der neuen
+  // Adresse bleibt der Wechsel für immer hängen, und die Person sucht in
+  // einem Postfach, in dem nichts ankommen wird.
+  if (!zustellung.delivered && mailConfigured()) {
+    return {
+      error:
+        `Der Bestätigungslink an ${neueAdresse} liess sich nicht zustellen. Die Anfrage ` +
+        "steht, deine bisherige Adresse gilt weiter — versuch es später noch einmal oder " +
+        "prüfe, ob die neue Adresse stimmt.",
+    };
+  }
   return {
     notice: `Wir haben einen Bestätigungslink an ${neueAdresse} geschickt. Bis du ihn anklickst, bleibt deine bisherige Adresse gültig.`,
   };

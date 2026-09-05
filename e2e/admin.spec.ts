@@ -45,6 +45,30 @@ test("Betriebsübersicht zeigt der Betreiberin die Zahlen", async ({ page }) => 
   ).toBeVisible();
 });
 
+test("gescheiterte Mails stehen ganz oben", async ({ page }) => {
+  const email = await registriere(page, { name: "Chefin", ort: "Zug", kanton: "ZG" });
+  await zumAdminMachen(email);
+
+  // Ohne Fehlversuch soll auch nichts dastehen — sonst meldete die Seite
+  // dauernd einen Ausfall, den es nicht gibt.
+  await page.goto("/admin/betrieb");
+  await expect(page.getByRole("heading", { name: "Mails kommen nicht an" })).toHaveCount(0);
+
+  const { db, sql } = connect();
+  await db.execute(raw`
+    insert into mail_failures (id, domain, subject, reason)
+    values ('mfl_e2e', 'gmx.ch', 'autotauschen: E-Mail-Adresse bestätigen', 'abgelehnt (422)')`);
+  await sql.end();
+
+  await page.goto("/admin/betrieb");
+  await expect(page.getByRole("heading", { name: "Mails kommen nicht an" })).toBeVisible();
+  await expect(page.getByText(/gmx\.ch/)).toBeVisible();
+
+  const auf = connect();
+  await auf.db.execute(raw`delete from mail_failures where id = 'mfl_e2e'`);
+  await auf.sql.end();
+});
+
 test("Betriebsübersicht läuft auf dem Telefon nicht über", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const email = await registriere(page, { name: "Chefin", ort: "Zug", kanton: "ZG" });

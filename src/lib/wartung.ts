@@ -1,9 +1,10 @@
 import "server-only";
-import { and, eq, inArray, isNotNull, isNull, lt, or, sql as raw } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNotNull, isNull, lt, or, sql as raw } from "drizzle-orm";
 import { db } from "./db";
 import {
   authTokens,
   deals,
+  mailFailures,
   payments,
   rateLimits,
   ringLegs,
@@ -87,6 +88,7 @@ export async function raeumeAuf(): Promise<{
   sitzungen: number;
   token: number;
   zaehler: number;
+  mailfehler: number;
 }> {
   const grenze = new Date(Date.now() - KARENZ_MS);
 
@@ -109,7 +111,54 @@ export async function raeumeAuf(): Promise<{
     .where(lt(rateLimits.windowStart, grenze))
     .returning({ key: rateLimits.key });
 
-  return { sitzungen: s.length, token: t.length, zaehler: z.length };
+  // Vermerkte Fehlversuche beim Mailversand halten 30 Tage. Länger ist es
+  // keine Diagnose mehr, sondern ein Archiv — und Fehlerprotokolle sollen
+  // nicht wachsen, bis sie jemand von Hand leert.
+  const m = await db
+    .delete(mailFailures)
+    .where(lt(mailFailures.createdAt, new Date(Date.now() - MAILFEHLER_TAGE * KARENZ_MS)))
+    .returning({ id: mailFailures.id });
+
+  return { sitzungen: s.length, token: t.length, zaehler: z.length, mailfehler: m.length };
+}
+
+/** So lange bleibt ein vermerkter Fehlversuch stehen. */
+const MAILFEHLER_TAGE = 30;
+
+/**
+ * Gescheiterte Mailversuche der letzten Stunden.
+ *
+ * Der stillste Ausfall im ganzen System: Lehnt der Maildienst ab, läuft alles
+ * andere weiter — die Registrierung meldet Erfolg, nur bekommt niemand mehr
+ * eine Bestätigung, und wer sein Passwort vergisst, bleibt ausgesperrt. Ohne
+ * diese Zahl fiele es erst auf, wenn sich jemand beschwert.
+ */
+export async function mailFehler(stunden = 24): Promise<{
+  anzahl: number;
+  /** Davon in der letzten Stunde — daran hängt, ob es ein Muster ist. */
+  letzteStunde: number;
+  domains: string[];
+  letzterGrund?: string;
+}> {
+  const seit = new Date(Date.now() - stunden * 60 * 60 * 1000);
+  const rows = await db
+    .select({
+      domain: mailFailures.domain,
+      reason: mailFailures.reason,
+      createdAt: mailFailures.createdAt,
+    })
+    .from(mailFailures)
+    .where(gt(mailFailures.createdAt, seit))
+    .orderBy(desc(mailFailures.createdAt))
+    .limit(200);
+
+  const vorEinerStunde = Date.now() - 60 * 60 * 1000;
+  return {
+    anzahl: rows.length,
+    letzteStunde: rows.filter((r) => r.createdAt.getTime() > vorEinerStunde).length,
+    domains: [...new Set(rows.map((r) => r.domain))].slice(0, 5),
+    letzterGrund: rows[0]?.reason,
+  };
 }
 
 /**

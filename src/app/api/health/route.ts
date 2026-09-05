@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { stripeConfigured } from "@/lib/payments";
 import { siteUrlConfigured } from "@/lib/mail";
 import { missingOperatorFields } from "@/lib/operator";
-import { haengendeGelder, offeneRueckbuchungen } from "@/lib/wartung";
+import { haengendeGelder, mailFehler, offeneRueckbuchungen } from "@/lib/wartung";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +70,27 @@ export async function GET(request: Request) {
       : "keines";
   } catch {
     checks.liegengebliebenesGeld = "nicht ermittelbar";
+  }
+
+  // Konfiguriert heisst nicht zugestellt. Ein zurückgezogener Schlüssel oder
+  // eine nicht mehr verifizierte Absenderdomain bricht die Registrierung nicht
+  // sichtbar ab — es kommt bloss nie eine Bestätigung an. Deshalb steht hier
+  // nicht nur, ob der Versand eingerichtet ist, sondern ob er funktioniert.
+  //
+  // Auf «fehler» geht die Prüfung erst bei einem Muster: drei Fehlversuche
+  // innerhalb einer Stunde. Ein einzelner kann eine falsch getippte Adresse
+  // sein, und dafür soll niemand um drei Uhr nachts geweckt werden. Gemeldet
+  // wird trotzdem jeder — nur eben als Angabe, nicht als Alarm.
+  try {
+    const fehler = await mailFehler(24);
+    if (fehler.anzahl > 0) {
+      checks.mailversand =
+        `${checks.mailversand}, aber ${fehler.anzahl} Fehlversuch(e) in 24 h ` +
+        `(zuletzt: ${fehler.letzterGrund}; ${fehler.domains.join(", ")})`;
+      if (fehler.letzteStunde >= 3) healthy = false;
+    }
+  } catch {
+    checks.mailfehler = "nicht ermittelbar";
   }
 
   // Eine offene Rückbuchung hat Stripe bereits vom Plattformkonto abgezogen.

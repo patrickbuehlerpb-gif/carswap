@@ -447,6 +447,32 @@ export const webhookEvents = pgTable("webhook_events", {
   receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Fehlgeschlagene Mailversuche.
+ *
+ * Der Versand ist die stillste Stelle der Anwendung: Lehnt Resend ab — Domain
+ * nicht verifiziert, Schlüssel zurückgezogen, Kontingent aufgebraucht —, läuft
+ * alles andere weiter. Die Registrierung meldet Erfolg, nur bekommt niemand
+ * mehr eine Bestätigung, und wer sein Passwort vergisst, kommt nicht ins Konto.
+ * Bisher stand das ausschliesslich im Server-Log, und der tägliche Lagebericht
+ * kann es nicht melden — er ist ja selbst eine Mail.
+ *
+ * Gespeichert wird die Empfängerdomain, nicht die Adresse: für die Diagnose
+ * («alles an gmail.com scheitert» gegen «alles scheitert») reicht sie, und der
+ * Rest wäre ein Personendatum in einem Fehlerprotokoll.
+ */
+export const mailFailures = pgTable(
+  "mail_failures",
+  {
+    id: text("id").primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    domain: text("domain").notNull(),
+    subject: text("subject").notNull(),
+    reason: text("reason").notNull(),
+  },
+  (t) => [index("mail_failures_created_at_idx").on(t.createdAt)],
+);
+
 export const watchlist = pgTable(
   "watchlist",
   {

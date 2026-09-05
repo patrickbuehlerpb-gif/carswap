@@ -18,7 +18,7 @@ import {
   occasionalCleanup,
 } from "@/lib/auth/session";
 import { consumeToken, issueToken } from "@/lib/auth/tokens";
-import { sendMail, siteUrl } from "@/lib/mail";
+import { mailConfigured, sendMail, siteUrl } from "@/lib/mail";
 import { emailSchema } from "@/lib/validation";
 
 export interface FormState {
@@ -104,7 +104,7 @@ export async function signUpAction(_prev: FormState, formData: FormData): Promis
   }
 
   const token = await issueToken(id, "verify_email");
-  await sendMail({
+  const zustellung = await sendMail({
     to: parsed.data.email,
     subject: "autotauschen: E-Mail-Adresse bestätigen",
     text:
@@ -116,7 +116,12 @@ export async function signUpAction(_prev: FormState, formData: FormData): Promis
   });
 
   await createSession(id, userAgent);
-  redirect("/garage?willkommen=1");
+  // Die Begrüssung sagt sonst «wir haben dir eine E-Mail geschickt» — auch
+  // wenn der Versand gerade abgelehnt hat. Wer dann auf eine Mail wartet, die
+  // nie kommt, hält sein Konto für kaputt. Ohne eingerichteten Versand ist
+  // nichts gescheitert; das ist der lokale Normalfall.
+  const gescheitert = mailConfigured() && !zustellung.delivered;
+  redirect(`/garage?willkommen=1${gescheitert ? "&mail=fehler" : ""}`);
 }
 
 /* ------------------------------------------------------------------ */
@@ -302,10 +307,20 @@ export async function resendVerificationAction(): Promise<FormState> {
   if (!limit.ok) return { error: "Zu viele Anfragen. Bitte später erneut versuchen." };
 
   const token = await issueToken(user.id, "verify_email");
-  await sendMail({
+  const zustellung = await sendMail({
     to: user.email,
     subject: "autotauschen: E-Mail-Adresse bestätigen",
     text: `Bestätige deine E-Mail-Adresse:\n${siteUrl()}/konto/email-bestaetigen?token=${token}\n`,
   });
+  // «Verschickt» zu melden, obwohl der Versand abgelehnt hat, schickt die
+  // Person zum Warten auf etwas, das nicht kommt — und beim nächsten Versuch
+  // steht ihr die Ratenbegrenzung im Weg.
+  if (!zustellung.delivered && mailConfigured()) {
+    return {
+      error:
+        "Die Mail liess sich gerade nicht zustellen. Versuch es später noch einmal — " +
+        "der Fehler ist bei uns vermerkt.",
+    };
+  }
   return { notice: "Bestätigungslink verschickt." };
 }

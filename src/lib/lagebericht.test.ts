@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
-import { deals, listings, payments, reports, ringSwaps } from "@/lib/db/schema";
+import { deals, listings, mailFailures, payments, reports, ringSwaps } from "@/lib/db/schema";
 import { createUser, createVehicle, resetDatabase } from "@/test/fixtures";
 
 const briefe: { to: string; subject: string; text: string }[] = [];
@@ -175,6 +175,34 @@ describe("Lagebericht", () => {
     expect(bericht.grund).toBe("keine Empfängeradresse");
     expect(bericht.punkte).toHaveLength(1);
     expect(briefe).toEqual([]);
+  });
+
+  it("meldet gescheiterte Mails — auch wenn er selbst eine ist", async () => {
+    // Scheitert der Versand nur an einzelnen Domains, kommt dieser Bericht
+    // durch, und dann ist er die einzige Stelle, an der es überhaupt auffällt.
+    await db.insert(mailFailures).values({
+      id: newId("mfl"),
+      domain: "gmx.ch",
+      subject: "autotauschen: E-Mail-Adresse bestätigen",
+      reason: "abgelehnt (422)",
+    });
+
+    const punkte = await sammlePunkte();
+    expect(punkte).toHaveLength(1);
+    expect(punkte[0].kurz).toBe("1 Mail(s) nicht zugestellt");
+    expect(punkte[0].text).toContain("gmx.ch");
+  });
+
+  it("meldet einen Fehlversuch von vorgestern nicht mehr", async () => {
+    await db.insert(mailFailures).values({
+      id: newId("mfl"),
+      createdAt: new Date(Date.now() - 2 * TAG),
+      domain: "gmx.ch",
+      subject: "Betreff",
+      reason: "abgelehnt (422)",
+    });
+
+    expect(await sammlePunkte()).toEqual([]);
   });
 
   it("verschickt beim blossen Sammeln nichts", async () => {

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Badge, Card, SectionHead } from "@/components/ui";
 import { getSessionUser } from "@/lib/auth/session";
 import { betriebsbild, laufendeMitGeld, neuesteKonten, seitTagen } from "@/lib/betrieb";
+import { mailFehler } from "@/lib/wartung";
 import { chf } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Betrieb" };
@@ -21,10 +22,11 @@ export default async function BetriebPage() {
   const me = await getSessionUser();
   if (!me?.isAdmin) notFound();
 
-  const [bild, konten, geldwege] = await Promise.all([
+  const [bild, konten, geldwege, mails] = await Promise.all([
     betriebsbild(),
     neuesteKonten(),
     laufendeMitGeld(),
+    mailFehler(24),
   ]);
 
   const laufendeTausche =
@@ -55,6 +57,25 @@ export default async function BetriebPage() {
             <span className="betrag">{chf(bild.geld.angefochtenMinor / 100)}</span> sind
             zurückgebucht. Der Betrag ist bereits vom Plattformkonto abgezogen. Ohne
             fristgerechte Stellungnahme im Stripe-Dashboard bleibt er weg.
+          </p>
+        </Card>
+      )}
+
+      {/*
+       * Der Mailversand ist die stillste Stelle: Er scheitert, und trotzdem
+       * sieht die Seite völlig normal aus — nur bekommt niemand mehr eine
+       * Bestätigung. Deshalb steht er hier oben bei den Dingen, die Geld
+       * kosten, und nicht unten bei den Zahlen.
+       */}
+      {mails.anzahl > 0 && (
+        <Card className="border-bad/35 bg-bad/8 p-5">
+          <h2 className="text-sm font-semibold text-bad">Mails kommen nicht an</h2>
+          <p className="mt-1 text-sm text-ink-2">
+            {mails.anzahl} Versuch(e) in den letzten 24 Stunden gescheitert, davon{" "}
+            {mails.letzteStunde} in der letzten Stunde. Zuletzt: {mails.letzterGrund}.
+            Betroffene Empfängerdomains: {mails.domains.join(", ")}. Solange das anhält,
+            bekommt niemand eine Bestätigung, und wer sein Passwort vergisst, kommt nicht
+            mehr ins Konto.
           </p>
         </Card>
       )}

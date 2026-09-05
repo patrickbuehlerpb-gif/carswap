@@ -679,10 +679,11 @@ Der Lauf macht vier Dinge und ist beliebig oft wiederholbar:
   Reservierung sofort freigegeben. Scheitert das gerade an Stripe, bleibt sie
   auf der Karte des Nutzers stehen — der Lauf holt es nach und vermerkt einen
   erneuten Fehlschlag, statt ihn zu verschlucken.
-- **Aufräumen.** Abgelaufene Sitzungen, verbrauchte Einmal-Token und alte
-  Zählerstände der Ratenbegrenzung. Verbrauchte Token bleiben einen Tag stehen,
-  damit ein zweiter Klick auf denselben Link «bereits verwendet» meldet und
-  nicht «unbekannt».
+- **Aufräumen.** Abgelaufene Sitzungen, verbrauchte Einmal-Token, alte
+  Zählerstände der Ratenbegrenzung und Vermerke über gescheiterte Mails, die
+  älter als 30 Tage sind. Verbrauchte Token bleiben einen Tag stehen, damit ein
+  zweiter Klick auf denselben Link «bereits verwendet» meldet und nicht
+  «unbekannt».
 - **Liegengebliebenes Geld melden.** Gemessen wird nach dem Nachholen: was dann
   noch eingezogen und nicht weitergeleitet ist, konnte der Lauf nicht heilen.
   Das steht in der Antwort, im Log und unter `/api/health`.
@@ -690,9 +691,47 @@ Der Lauf macht vier Dinge und ist beliebig oft wiederholbar:
   aber nur, wenn etwas zu tun ist: offene Rückbuchungen (die haben eine Frist
   und stehen zuoberst), liegengebliebenes Geld, Abschlüsse, die der Lauf nicht
   durchbrachte, Vorgänge, die seit mehr als drei Tagen mit hinterlegtem Geld
-  warten, und offene Meldungen. Ist alles in Ordnung, kommt nichts. Eine
+  warten, gescheiterte Mailversuche und offene Meldungen. Ist alles in Ordnung,
+  kommt nichts. Eine
   tägliche «alles gut»-Mail liest nach einer Woche niemand mehr — und dann
   geht auch die eine unter, die zählt.
+
+## Wenn keine Mail mehr ankommt
+
+Der Mailversand ist die stillste Stelle der Anwendung. Lehnt Resend ab — Domain
+nicht mehr verifiziert, Schlüssel zurückgezogen, Kontingent aufgebraucht —,
+läuft alles andere weiter: Die Registrierung meldet Erfolg, die Seite sieht
+normal aus, nur bekommt niemand mehr eine Bestätigung, und wer sein Passwort
+vergisst, kommt nicht mehr ins Konto. Bisher stand davon nichts ausser einer
+Zeile im Server-Log, und der Lagebericht kann es nicht melden — er ist selbst
+eine Mail.
+
+Jetzt hinterlässt jeder Fehlversuch eine Zeile in `mail_failures`: Zeitpunkt,
+Empfängerdomain, Betreff, Grund. Die **Domain** und nicht die Adresse, weil für
+die Diagnose nur der Unterschied zwischen «alles an gmx.ch scheitert» und
+«alles scheitert» zählt; die volle Adresse wäre ein Personendatum in einem
+Fehlerprotokoll. Vermerkt wird nur der eingerichtete Fall — ein fehlender
+Schlüssel ist kein Fehlversuch, sondern der lokale Normalzustand, und den
+melden `npm run preflight` und `/api/health` ohnehin.
+
+Gelesen wird das an drei Stellen:
+
+- **`/admin/betrieb`** zeigt den Kasten ganz oben, bei den Dingen, die Geld
+  kosten.
+- **`/api/health`** nennt die Zahl bei `mailversand`. Auf `fehler` — also 503 —
+  geht die Prüfung erst bei einem Muster: drei Fehlversuche innerhalb einer
+  Stunde. Ein einzelner kann eine falsch getippte Adresse sein, und dafür soll
+  niemand nachts geweckt werden.
+- **Der Lagebericht** nimmt es als Punkt auf. Scheitert der Versand nur an
+  einzelnen Domains, kommt der Bericht durch — und ist dann die einzige Stelle,
+  an der es überhaupt auffällt.
+
+Dazu die andere Hälfte: Wer auf eine Mail an die eigene Adresse wartet, bekommt
+jetzt die Wahrheit gesagt. «Bestätigungslink verschickt» stand vorher auch da,
+wenn der Versand abgelehnt hatte — die Person wartete dann auf etwas, das nie
+kam, und beim nächsten Versuch stand ihr die Ratenbegrenzung im Weg. Das gilt
+für den erneuten Bestätigungslink, den Adresswechsel und die Begrüssung nach
+der Registrierung.
 
 ## Was die Rechtsseiten sagen
 

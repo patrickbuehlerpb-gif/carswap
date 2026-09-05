@@ -52,12 +52,56 @@ export async function sendMail(mail: Mail): Promise<{ delivered: boolean; reason
     if (!res.ok) {
       const detail = await res.text();
       console.error("[mail] Resend hat abgelehnt:", res.status, detail.slice(0, 400));
+      await vermerkeFehler(mail, `abgelehnt (${res.status})`);
       return { delivered: false, reason: `Mailversand fehlgeschlagen (${res.status})` };
     }
     return { delivered: true };
   } catch (err) {
     console.error("[mail] Netzwerkfehler:", err);
+    await vermerkeFehler(mail, "nicht erreichbar");
     return { delivered: false, reason: "Mailserver nicht erreichbar" };
+  }
+}
+
+/**
+ * Hält einen gescheiterten Versuch fest, damit ihn jemand sieht.
+ *
+ * Das Server-Log allein reicht hier nicht: Wenn der Versand klemmt, meldet die
+ * Registrierung weiterhin Erfolg, nur kommt nie eine Bestätigung an — und der
+ * tägliche Lagebericht kann es nicht melden, weil er selbst eine Mail ist.
+ * Gelesen wird die Tabelle von /api/health, der Betriebsübersicht und dem
+ * Lagebericht.
+ *
+ * Nur der konfigurierte Fall kommt hierher. Ein fehlender Schlüssel ist kein
+ * Fehlversuch, sondern ein Einrichtungszustand — den melden preflight und
+ * /api/health längst, und lokal wäre jede Mail ein Eintrag.
+ *
+ * Gespeichert wird die Domain, nicht die Adresse: «alles an gmail.com
+ * scheitert» gegen «alles scheitert» ist der Unterschied, auf den es bei der
+ * Diagnose ankommt. Die volle Adresse wäre ein Personendatum in einem
+ * Fehlerprotokoll, das niemand braucht.
+ *
+ * Die Importe stehen absichtlich in der Funktion: `siteUrl()` aus dieser Datei
+ * braucht auch die Sitemap, und die soll nicht bei jedem Aufruf den
+ * Datenbanktreiber mitladen.
+ *
+ * Scheitert das Schreiben selbst, bleibt es beim Log. Ein Fehler beim
+ * Vermerken eines Fehlers darf den Aufrufer nicht umwerfen — sonst bricht die
+ * Registrierung ausgerechnet dann ab, wenn ohnehin schon etwas klemmt.
+ */
+async function vermerkeFehler(mail: Mail, grund: string): Promise<void> {
+  try {
+    const { db } = await import("./db");
+    const { mailFailures } = await import("./db/schema");
+    const { newId } = await import("./db/ids");
+    await db.insert(mailFailures).values({
+      id: newId("mfl"),
+      domain: mail.to.split("@").pop()?.toLowerCase() ?? "unbekannt",
+      subject: mail.subject.slice(0, 200),
+      reason: grund,
+    });
+  } catch (err) {
+    console.error("[mail] Fehlversuch liess sich nicht vermerken:", err);
   }
 }
 

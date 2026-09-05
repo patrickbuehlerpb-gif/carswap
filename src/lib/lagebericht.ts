@@ -4,7 +4,7 @@ import { db } from "./db";
 import { deals, payments, reports, ringSwaps } from "./db/schema";
 import { sendMail, siteUrl } from "./mail";
 import { operator } from "./operator";
-import type { NachgeholteAbschluesse } from "./wartung";
+import { mailFehler, type NachgeholteAbschluesse } from "./wartung";
 
 /**
  * Der tägliche Blick auf den Betrieb — als Mail statt als Seite, die jemand
@@ -126,7 +126,23 @@ export async function sammlePunkte(abschluesse?: NachgeholteAbschluesse): Promis
     });
   }
 
-  // 5. Gemeldete Inserate, die niemand angesehen hat.
+  // 5. Gescheiterter Mailversand. Steht bewusst in diesem Bericht, obwohl er
+  //    selbst eine Mail ist: Scheitert der Versand nur an einzelnen Domains,
+  //    kommt die Meldung durch — und dann ist sie die einzige Chance, es
+  //    überhaupt zu erfahren. Scheitert er ganz, meldet /api/health es.
+  const mails = await mailFehler(24);
+  if (mails.anzahl > 0) {
+    punkte.push({
+      kurz: `${mails.anzahl} Mail(s) nicht zugestellt`,
+      text:
+        `${mails.anzahl} Mailversuch(e) sind in den letzten 24 Stunden gescheitert ` +
+        `(zuletzt: ${mails.letzterGrund}; betroffen: ${mails.domains.join(", ")}). ` +
+        "Solange das anhält, bekommt niemand eine Bestätigung, und wer sein Passwort " +
+        "vergisst, kommt nicht mehr ins Konto.",
+    });
+  }
+
+  // 6. Gemeldete Inserate, die niemand angesehen hat.
   const [meldungen] = await db
     .select({ n: raw<number>`count(*)::int` })
     .from(reports)

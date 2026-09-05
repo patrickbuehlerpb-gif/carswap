@@ -192,7 +192,7 @@ describe("Aufräumen", () => {
     ]);
 
     const ergebnis = await raeumeAuf();
-    expect(ergebnis).toEqual({ sitzungen: 1, token: 2, zaehler: 1 });
+    expect(ergebnis).toEqual({ sitzungen: 1, token: 2, zaehler: 1, mailfehler: 0 });
 
     expect(await db.select().from(sessions)).toHaveLength(1);
     expect(await db.select().from(authTokens)).toHaveLength(1);

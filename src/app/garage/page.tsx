@@ -24,11 +24,11 @@ export const dynamic = "force-dynamic";
 export default async function GaragePage({
   searchParams,
 }: {
-  searchParams: Promise<{ willkommen?: string }>;
+  searchParams: Promise<{ willkommen?: string; mail?: string }>;
 }) {
   const me = await getSessionUser();
   if (!me) redirect("/konto/anmelden?next=/garage");
-  const { willkommen } = await searchParams;
+  const { willkommen, mail } = await searchParams;
 
   const asOf = currentMonth();
   const [myVehicles, myListings, watchlist, pool, profile] = await Promise.all([
@@ -65,7 +65,9 @@ export default async function GaragePage({
           <h2 className="text-base font-semibold text-ink">Willkommen bei autotauschen</h2>
           <p className="mt-1 text-sm text-ink-2">
             Stell als Nächstes dein Auto ein. Dann suchen wir passende Tauschpartner für dich.
-            Wir haben dir ausserdem eine E-Mail geschickt, um deine Adresse zu bestätigen.
+            {mail === "fehler"
+              ? " Die Mail zum Bestätigen deiner Adresse liess sich gerade nicht zustellen — der Fehler ist bei uns vermerkt. Du kannst sie unten neu anfordern."
+              : " Wir haben dir ausserdem eine E-Mail geschickt, um deine Adresse zu bestätigen."}
           </p>
         </Card>
       )}
