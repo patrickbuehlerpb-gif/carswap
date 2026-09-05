@@ -95,6 +95,7 @@ vi.mock("@/lib/auth/session", async () => {
     return {
       id: u.id,
       email: u.email,
+      pendingEmail: u.pendingEmail,
       name: u.name,
       location: u.location,
       canton: u.canton,
@@ -117,7 +118,21 @@ vi.mock("@/lib/auth/session", async () => {
     },
     createSession: async () => {},
     destroySession: async () => {},
-    destroyAllSessions: async () => {},
+    // Kein Platzhalter: die Aktionen versprechen, dass ein Passwortwechsel
+    // die anderen Geräte abmeldet. Das lässt sich nur prüfen, wenn die
+    // Zeilen im Test tatsächlich verschwinden.
+    async destroyAllSessions(userId: string) {
+      const { sessions } = await import("@/lib/db/schema");
+      await db.delete(sessions).where(eq(sessions.userId, userId));
+    },
+    // Im Test gibt es kein Cookie, das eine Sitzung als «diese hier»
+    // ausweisen könnte — dann trifft es alle. Dass die eigene stehen bleibt,
+    // prüft der Browserlauf in e2e/konto.spec.ts.
+    async destroyOtherSessions(userId: string) {
+      const { sessions } = await import("@/lib/db/schema");
+      const res = await db.delete(sessions).where(eq(sessions.userId, userId));
+      return res.count ?? 0;
+    },
     // Das gelegentliche Aufräumen ist zufallsgesteuert und hätte im Test
     // nichts zu suchen.
     occasionalCleanup: async () => {},

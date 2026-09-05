@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { DealDetail } from "@/components/deal-detail";
+import { KontaktKarte } from "@/components/kontakt-karte";
 import { SectionHead } from "@/components/ui";
 import { getSessionUser } from "@/lib/auth/session";
-import { getDealForUser, getMyReviewForDeal } from "@/lib/queries";
+import { getDealKontakte, getDealForUser, getMyReviewForDeal } from "@/lib/queries";
 import { db } from "@/lib/db";
 import { payments } from "@/lib/db/schema";
 import { desc, eq } from "drizzle-orm";
@@ -32,6 +33,7 @@ export default async function DealPage({
 
   const meineBewertung =
     detail.deal.status === "abgeschlossen" ? await getMyReviewForDeal(id, me.id) : null;
+  const kontakte = await getDealKontakte(id, me.id);
 
   const [payment] = await db
     .select({
@@ -78,6 +80,7 @@ export default async function DealPage({
         }
         asOf={currentMonth()}
       />
+      <KontaktKarte kontakte={kontakte} />
     </div>
   );
 }

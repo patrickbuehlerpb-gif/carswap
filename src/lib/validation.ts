@@ -7,6 +7,19 @@ export const DRIVETRAINS = ["heck", "front", "allrad"] as const;
 export const CONDITIONS = ["neuwertig", "sehr gut", "gut", "gebraucht"] as const;
 export const SERVICE_HISTORIES = ["lückenlos scheckheft", "teilweise", "keine"] as const;
 
+/**
+ * E-Mail-Adressen. Steht hier statt bei den Anmeldeaktionen, weil sowohl die
+ * Registrierung als auch der spätere Adresswechsel dieselbe Prüfung brauchen —
+ * und «use server»-Dateien nichts ausser Funktionen exportieren dürfen.
+ */
+export const emailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(3, "Bitte eine gültige E-Mail-Adresse angeben.")
+  .max(254)
+  .email("Bitte eine gültige E-Mail-Adresse angeben.");
+
 /** Erstzulassung als Monat, nicht in der Zukunft und nicht vor 1980. */
 const monthSchema = z
   .string()

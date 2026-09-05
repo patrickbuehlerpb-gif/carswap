@@ -2,7 +2,7 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { cache } from "react";
-import { and, eq, gt, lt } from "drizzle-orm";
+import { and, eq, gt, lt, ne } from "drizzle-orm";
 import { db } from "../db";
 import { newId } from "../db/ids";
 import { authTokens, sessions, users, type UserRow } from "../db/schema";
@@ -45,6 +45,8 @@ export async function createSession(userId: string, userAgent?: string): Promise
 export interface SessionUser {
   id: string;
   email: string;
+  /** Angefragte neue Adresse, solange der Link dort nicht bestätigt ist. */
+  pendingEmail: string | null;
   name: string;
   location: string;
   canton: string;
@@ -65,6 +67,7 @@ function toSessionUser(u: UserRow): SessionUser {
   return {
     id: u.id,
     email: u.email,
+    pendingEmail: u.pendingEmail,
     name: u.name,
     location: u.location,
     canton: u.canton,
@@ -129,9 +132,31 @@ export async function destroySession(): Promise<void> {
   store.delete(COOKIE);
 }
 
-/** Meldet alle Geräte ab — z.B. nach einem Passwortwechsel. */
+/** Meldet alle Geräte ab — z.B. nachdem ein Passwort zurückgesetzt wurde. */
 export async function destroyAllSessions(userId: string): Promise<void> {
   await db.delete(sessions).where(eq(sessions.userId, userId));
+}
+
+/**
+ * Meldet alle anderen Geräte ab; dieses eine bleibt angemeldet.
+ *
+ * Bewusst so herum, statt alles zu löschen und sofort eine neue Sitzung
+ * anzulegen: eine neue Sitzung hiesse ein neues Cookie, und um dasselbe
+ * Cookie kümmert sich in derselben Antwort schon die Middleware. Wessen
+ * `Set-Cookie` am Ende gewinnt, ist nicht verlässlich — hier gibt es gar
+ * nichts erst zu gewinnen.
+ */
+export async function destroyOtherSessions(userId: string): Promise<number> {
+  const store = await cookies();
+  const token = store.get(COOKIE)?.value;
+  const res = await db
+    .delete(sessions)
+    .where(
+      token
+        ? and(eq(sessions.userId, userId), ne(sessions.tokenHash, hashToken(token)))
+        : eq(sessions.userId, userId),
+    );
+  return res.count ?? 0;
 }
 
 /** Räumt abgelaufene Sitzungen auf. Wird vom Health-Check angestossen. */

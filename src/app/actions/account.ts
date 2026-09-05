@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, inArray, ne, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
@@ -18,7 +18,11 @@ import {
   vehicles,
   watchlist,
 } from "@/lib/db/schema";
-import { destroySession, requireUser } from "@/lib/auth/session";
+import { destroyOtherSessions, destroySession, requireUser } from "@/lib/auth/session";
+import { hashPassword, passwordProblem, verifyPassword } from "@/lib/auth/password";
+import { consumeToken, issueToken } from "@/lib/auth/tokens";
+import { sendMail, siteUrl } from "@/lib/mail";
+import { emailSchema } from "@/lib/validation";
 import { deleteBlobs } from "@/lib/blob";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
 import {
@@ -113,6 +117,224 @@ export async function refreshPayoutStatusAction(): Promise<AccountResult> {
     console.error("Statusabfrage fehlgeschlagen:", err);
     return { error: "Der Status konnte nicht abgefragt werden." };
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Passwort und E-Mail-Adresse ändern                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Liest den gespeicherten Hash und prüft das eingetippte Passwort.
+ *
+ * Beide Änderungen unten verlangen es. Eine Sitzung allein reicht nicht: wer
+ * ein offenes Notebook erwischt, könnte sonst in zwei Klicks das Passwort
+ * setzen oder die Adresse umhängen und damit das Konto endgültig übernehmen.
+ */
+async function passwortStimmt(userId: string, eingabe: string): Promise<boolean> {
+  const [row] = await db
+    .select({ passwordHash: users.passwordHash })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!row) return false;
+  return verifyPassword(eingabe, row.passwordHash);
+}
+
+export async function changePasswordAction(
+  _prev: AccountResult,
+  formData: FormData,
+): Promise<AccountResult> {
+  const me = await requireUser();
+
+  const limit = await checkRateLimit(`pwchange:${me.id}`, 10, 60 * 60);
+  if (!limit.ok) return { error: "Zu viele Versuche. Bitte später erneut." };
+
+  const aktuell = String(formData.get("current") ?? "");
+  const neu = String(formData.get("password") ?? "");
+  const wiederholung = String(formData.get("repeat") ?? "");
+
+  if (!(await passwortStimmt(me.id, aktuell))) {
+    return { error: "Das aktuelle Passwort stimmt nicht." };
+  }
+  const problem = passwordProblem(neu);
+  if (problem) return { error: problem };
+  if (neu !== wiederholung) return { error: "Die beiden neuen Passwörter stimmen nicht überein." };
+  if (neu === aktuell) return { error: "Das neue Passwort ist dasselbe wie das alte." };
+
+  await db
+    .update(users)
+    .set({ passwordHash: await hashPassword(neu), updatedAt: new Date() })
+    .where(eq(users.id, me.id));
+
+  // Wer das Passwort wechselt, will die anderen Sitzungen loswerden — sich
+  // dabei selbst hinauszuwerfen wäre aber nur lästig.
+  await destroyOtherSessions(me.id);
+
+  await sendMail({
+    to: me.email,
+    subject: "quitt: Passwort geändert",
+    text:
+      `Hallo ${me.name}\n\n` +
+      "Das Passwort deines Kontos wurde soeben geändert, und alle anderen Geräte " +
+      "wurden abgemeldet.\n\n" +
+      "Warst du das nicht, setze das Passwort sofort neu:\n" +
+      `${siteUrl()}/konto/passwort-vergessen\n`,
+  });
+
+  revalidatePath("/konto");
+  return { notice: "Passwort geändert. Alle anderen Geräte sind abgemeldet." };
+}
+
+/**
+ * Startet den Adresswechsel. Umgehängt wird erst, wenn der Link an der NEUEN
+ * Adresse angeklickt wurde — bis dahin bleibt alles wie es ist.
+ */
+export async function requestEmailChangeAction(
+  _prev: AccountResult,
+  formData: FormData,
+): Promise<AccountResult> {
+  const me = await requireUser();
+
+  const limit = await checkRateLimit(`mailchange:${me.id}`, 5, 60 * 60);
+  if (!limit.ok) return { error: "Zu viele Versuche. Bitte später erneut." };
+
+  const parsed = emailSchema.safeParse(formData.get("email"));
+  if (!parsed.success) return { error: "Bitte eine gültige E-Mail-Adresse angeben." };
+  const neueAdresse = parsed.data;
+  const passwort = String(formData.get("current") ?? "");
+
+  if (!(await passwortStimmt(me.id, passwort))) {
+    return { error: "Das Passwort stimmt nicht." };
+  }
+  if (neueAdresse === me.email) {
+    return { error: "Das ist bereits deine Adresse." };
+  }
+
+  // Vergeben? Dann gleich sagen. Die Registrierung verrät dasselbe, ein
+  // schweigendes «Link unterwegs» würde hier nur ratlos machen.
+  const [belegt] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.email, neueAdresse), ne(users.id, me.id)))
+    .limit(1);
+  if (belegt) return { error: "Diese Adresse gehört bereits zu einem Konto." };
+
+  await db
+    .update(users)
+    .set({ pendingEmail: neueAdresse, updatedAt: new Date() })
+    .where(eq(users.id, me.id));
+
+  const token = await issueToken(me.id, "change_email");
+  await sendMail({
+    to: neueAdresse,
+    subject: "quitt: neue E-Mail-Adresse bestätigen",
+    text:
+      `Hallo ${me.name}\n\n` +
+      "Diese Adresse soll künftig zu deinem quitt-Konto gehören. Bestätige sie hier:\n" +
+      `${siteUrl()}/konto/email-aendern?token=${token}\n\n` +
+      "Der Link ist 24 Stunden gültig. Bis dahin bleibt deine bisherige Adresse in Kraft.\n",
+  });
+
+  // Die bisherige Adresse erfährt davon — sie ist die einzige Stelle, an der
+  // ein unbemerkter Wechsel noch auffallen kann.
+  await sendMail({
+    to: me.email,
+    subject: "quitt: Wechsel der E-Mail-Adresse angefragt",
+    text:
+      `Hallo ${me.name}\n\n` +
+      `Für dein Konto wurde ${neueAdresse} als neue Adresse angefragt. Solange der ` +
+      "Link dort nicht bestätigt ist, ändert sich nichts.\n\n" +
+      "Warst du das nicht, ändere sofort dein Passwort:\n" +
+      `${siteUrl()}/konto/passwort-vergessen\n`,
+  });
+
+  revalidatePath("/konto");
+  return {
+    notice: `Wir haben einen Bestätigungslink an ${neueAdresse} geschickt. Bis du ihn anklickst, bleibt deine bisherige Adresse gültig.`,
+  };
+}
+
+/** Nimmt einen angefragten Adresswechsel zurück. */
+export async function cancelEmailChangeAction(): Promise<AccountResult> {
+  const me = await requireUser();
+  await db
+    .update(users)
+    .set({ pendingEmail: null, updatedAt: new Date() })
+    .where(eq(users.id, me.id));
+  await db
+    .update(authTokens)
+    .set({ usedAt: new Date() })
+    .where(
+      and(
+        eq(authTokens.userId, me.id),
+        eq(authTokens.purpose, "change_email"),
+        isNull(authTokens.usedAt),
+      ),
+    );
+  revalidatePath("/konto");
+  return { notice: "Der Wechsel wurde abgebrochen." };
+}
+
+/**
+ * Löst den Link aus der Bestätigungsmail ein.
+ *
+ * Wird von der Seite /konto/email-aendern aufgerufen, auch ohne Anmeldung:
+ * der Link liegt im Postfach der neuen Adresse, und das ist genau der Nachweis,
+ * auf den es hier ankommt.
+ */
+export async function confirmEmailChange(token: string): Promise<
+  { ok: true; email: string } | { ok: false; grund: "ungueltig" | "belegt" }
+> {
+  const userId = await consumeToken(token, "change_email");
+  if (!userId) return { ok: false, grund: "ungueltig" };
+
+  const [konto] = await db
+    .select({ pendingEmail: users.pendingEmail, name: users.name, email: users.email })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!konto?.pendingEmail) return { ok: false, grund: "ungueltig" };
+
+  // Zwischen Anfrage und Klick kann sich jemand anders mit der Adresse
+  // registriert haben. Der eindeutige Index entscheidet, nicht ein SELECT
+  // von vorhin.
+  let umgehaengt: { email: string }[];
+  try {
+    umgehaengt = await db
+      .update(users)
+      .set({
+        email: konto.pendingEmail,
+        pendingEmail: null,
+        // Die Adresse ist durch den Klick belegt — ein zweiter
+        // Bestätigungslauf wäre eine Schikane.
+        emailVerifiedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning({ email: users.email });
+  } catch {
+    umgehaengt = [];
+  }
+
+  if (!umgehaengt.length) {
+    await db
+      .update(users)
+      .set({ pendingEmail: null, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+    return { ok: false, grund: "belegt" };
+  }
+
+  await sendMail({
+    to: konto.email,
+    subject: "quitt: E-Mail-Adresse geändert",
+    text:
+      `Hallo ${konto.name}\n\n` +
+      `Dein Konto läuft jetzt auf ${konto.pendingEmail}. An diese bisherige Adresse ` +
+      "schicken wir nichts mehr.\n\n" +
+      "Warst du das nicht, melde dich sofort beim Support.\n",
+  });
+
+  return { ok: true, email: umgehaengt[0].email };
 }
 
 /* ------------------------------------------------------------------ */
@@ -409,6 +631,7 @@ export async function deleteAccountAction(
           // Die Adresse muss eindeutig bleiben (Unique-Index) und darf sich
           // nicht mehr zum Anmelden eignen.
           email: `geloescht+${me.id}@invalid`,
+          pendingEmail: null,
           name: "Gelöschtes Konto",
           location: "",
           canton: "",

@@ -356,6 +356,86 @@ export async function getDealForUser(dealId: string, userId: string): Promise<De
 }
 
 /* ------------------------------------------------------------------ */
+/* Kontaktdaten der Gegenseite                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Ab diesen Zuständen ist der Tausch verbindlich. Vorher — solange nur
+ * verhandelt wird — bleibt die Telefonnummer unter Verschluss: sonst reichte
+ * ein unverbindlicher Vorschlag, um an die Nummer jedes Inserenten zu kommen.
+ */
+const VERBINDLICH = ["angenommen", "treuhand", "abwicklung", "abgeschlossen"] as const;
+
+export interface Kontakt {
+  userId: string;
+  name: string;
+  phone: string;
+}
+
+/**
+ * Die Telefonnummern der Gegenseite eines zugesagten Tauschs.
+ *
+ * Für die Übergabe brauchen die beiden einen Weg aneinander, der nicht durch
+ * die Anwendung läuft — ein Auto wechselt nicht über ein Nachrichtenfeld den
+ * Besitzer. Genau das steht auch beim Eingabefeld im Konto; ohne diese Stelle
+ * wäre es ein leeres Versprechen.
+ */
+export async function getDealKontakte(dealId: string, userId: string): Promise<Kontakt[]> {
+  const [row] = await db
+    .select({
+      status: deals.status,
+      initiatorId: deals.initiatorId,
+      counterpartyId: deals.counterpartyId,
+    })
+    .from(deals)
+    .where(
+      and(
+        eq(deals.id, dealId),
+        or(eq(deals.initiatorId, userId), eq(deals.counterpartyId, userId)),
+      ),
+    )
+    .limit(1);
+  if (!row) return [];
+  if (!VERBINDLICH.includes(row.status as (typeof VERBINDLICH)[number])) return [];
+
+  const gegenueber = row.initiatorId === userId ? row.counterpartyId : row.initiatorId;
+  return kontakteVon([gegenueber]);
+}
+
+/** Dasselbe für den Ringtausch: die beiden anderen Beteiligten. */
+export async function getRingKontakte(ringId: string, userId: string): Promise<Kontakt[]> {
+  const [ring] = await db
+    .select({ status: ringSwaps.status })
+    .from(ringSwaps)
+    .where(eq(ringSwaps.id, ringId))
+    .limit(1);
+  if (!ring) return [];
+  if (!VERBINDLICH.includes(ring.status as (typeof VERBINDLICH)[number])) return [];
+
+  const beine = await db
+    .select({ userId: ringLegs.userId })
+    .from(ringLegs)
+    .where(eq(ringLegs.ringId, ringId));
+  // Wer nicht mitmacht, bekommt nichts zu sehen.
+  if (!beine.some((b) => b.userId === userId)) return [];
+
+  return kontakteVon(beine.map((b) => b.userId).filter((id) => id !== userId));
+}
+
+async function kontakteVon(userIds: string[]): Promise<Kontakt[]> {
+  if (!userIds.length) return [];
+  const rows = await db
+    .select({ id: users.id, name: users.name, phone: users.phone })
+    .from(users)
+    .where(inArray(users.id, userIds));
+  // Ohne hinterlegte Nummer gibt es nichts anzuzeigen — dann bleibt der
+  // Verlauf der einzige Weg.
+  return rows
+    .filter((r) => r.phone?.trim())
+    .map((r) => ({ userId: r.id, name: r.name, phone: r.phone!.trim() }));
+}
+
+/* ------------------------------------------------------------------ */
 /* Merkliste                                                           */
 /* ------------------------------------------------------------------ */
 

@@ -64,6 +64,13 @@
       "when": 1788591802801,
       "tag": "0008_avatarfarbe",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788596082504,
+      "tag": "0009_adresswechsel",
+      "breakpoints": true
     }
   ]
 }

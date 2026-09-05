@@ -28,6 +28,13 @@ export function middleware(request: NextRequest) {
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("content-security-policy", csp);
 
+  // Nur bei Seitenaufrufen. Eine Server Action kommt als POST und setzt das
+  // Cookie unter Umständen selbst — beim Anmelden neu, beim Abmelden weg.
+  // Schriebe die Middleware in dieselbe Antwort den alten Wert zurück,
+  // stünden dort zwei widersprüchliche `Set-Cookie`, und welches am Ende
+  // gilt, wäre Glückssache.
+  if (request.method !== "GET") return response;
+
   const token = request.cookies.get(COOKIE)?.value;
   if (!token) return response;
 

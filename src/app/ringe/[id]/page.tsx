@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { RingDetail } from "@/components/ring-detail";
+import { KontaktKarte } from "@/components/kontakt-karte";
 import { SectionHead } from "@/components/ui";
 import { getSessionUser } from "@/lib/auth/session";
-import { getMyRingReviews, getRingForUser } from "@/lib/queries";
+import { getMyRingReviews, getRingForUser, getRingKontakte } from "@/lib/queries";
 import { platformFee, stripeConfigured } from "@/lib/payments";
 import { ringTransfers } from "@/lib/rings";
 
@@ -34,6 +35,8 @@ export default async function RingPage({
     ring.status === "abgeschlossen"
       ? Object.fromEntries(await getMyRingReviews(id, me.id))
       : {};
+
+  const kontakte = await getRingKontakte(id, me.id);
 
   const gebuehren: Record<string, number> = {};
   for (const t of ringTransfers(
@@ -71,6 +74,7 @@ export default async function RingPage({
               : null
         }
       />
+      <KontaktKarte kontakte={kontakte} />
     </div>
   );
 }

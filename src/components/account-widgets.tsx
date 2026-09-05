@@ -4,9 +4,12 @@ import { useActionState, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { resendVerificationAction } from "@/app/actions/auth";
 import {
+  cancelEmailChangeAction,
+  changePasswordAction,
   deleteAccountAction,
   exportMyDataAction,
   refreshPayoutStatusAction,
+  requestEmailChangeAction,
   startPayoutOnboardingAction,
   updateProfileAction,
 } from "@/app/actions/account";
@@ -64,13 +67,11 @@ export function AccountForm({
   location,
   canton,
   phone,
-  email,
 }: {
   name: string;
   location: string;
   canton: string;
   phone: string;
-  email: string;
 }) {
   const [state, action] = useActionState(updateProfileAction, {});
 
@@ -117,15 +118,189 @@ export function AccountForm({
         </span>
       </label>
 
-      <label className="block">
-        <span className="mb-1.5 block text-sm font-medium text-ink">E-Mail</span>
-        <input value={email} disabled className={`${input} opacity-60`} />
-      </label>
-
       <SaveButton />
     </form>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Sicherheit: Passwort und E-Mail-Adresse                             */
+/* ------------------------------------------------------------------ */
+
+function Meldung({ state }: { state: { error?: string; notice?: string } }) {
+  if (state.error) {
+    return (
+      <p role="alert" className="rounded-lg border border-bad/35 bg-bad/12 p-3 text-sm text-bad">
+        {state.error}
+      </p>
+    );
+  }
+  if (state.notice) {
+    return (
+      <p role="status" className="rounded-lg border border-good/35 bg-good/12 p-3 text-sm text-good">
+        {state.notice}
+      </p>
+    );
+  }
+  return null;
+}
+
+function Absenden({ label, laeuft }: { label: string; laeuft: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="rounded-lg bg-marke px-5 py-2 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi disabled:opacity-60"
+    >
+      {pending ? laeuft : label}
+    </button>
+  );
+}
+
+/**
+ * Ein aufklappbarer Block. Passwort und Adresse ändert man selten — offen
+ * stehende Formulare dafür machen die Kontoseite nur unübersichtlich.
+ */
+function Aufklapper({
+  titel,
+  knopf,
+  children,
+}: {
+  titel: string;
+  knopf: string;
+  children: React.ReactNode;
+}) {
+  const [offen, setOffen] = useState(false);
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-4">
+        <span className="text-ink-3">{titel}</span>
+        <button
+          type="button"
+          onClick={() => setOffen((v) => !v)}
+          aria-expanded={offen}
+          className="text-marke hover:underline"
+        >
+          {offen ? "Abbrechen" : knopf}
+        </button>
+      </div>
+      {offen && <div className="mt-4">{children}</div>}
+    </div>
+  );
+}
+
+export function PasswortAendern() {
+  const [state, action] = useActionState(changePasswordAction, {});
+
+  return (
+    <Aufklapper titel="Passwort" knopf="Ändern">
+      <form action={action} className="space-y-3">
+        <Meldung state={state} />
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-medium text-ink">Aktuelles Passwort</span>
+          <input
+            type="password"
+            name="current"
+            required
+            autoComplete="current-password"
+            className={input}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-medium text-ink">Neues Passwort</span>
+          <input
+            type="password"
+            name="password"
+            required
+            minLength={10}
+            autoComplete="new-password"
+            className={input}
+          />
+          <span className="mt-1 block text-xs text-ink-3">Mindestens 10 Zeichen.</span>
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-medium text-ink">Neues Passwort wiederholen</span>
+          <input
+            type="password"
+            name="repeat"
+            required
+            minLength={10}
+            autoComplete="new-password"
+            className={input}
+          />
+        </label>
+        <p className="text-xs text-ink-3">
+          Danach sind alle anderen Geräte abgemeldet. Auf diesem bleibst du angemeldet.
+        </p>
+        <Absenden label="Passwort ändern" laeuft="Wird geändert …" />
+      </form>
+    </Aufklapper>
+  );
+}
+
+export function EmailAendern({ offeneAdresse }: { offeneAdresse: string | null }) {
+  const [state, action] = useActionState(requestEmailChangeAction, {});
+  const [pending, start] = useTransition();
+  const [abbruch, setAbbruch] = useState<string | null>(null);
+
+  if (offeneAdresse && !abbruch) {
+    return (
+      <div className="rounded-lg border border-warn/35 bg-warn/12 p-3">
+        <p className="text-sm text-ink-2">
+          Wechsel zu <span className="font-medium text-ink">{offeneAdresse}</span> angefragt. Er gilt
+          erst, wenn du den Link in dieser Mailbox anklickst.
+        </p>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              const res = await cancelEmailChangeAction();
+              setAbbruch(res.notice ?? "Der Wechsel wurde abgebrochen.");
+            })
+          }
+          className="mt-2 text-sm text-marke hover:underline disabled:opacity-60"
+        >
+          {pending ? "Wird abgebrochen …" : "Wechsel abbrechen"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <Aufklapper titel="Adresse wechseln" knopf="Ändern">
+      <form action={action} className="space-y-3">
+        {abbruch && !state.error && !state.notice && (
+          <p role="status" className="rounded-lg border border-line bg-surface-2 p-3 text-sm text-ink-2">
+            {abbruch}
+          </p>
+        )}
+        <Meldung state={state} />
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-medium text-ink">Neue E-Mail-Adresse</span>
+          <input type="email" name="email" required autoComplete="email" className={input} />
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-medium text-ink">Dein Passwort</span>
+          <input
+            type="password"
+            name="current"
+            required
+            autoComplete="current-password"
+            className={input}
+          />
+        </label>
+        <p className="text-xs text-ink-3">
+          Wir schicken einen Link an die neue Adresse. Bis du ihn anklickst, bleibt die alte gültig.
+        </p>
+        <Absenden label="Link schicken" laeuft="Wird geschickt …" />
+      </form>
+    </Aufklapper>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 
 export function PayoutSetup({
   enabled,

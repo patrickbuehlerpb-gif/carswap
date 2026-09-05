@@ -57,7 +57,9 @@ export default function DatenschutzPage() {
       <H2>E-Mails</H2>
       <p>
         Wir schreiben dir, um deine Adresse zu bestätigen, dein Passwort zurückzusetzen und wenn
-        sich bei einem deiner Tausche etwas tut. Werbung bekommst du von uns nicht.
+        sich bei einem deiner Tausche etwas tut. Ändert jemand Passwort oder Adresse deines Kontos,
+        sagen wir dir das ebenfalls — auch an die bisherige Adresse. Werbung bekommst du von uns
+        nicht.
       </p>
 
       <H2>Deine Rechte</H2>

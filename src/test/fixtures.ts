@@ -2,6 +2,7 @@ import { sql as raw } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { listings, users, vehicles } from "@/lib/db/schema";
+import { hashPassword } from "@/lib/auth/password";
 import { testSession } from "./setup";
 
 /** Setzt den angemeldeten Nutzer für die folgenden Aktionsaufrufe. */
@@ -20,14 +21,22 @@ export async function resetDatabase(): Promise<void> {
 
 export async function createUser(
   name: string,
-  extra: { stripeAccountId?: string; stripePayoutsEnabled?: boolean } = {},
+  extra: {
+    stripeAccountId?: string;
+    stripePayoutsEnabled?: boolean;
+    /** Echtes Passwort — nur nötig, wo eine Aktion es nachprüft. */
+    password?: string;
+    email?: string;
+  } = {},
 ): Promise<string> {
   const id = newId("usr");
   await db.insert(users).values({
     id,
-    email: `${id}@test.invalid`,
+    email: extra.email ?? `${id}@test.invalid`,
     name,
-    passwordHash: "scrypt$32768$8$1$AAAAAAAAAAAAAAAAAAAAAA$AAAA",
+    passwordHash: extra.password
+      ? await hashPassword(extra.password)
+      : "scrypt$32768$8$1$AAAAAAAAAAAAAAAAAAAAAA$AAAA",
     emailVerifiedAt: new Date(),
     stripeAccountId: extra.stripeAccountId ?? null,
     stripePayoutsEnabled: extra.stripePayoutsEnabled ?? false,

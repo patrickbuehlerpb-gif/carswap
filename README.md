@@ -31,13 +31,13 @@ hängen.
 
 | Bereich | Was es tut |
 | --- | --- |
-| **Konto** (`/konto/*`) | Registrierung, Anmeldung, E-Mail-Bestätigung, Passwort-Reset, Profil, Auszahlungskonto. |
+| **Konto** (`/konto/*`) | Registrierung, Anmeldung, E-Mail-Bestätigung, Passwort-Reset, Passwort und Adresse ändern, Profil, Auszahlungskonto. |
 | **Inserat** (`/inserat/neu`) | Fahrzeug einstellen mit Live-Bewertung während der Eingabe, Fotoupload, Wunschliste. Pausieren und Archivieren inklusive. |
 | **Marktplatz** (`/markt`) | Alle Inserate mit Filtern. Angemeldet wird die Zuzahlung laufend gegen das eigene Fahrzeug gerechnet. |
 | **Matches** (`/matches`) | Drei Gruppen — beide wollen, nur du, nur die Gegenseite — plus Ringtausch über drei Parteien. |
 | **Wertrechner** (`/wert`) | Wertverlauf, Prognoseband, vollständige Aufschlüsselung und Sensitivitätsanalyse. |
 | **Tausch** (`/tausch/[id]`) | Direktvergleich, Wertkurven beider Fahrzeuge, Ausgleich per Regler, Prüfung gegen den Rahmen der Gegenseite. |
-| **Tauschvorgang** (`/deals/[id]`) | Verhandlung, Zusage, Treuhand, Übergabe-Checkliste, Abschluss mit Halterwechsel. |
+| **Tauschvorgang** (`/deals/[id]`) | Verhandlung, Zusage, Treuhand, Telefonnummer der Gegenseite, Übergabe-Checkliste, Abschluss mit Halterwechsel. |
 | **Ringtausch** (`/ringe/[id]`) | Derselbe Ablauf über drei Parteien: drei Zusagen, aufgeteilter Treuhandtopf, drei Übergaben, Halterwechsel im Kreis. |
 
 ### Moderation
@@ -302,14 +302,22 @@ Ein paar Entscheidungen, die nicht offensichtlich sind:
   Ein Passwortwechsel meldet alle Geräte ab.
 - **Server Actions** prüfen in jedem Aufruf Anmeldung und Eigentum und laden
   betroffene Objekte frisch aus der Datenbank. Vom Client kommen nur IDs.
+- **Passwort und E-Mail-Adresse ändern** verlangen beide das aktuelle Passwort.
+  Eine offene Sitzung allein reicht nicht: wer ein unbeaufsichtigtes Gerät
+  erwischt, könnte sonst in zwei Klicks das Konto übernehmen.
+- **Der Adresswechsel läuft über die neue Adresse.** Bis der Link dort
+  angeklickt ist, steht die neue Adresse nur in `users.pending_email` und die
+  alte bleibt in Kraft. Die bisherige Adresse wird über die Anfrage und über
+  den vollzogenen Wechsel informiert — sie ist die einzige Stelle, an der ein
+  unbemerkter Wechsel noch auffallen kann.
 - **Ratenbegrenzung** für Anmeldung (pro IP und pro Adresse), Registrierung,
   Passwort-Reset, Nachrichten und Inserate.
 - **Aufzählung von Konten** wird beim Passwort-Reset verhindert; die Anmeldung
   prüft auch bei unbekannter Adresse einen Hash, damit die Antwortzeit nichts
   verrät.
-- **Sicherheits-Header** inklusive CSP in `next.config.ts`. `script-src`
-  enthält noch `'unsafe-inline'` — eine nonce-basierte Richtlinie ist der
-  nächste Schritt.
+- **Sicherheits-Header** in `next.config.ts` (nosniff, Referrer-Policy,
+  X-Frame-Options, Permissions-Policy, HSTS); die CSP kommt aus der Middleware,
+  weil sie je Antwort eine frische Nonce braucht.
 
 ## Zahlungen
 
@@ -449,8 +457,6 @@ macht drei Dinge und ist beliebig oft wiederholbar:
   Wertdifferenzen und eine Prüfung neuer Konten. Melden, benachrichtigen,
   abhaken, ein Inserat sperren und ein Konto stilllegen gibt es
   (`/admin/meldungen`).
-- **Rückbuchungen** nach abgeschlossenem Tausch werden erkannt und gemeldet,
-  aber nicht automatisch geheilt.
 - **Kontolöschung**: Name, Adresse, Kontaktdaten, Sitzungen, Token, Fotos und
   die eigenen Nachrichten- und Bewertungstexte werden entfernt, Fahrzeuge
   archiviert. Was bleibt: die Tauschvorgänge selbst und die Bewertungen, die

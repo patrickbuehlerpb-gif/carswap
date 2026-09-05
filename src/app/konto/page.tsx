@@ -4,6 +4,8 @@ import { Badge, Card, SectionHead } from "@/components/ui";
 import {
   AccountForm,
   DatenUndLoeschung,
+  EmailAendern,
+  PasswortAendern,
   PayoutSetup,
   ResendVerification,
   StilllegungsHinweis,
@@ -53,7 +55,6 @@ export default async function KontoPage({
           location={me.location}
           canton={me.canton}
           phone={row?.phone ?? ""}
-          email={me.email}
         />
       </Card>
 
@@ -88,27 +89,27 @@ export default async function KontoPage({
 
       <Card className="p-5 sm:p-6">
         <h2 className="text-base font-semibold text-ink">Sicherheit</h2>
-        <dl className="mt-4 space-y-3 text-sm">
-          <div className="flex items-baseline justify-between gap-4 border-b border-line pb-3">
-            <dt className="whitespace-nowrap text-ink-3">E-Mail</dt>
-            <dd className="text-ink">
+        <p className="mt-1 mb-5 text-sm text-ink-3">
+          An deine Adresse gehen alle Nachrichten zu laufenden Tauschen. Beides lässt sich nur mit
+          deinem Passwort ändern.
+        </p>
+        <div className="space-y-4 text-sm">
+          <div className="flex items-baseline justify-between gap-4 border-b border-line pb-4">
+            <span className="whitespace-nowrap text-ink-3">E-Mail</span>
+            <span className="text-right text-ink">
               {me.email}{" "}
               {me.emailVerified ? (
-                <span className="text-good">· bestätigt</span>
+                <span className="whitespace-nowrap text-good">· bestätigt</span>
               ) : (
-                <span className="text-warn">· nicht bestätigt</span>
+                <span className="whitespace-nowrap text-warn">· nicht bestätigt</span>
               )}
-            </dd>
+            </span>
           </div>
-          <div className="flex items-baseline justify-between gap-4">
-            <dt className="text-ink-3">Passwort</dt>
-            <dd>
-              <a href="/konto/passwort-vergessen" className="text-marke hover:underline">
-                Passwort ändern
-              </a>
-            </dd>
+          <div className="border-b border-line pb-4">
+            <EmailAendern offeneAdresse={me.pendingEmail} />
           </div>
-        </dl>
+          <PasswortAendern />
+        </div>
       </Card>
 
       <Card className="p-5">

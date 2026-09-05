@@ -5,11 +5,12 @@ import { db } from "../db";
 import { newId } from "../db/ids";
 import { authTokens } from "../db/schema";
 
-type Purpose = "verify_email" | "reset_password";
+type Purpose = "verify_email" | "reset_password" | "change_email";
 
 const TTL: Record<Purpose, number> = {
   verify_email: 7 * 24 * 60 * 60 * 1000,
   reset_password: 60 * 60 * 1000,
+  change_email: 24 * 60 * 60 * 1000,
 };
 
 function hash(token: string): string {

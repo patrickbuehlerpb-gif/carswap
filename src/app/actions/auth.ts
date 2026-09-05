@@ -19,6 +19,7 @@ import {
 } from "@/lib/auth/session";
 import { consumeToken, issueToken } from "@/lib/auth/tokens";
 import { sendMail, siteUrl } from "@/lib/mail";
+import { emailSchema } from "@/lib/validation";
 
 export interface FormState {
   error?: string;
@@ -44,14 +45,6 @@ async function requestContext() {
   return { ip, userAgent: h.get("user-agent") ?? undefined };
 }
 
-const emailSchema = z
-  .string()
-  .trim()
-  .toLowerCase()
-  .min(3, "Bitte eine gültige E-Mail-Adresse angeben.")
-  .max(254)
-  .email("Bitte eine gültige E-Mail-Adresse angeben.");
-
 const signUpSchema = z.object({
   name: z.string().trim().min(2, "Bitte den Namen angeben.").max(80),
   email: emailSchema,
@@ -66,7 +59,11 @@ const signUpSchema = z.object({
 
 export async function signUpAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { ip, userAgent } = await requestContext();
-  const limit = await checkRateLimit(`signup:${ip}`, 5, 60 * 60);
+  // 15 statt einer engeren Zahl: hinter einer IP steckt in der Schweiz oft
+  // ein ganzer Haushalt, ein Büro oder — bei Mobilfunk — ein halbes Quartier.
+  // Gegen massenhaftes Anlegen von Konten schützt ohnehin nicht diese Zahl,
+  // sondern dass jeder verbindliche Schritt eine bestätigte Adresse verlangt.
+  const limit = await checkRateLimit(`signup:${ip}`, 15, 60 * 60);
   if (!limit.ok) {
     return { error: "Zu viele Registrierungsversuche. Bitte später erneut probieren." };
   }

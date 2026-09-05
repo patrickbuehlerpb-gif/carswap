@@ -26,6 +26,13 @@ export const users = pgTable(
     id: text("id").primaryKey(),
     email: text("email").notNull(),
     emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+    /**
+     * Angefragte neue Adresse. Sie wird erst zur echten, wenn der Link an
+     * diese Adresse angeklickt wurde — sonst könnte jemand mit einer fremden
+     * Sitzung das Konto auf seine eigene Adresse umhängen und es über
+     * «Passwort vergessen» endgültig übernehmen.
+     */
+    pendingEmail: text("pending_email"),
     passwordHash: text("password_hash").notNull(),
     name: text("name").notNull(),
     location: text("location").notNull().default(""),
@@ -76,7 +83,7 @@ export const sessions = pgTable(
   ],
 );
 
-/** Einmal-Token für E-Mail-Bestätigung und Passwort-Reset. */
+/** Einmal-Token für E-Mail-Bestätigung, Passwort-Reset und Adresswechsel. */
 export const authTokens = pgTable(
   "auth_tokens",
   {
@@ -84,7 +91,9 @@ export const authTokens = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    purpose: text("purpose").$type<"verify_email" | "reset_password">().notNull(),
+    purpose: text("purpose")
+      .$type<"verify_email" | "reset_password" | "change_email">()
+      .notNull(),
     tokenHash: text("token_hash").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     usedAt: timestamp("used_at", { withTimezone: true }),
