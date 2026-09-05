@@ -25,7 +25,7 @@ import { consumeToken, issueToken } from "@/lib/auth/tokens";
 import { mailConfigured, sendMail, siteUrl } from "@/lib/mail";
 import { emailSchema } from "@/lib/validation";
 import { deleteBlobs } from "@/lib/blob";
-import { checkRateLimit } from "@/lib/auth/rate-limit";
+import { checkRateLimit, releaseRateLimit } from "@/lib/auth/rate-limit";
 import {
   connectOnboardingUrl,
   ensureConnectAccount,
@@ -282,6 +282,7 @@ export async function requestEmailChangeAction(
   // Adresse bleibt der Wechsel für immer hängen, und die Person sucht in
   // einem Postfach, in dem nichts ankommen wird.
   if (!zustellung.delivered && mailConfigured()) {
+    await releaseRateLimit(`mailchange:${me.id}`);
     return {
       error:
         `Der Bestätigungslink an ${neueAdresse} liess sich nicht zustellen. Die Anfrage ` +

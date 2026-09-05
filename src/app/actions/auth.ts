@@ -9,7 +9,12 @@ import { db } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { users } from "@/lib/db/schema";
 import { hashPassword, passwordProblem, verifyPassword } from "@/lib/auth/password";
-import { checkRateLimit, clearRateLimit, peekRateLimit } from "@/lib/auth/rate-limit";
+import {
+  checkRateLimit,
+  clearRateLimit,
+  peekRateLimit,
+  releaseRateLimit,
+} from "@/lib/auth/rate-limit";
 import { sicheresZiel } from "@/lib/auth/safe-redirect";
 import {
   createSession,
@@ -316,6 +321,10 @@ export async function resendVerificationAction(): Promise<FormState> {
   // Person zum Warten auf etwas, das nicht kommt — und beim nächsten Versuch
   // steht ihr die Ratenbegrenzung im Weg.
   if (!zustellung.delivered && mailConfigured()) {
+    // Der Versuch hat nichts bewirkt, also darf er auch nichts kosten: sonst
+    // wäre nach drei Fehlschlägen eine Stunde lang gesperrt, wozu wir hier
+    // gerade auffordern.
+    await releaseRateLimit(`verify:${user.id}`);
     return {
       error:
         "Die Mail liess sich gerade nicht zustellen. Versuch es später noch einmal — " +

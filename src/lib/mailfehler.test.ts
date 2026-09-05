@@ -29,8 +29,17 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
-  process.env.RESEND_API_KEY = vorher.key;
-  process.env.MAIL_FROM = vorher.from;
+  // `process.env.X = undefined` schreibt die Zeichenkette "undefined" hinein.
+  // Alle Testdateien teilen sich einen Prozess: danach hielte jede folgende
+  // Datei den Mailversand für eingerichtet und schösse echte Anfragen an
+  // Resend ab. Deshalb löschen statt zuweisen.
+  for (const [name, wert] of [
+    ["RESEND_API_KEY", vorher.key],
+    ["MAIL_FROM", vorher.from],
+  ] as const) {
+    if (wert === undefined) delete process.env[name];
+    else process.env[name] = wert;
+  }
   vi.unstubAllGlobals();
 });
 
@@ -66,6 +75,33 @@ describe("gescheiterter Mailversand", () => {
     // Adresse wäre ein Personendatum in einem Fehlerprotokoll.
     expect(rows[0].domain).toBe("example.com");
     expect(JSON.stringify(rows[0])).not.toContain("Jemand");
+  });
+
+  it("unterscheidet unsere Einrichtung von einer abgewiesenen Adresse", async () => {
+    // 422 heisst: diese Adresse geht nicht. 401 heisst: unser Schlüssel geht
+    // nicht — das trifft jede Mail. Nur das Zweite darf die Betriebsprüfung
+    // auf Rot stellen, sonst erzeugt sich jeder mit drei erfundenen Adressen
+    // ein 503 der ganzen Anwendung.
+    antwortet(422);
+    await sendMail({ to: "a@b.ch", subject: "Betreff", text: "…" });
+    expect((await db.select().from(mailFailures))[0].systemic).toBe(false);
+
+    antwortet(401);
+    await sendMail({ to: "a@b.ch", subject: "Betreff", text: "…" });
+    const stand = await mailFehler(24);
+    expect(stand.anzahl).toBe(2);
+    expect(stand.letzteStunde).toBe(2);
+    expect(stand.systemischLetzteStunde).toBe(1);
+  });
+
+  it("nimmt aus «Name <adresse@domain>» nur die Domain", async () => {
+    antwortet(500);
+    await sendMail({ to: "Betrieb <ops@Example.CH>", subject: "Betreff", text: "…" });
+    await sendMail({ to: "kaputt", subject: "Betreff", text: "…" });
+
+    const rows = await db.select().from(mailFailures).orderBy(mailFailures.createdAt);
+    expect(rows.map((r) => r.domain).sort()).toEqual(["example.ch", "unbekannt"]);
+    expect(JSON.stringify(rows)).not.toContain("ops");
   });
 
   it("hält auch einen nicht erreichbaren Dienst fest", async () => {
@@ -133,7 +169,24 @@ describe("Auswertung der Fehlversuche", () => {
 
   it("meldet nichts, wenn nichts gescheitert ist", async () => {
     const stand = await mailFehler(24);
-    expect(stand).toEqual({ anzahl: 0, letzteStunde: 0, domains: [], letzterGrund: undefined });
+    expect(stand).toEqual({
+      anzahl: 0,
+      letzteStunde: 0,
+      systemischLetzteStunde: 0,
+      domains: [],
+      letzterGrund: undefined,
+    });
+  });
+
+  it("zählt in der Datenbank, nicht an geladenen Zeilen", async () => {
+    // Der Deckel auf die geladenen Zeilen hätte ausgerechnet den Totalausfall
+    // verharmlost, für den es diese Zahl gibt.
+    for (let i = 0; i < 60; i++) await vermerke(i * 1000, `domain${i % 7}.ch`);
+
+    const stand = await mailFehler(24);
+    expect(stand.anzahl).toBe(60);
+    expect(stand.letzteStunde).toBe(60);
+    expect(stand.domains).toHaveLength(5);
   });
 
   it("räumt alte Vermerke ab, junge nicht", async () => {

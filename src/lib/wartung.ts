@@ -116,14 +116,19 @@ export async function raeumeAuf(): Promise<{
   // nicht wachsen, bis sie jemand von Hand leert.
   const m = await db
     .delete(mailFailures)
-    .where(lt(mailFailures.createdAt, new Date(Date.now() - MAILFEHLER_TAGE * KARENZ_MS)))
+    .where(lt(mailFailures.createdAt, new Date(Date.now() - MAILFEHLER_MS)))
     .returning({ id: mailFailures.id });
 
   return { sitzungen: s.length, token: t.length, zaehler: z.length, mailfehler: m.length };
 }
 
-/** So lange bleibt ein vermerkter Fehlversuch stehen. */
-const MAILFEHLER_TAGE = 30;
+/**
+ * So lange bleibt ein vermerkter Fehlversuch stehen. Bewusst eigenständig und
+ * nicht als Vielfaches von KARENZ_MS: das ist die Karenzzeit für verbrauchte
+ * Token, und wer die einmal anfasst, würde hier unbemerkt die Aufbewahrung
+ * mitverschieben — samt der Angabe in der Datenschutzerklärung.
+ */
+const MAILFEHLER_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
  * Gescheiterte Mailversuche der letzten Stunden.
@@ -137,27 +142,48 @@ export async function mailFehler(stunden = 24): Promise<{
   anzahl: number;
   /** Davon in der letzten Stunde — daran hängt, ob es ein Muster ist. */
   letzteStunde: number;
+  /**
+   * Davon in der letzten Stunde solche, die an unserer Einrichtung liegen und
+   * nicht an einer einzelnen Adresse. Nur die taugen als Alarm.
+   */
+  systemischLetzteStunde: number;
   domains: string[];
   letzterGrund?: string;
 }> {
   const seit = new Date(Date.now() - stunden * 60 * 60 * 1000);
-  const rows = await db
+  const vorEinerStunde = new Date(Date.now() - 60 * 60 * 1000);
+
+  /*
+   * Gezählt wird in der Datenbank, nicht an geladenen Zeilen. Ein Deckel auf
+   * die Ladung hätte ausgerechnet den Fall verharmlost, für den es die Zahl
+   * gibt: Bei einem Totalausfall scheitern vierstellig viele Mails, und die
+   * Meldung «200 Fehlversuche» wäre von einem mittleren Ärgernis nicht mehr
+   * zu unterscheiden.
+   */
+  const [zahlen] = await db
     .select({
-      domain: mailFailures.domain,
-      reason: mailFailures.reason,
-      createdAt: mailFailures.createdAt,
+      anzahl: raw<number>`count(*)::int`,
+      letzteStunde: raw<number>`count(*) filter (where ${mailFailures.createdAt} > ${vorEinerStunde.toISOString()}::timestamptz)::int`,
+      systemischLetzteStunde: raw<number>`count(*) filter (where ${mailFailures.createdAt} > ${vorEinerStunde.toISOString()}::timestamptz and ${mailFailures.systemic})::int`,
     })
+    .from(mailFailures)
+    .where(gt(mailFailures.createdAt, seit));
+
+  // Für die Diagnose reichen die jüngsten Zeilen: welche Empfänger betroffen
+  // sind und woran es zuletzt lag.
+  const jüngste = await db
+    .select({ domain: mailFailures.domain, reason: mailFailures.reason })
     .from(mailFailures)
     .where(gt(mailFailures.createdAt, seit))
     .orderBy(desc(mailFailures.createdAt))
-    .limit(200);
+    .limit(50);
 
-  const vorEinerStunde = Date.now() - 60 * 60 * 1000;
   return {
-    anzahl: rows.length,
-    letzteStunde: rows.filter((r) => r.createdAt.getTime() > vorEinerStunde).length,
-    domains: [...new Set(rows.map((r) => r.domain))].slice(0, 5),
-    letzterGrund: rows[0]?.reason,
+    anzahl: zahlen?.anzahl ?? 0,
+    letzteStunde: zahlen?.letzteStunde ?? 0,
+    systemischLetzteStunde: zahlen?.systemischLetzteStunde ?? 0,
+    domains: [...new Set(jüngste.map((r) => r.domain))].slice(0, 5),
+    letzterGrund: jüngste[0]?.reason,
   };
 }
 

@@ -92,7 +92,7 @@ test("die erste Person bekommt gesagt, woran es liegt", async ({ page }) => {
   await stelleAutoEin(userId);
 
   await page.goto("/markt");
-  await expect(page.getByText("Dein Auto steht hier — sonst noch keines")).toBeVisible();
+  await expect(page.getByText("Ausser deinem steht noch kein Auto zum Tausch")).toBeVisible();
   await expect(page.getByRole("link", { name: /Sei der Erste/ })).toHaveCount(0);
   // Und das Versprechen, das die Wiederkehr trägt: wir melden uns.
   await expect(page.getByText(/schreiben dir, sobald jemand ein Auto wie deines sucht/)).toBeVisible();

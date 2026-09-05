@@ -67,8 +67,11 @@ export default function AgbPage() {
       <H2>7. Kosten</H2>
       <p>
         Die Plattform ist derzeit kostenlos. Wer eine Ausgleichszahlung leistet, zahlt einen
-        Aufschlag — er deckt genau die Kartengebühr, damit beim Empfänger der volle Betrag
-        ankommt. Bei uns bleibt davon nichts. Der Aufschlag steht da, bevor du einzahlst.
+        Aufschlag: Er deckt die Gebühr des Zahlungsdienstleisters und ist so gerechnet, dass
+        beim Empfänger der volle vereinbarte Betrag ankommt. Er ist keine Provision — was
+        durch das Aufrunden übrig bleibt, sind Rappen. Der Aufschlag steht da, bevor du
+        einzahlst; sollten wir daraus je eine Gebühr machen, ändern wir vorher diese
+        Bedingungen und sagen es an.
       </p>
 
       <H2>8. Konto beenden</H2>

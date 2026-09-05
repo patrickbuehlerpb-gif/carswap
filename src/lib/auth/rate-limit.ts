@@ -95,6 +95,23 @@ export async function peekRateLimit(
   };
 }
 
+/**
+ * Gibt einen einzelnen Treffer zurück.
+ *
+ * Für Versuche, die nichts bewirkt haben: Konnte die Mail gar nicht zugestellt
+ * werden, darf der Versuch nicht auf das Kontingent gehen — sonst steht der
+ * Person, der wir gerade geraten haben, es später noch einmal zu versuchen,
+ * nach drei Fehlschlägen eine Stunde lang die Sperre im Weg. Zurückgegeben
+ * wird nur dieser eine Treffer und nicht das ganze Fenster: der Dienst soll
+ * trotzdem nicht in Serie angerufen werden.
+ */
+export async function releaseRateLimit(key: string): Promise<void> {
+  await db
+    .update(rateLimits)
+    .set({ count: raw`greatest(${rateLimits.count} - 1, 0)` })
+    .where(eq(rateLimits.key, normalizeKey(key)));
+}
+
 /** Setzt einen Zähler zurück — etwa nach einer erfolgreichen Anmeldung. */
 export async function clearRateLimit(key: string): Promise<void> {
   await db.delete(rateLimits).where(eq(rateLimits.key, normalizeKey(key)));

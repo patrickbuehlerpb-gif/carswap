@@ -1,5 +1,5 @@
 {
-  "id": "fddf0e5e-6aa5-4c5a-a1e9-2bcf1c91132b",
+  "id": "bb682c10-1a06-4d55-9402-8bd383814960",
   "prevId": "cf8af64f-23a0-4f16-832a-4b2dfc40eaf5",
   "version": "7",
   "dialect": "postgresql",
@@ -838,6 +838,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "systemic": {
+          "name": "systemic",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         }
       },
       "indexes": {

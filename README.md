@@ -752,7 +752,7 @@ Zeile im Server-Log, und der Lagebericht kann es nicht melden — er ist selbst
 eine Mail.
 
 Jetzt hinterlässt jeder Fehlversuch eine Zeile in `mail_failures`: Zeitpunkt,
-Empfängerdomain, Betreff, Grund. Die **Domain** und nicht die Adresse, weil für
+Empfängerdomain, Betreff, Grund und ob es an unserer Einrichtung lag. Die **Domain** und nicht die Adresse, weil für
 die Diagnose nur der Unterschied zwischen «alles an gmx.ch scheitert» und
 «alles scheitert» zählt; die volle Adresse wäre ein Personendatum in einem
 Fehlerprotokoll. Vermerkt wird nur der eingerichtete Fall — ein fehlender
@@ -763,10 +763,15 @@ Gelesen wird das an drei Stellen:
 
 - **`/admin/betrieb`** zeigt den Kasten ganz oben, bei den Dingen, die Geld
   kosten.
-- **`/api/health`** nennt die Zahl bei `mailversand`. Auf `fehler` — also 503 —
-  geht die Prüfung erst bei einem Muster: drei Fehlversuche innerhalb einer
-  Stunde. Ein einzelner kann eine falsch getippte Adresse sein, und dafür soll
-  niemand nachts geweckt werden.
+- **`/api/health`** nennt die Zahl bei `mailversand`. Auf `fehler` — also
+  503 — geht die Prüfung nur bei einem Muster, das an uns liegt: drei
+  Fehlversuche in einer Stunde, bei denen der Dienst den Schlüssel ablehnte
+  (401/403), das Kontingent aus war (429) oder er gar nicht antwortete. Eine
+  abgewiesene Empfängeradresse (422) zählt nicht mit, und das ist keine
+  Feinheit: Sie liesse sich von aussen erzeugen — drei Anmeldungen mit
+  erfundenen Adressen, und die ganze Anwendung meldete sich als kaputt.
+  Entschieden wird beim Schreiben (`systemic` in `mail_failures`), nicht später
+  am Text.
 - **Der Lagebericht** nimmt es als Punkt auf. Scheitert der Versand nur an
   einzelnen Domains, kommt der Bericht durch — und ist dann die einzige Stelle,
   an der es überhaupt auffällt.

@@ -130,6 +130,13 @@ export async function sammlePunkte(abschluesse?: NachgeholteAbschluesse): Promis
   //    selbst eine Mail ist: Scheitert der Versand nur an einzelnen Domains,
   //    kommt die Meldung durch — und dann ist sie die einzige Chance, es
   //    überhaupt zu erfahren. Scheitert er ganz, meldet /api/health es.
+  //
+  //    Dass der Bericht damit auch sein eigenes Scheitern zählen kann, ist in
+  //    Kauf genommen: Bounct die Adresse der Betreiberin, gibt es täglich
+  //    einen Versuch, der wieder scheitert und den Punkt neu setzt. Das kostet
+  //    eine Anfrage pro Tag. Die Alternative wäre, Fehler an die eigene
+  //    Adresse auszublenden — und damit ausgerechnet die zu verschweigen, die
+  //    den einzigen Meldeweg betreffen.
   const mails = await mailFehler(24);
   if (mails.anzahl > 0) {
     punkte.push({

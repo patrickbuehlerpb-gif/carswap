@@ -77,17 +77,19 @@ export async function GET(request: Request) {
   // sichtbar ab — es kommt bloss nie eine Bestätigung an. Deshalb steht hier
   // nicht nur, ob der Versand eingerichtet ist, sondern ob er funktioniert.
   //
-  // Auf «fehler» geht die Prüfung erst bei einem Muster: drei Fehlversuche
-  // innerhalb einer Stunde. Ein einzelner kann eine falsch getippte Adresse
-  // sein, und dafür soll niemand um drei Uhr nachts geweckt werden. Gemeldet
-  // wird trotzdem jeder — nur eben als Angabe, nicht als Alarm.
+  // Auf «fehler» geht die Prüfung nur bei einem Muster, das an uns liegt:
+  // drei Fehlversuche in einer Stunde, bei denen der Dienst den Schlüssel
+  // ablehnte, das Kontingent aus war oder er gar nicht antwortete. Eine
+  // abgewiesene Empfängeradresse zählt nicht mit — sonst könnte sich jeder
+  // mit drei Anmeldungen an erfundene Adressen ein 503 der ganzen Anwendung
+  // erzeugen. Gemeldet wird trotzdem jeder Fehlversuch, nur eben als Angabe.
   try {
     const fehler = await mailFehler(24);
     if (fehler.anzahl > 0) {
       checks.mailversand =
         `${checks.mailversand}, aber ${fehler.anzahl} Fehlversuch(e) in 24 h ` +
         `(zuletzt: ${fehler.letzterGrund}; ${fehler.domains.join(", ")})`;
-      if (fehler.letzteStunde >= 3) healthy = false;
+      if (fehler.systemischLetzteStunde >= 3) healthy = false;
     }
   } catch {
     checks.mailfehler = "nicht ermittelbar";

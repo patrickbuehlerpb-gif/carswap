@@ -52,15 +52,29 @@ export async function sendMail(mail: Mail): Promise<{ delivered: boolean; reason
     if (!res.ok) {
       const detail = await res.text();
       console.error("[mail] Resend hat abgelehnt:", res.status, detail.slice(0, 400));
-      await vermerkeFehler(mail, `abgelehnt (${res.status})`);
+      await vermerkeFehler(mail, `abgelehnt (${res.status})`, liegtAnUns(res.status));
       return { delivered: false, reason: `Mailversand fehlgeschlagen (${res.status})` };
     }
     return { delivered: true };
   } catch (err) {
     console.error("[mail] Netzwerkfehler:", err);
-    await vermerkeFehler(mail, "nicht erreichbar");
+    // Ein nicht erreichbarer Dienst trifft jede Mail.
+    await vermerkeFehler(mail, "nicht erreichbar", true);
     return { delivered: false, reason: "Mailserver nicht erreichbar" };
   }
+}
+
+/**
+ * Liegt es an unserer Einrichtung oder an dieser einen Adresse?
+ *
+ * Ein zurückgezogener Schlüssel (401/403), ein ausgeschöpftes Kontingent (429)
+ * oder ein Ausfall beim Dienst (5xx) trifft jede Mail — das ist ein
+ * Betriebsausfall. Eine abgewiesene Empfängeradresse (422 und die übrigen
+ * 4xx) trifft nur diese eine; wer sich mit einer erfundenen Adresse anmeldet,
+ * darf damit nicht die Betriebsprüfung der ganzen Anwendung auf Rot stellen.
+ */
+function liegtAnUns(status: number): boolean {
+  return status === 401 || status === 403 || status === 429 || status >= 500;
 }
 
 /**
@@ -89,20 +103,42 @@ export async function sendMail(mail: Mail): Promise<{ delivered: boolean; reason
  * Vermerken eines Fehlers darf den Aufrufer nicht umwerfen — sonst bricht die
  * Registrierung ausgerechnet dann ab, wenn ohnehin schon etwas klemmt.
  */
-async function vermerkeFehler(mail: Mail, grund: string): Promise<void> {
+async function vermerkeFehler(mail: Mail, grund: string, systemisch: boolean): Promise<void> {
   try {
     const { db } = await import("./db");
     const { mailFailures } = await import("./db/schema");
     const { newId } = await import("./db/ids");
     await db.insert(mailFailures).values({
       id: newId("mfl"),
-      domain: mail.to.split("@").pop()?.toLowerCase() ?? "unbekannt",
+      domain: empfaengerDomain(mail.to),
       subject: mail.subject.slice(0, 200),
       reason: grund,
+      systemic: systemisch,
     });
   } catch (err) {
     console.error("[mail] Fehlversuch liess sich nicht vermerken:", err);
   }
+}
+
+/**
+ * Die Domain aus einer Empfängerangabe — und wirklich nur die.
+ *
+ * `"…".split("@").pop()` gibt bei einer Adresse ohne @ die ganze Zeichenkette
+ * zurück, samt Namen. Und eine Angabe in der Form «Betrieb <ops@example.ch>»,
+ * die der Versand akzeptiert, endete als «example.ch>». Beides landete danach
+ * in der Betriebsübersicht und im Lagebericht — genau das, was hier nicht
+ * hingehört.
+ */
+function empfaengerDomain(to: string): string {
+  const adresse = to.match(/<([^>]+)>/)?.[1] ?? to;
+  const at = adresse.lastIndexOf("@");
+  if (at < 0) return "unbekannt";
+  const domain = adresse
+    .slice(at + 1)
+    .trim()
+    .replace(/[>\s]+$/, "")
+    .toLowerCase();
+  return /^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain) ? domain : "unbekannt";
 }
 
 /**

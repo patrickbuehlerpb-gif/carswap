@@ -469,6 +469,17 @@ export const mailFailures = pgTable(
     domain: text("domain").notNull(),
     subject: text("subject").notNull(),
     reason: text("reason").notNull(),
+    /**
+     * Liegt es an uns oder an dieser einen Adresse?
+     *
+     * Ein zurückgezogener Schlüssel, ein abgelaufenes Kontingent oder ein
+     * ausgefallener Dienst trifft jede Mail — eine abgewiesene Empfängeradresse
+     * nur diese eine. Nur das Erste ist ein Betriebsausfall, und nur dafür darf
+     * die Betriebsprüfung Alarm schlagen. Ohne die Unterscheidung könnte sich
+     * jeder mit drei Anmeldungen an erfundene Adressen ein 503 der ganzen
+     * Anwendung erzeugen.
+     */
+    systemic: boolean("systemic").notNull().default(false),
   },
   (t) => [index("mail_failures_created_at_idx").on(t.createdAt)],
 );

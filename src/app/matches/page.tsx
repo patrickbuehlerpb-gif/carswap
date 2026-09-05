@@ -57,31 +57,47 @@ export default async function MatchesPage() {
          * mit untauglichem Rat steht hier, woran es wirklich liegt.
          */
         <Card className="p-12 text-center">
-          <h2 className="text-base font-semibold text-ink">
-            Ausser deinem steht noch kein Auto hier
-          </h2>
           {eigeneAktiv > 0 ? (
-            <p className="mx-auto mt-2 max-w-md text-sm text-ink-3">
-              Das liegt nicht an deinen Kriterien — es gibt schlicht noch nichts zu vergleichen.
-              Dein Inserat ist veröffentlicht; sobald jemand dazukommt, rechnen wir sofort
-              dagegen. Wir vergleichen jede Nacht neu und schreiben dir, sobald jemand ein Auto
-              wie deines sucht — vorausgesetzt, deine Adresse ist bestätigt und die{" "}
-              <Link href="/konto" className="textlink">
-                Treffermeldungen
-              </Link>{" "}
-              sind an.
-            </p>
+            <>
+              <h2 className="text-base font-semibold text-ink">
+                Ausser deinem steht noch kein Auto hier
+              </h2>
+              <p className="mx-auto mt-2 max-w-md text-sm text-ink-3">
+                Das liegt nicht an deinen Kriterien — es gibt schlicht noch nichts zu
+                vergleichen. Dein Inserat ist veröffentlicht; sobald jemand dazukommt, rechnen
+                wir sofort dagegen. Wir vergleichen jede Nacht neu und schreiben dir, sobald
+                jemand ein Auto wie deines sucht — vorausgesetzt, deine Adresse ist bestätigt
+                und die{" "}
+                <Link href="/konto" className="textlink">
+                  Treffermeldungen
+                </Link>{" "}
+                sind an.
+              </p>
+            </>
           ) : (
             <>
+              {/*
+               * Zwei Gründe zugleich, und der zweite ist der, den man beheben
+               * kann. Die Überschrift darf deshalb nicht behaupten, das eigene
+               * Auto stehe im Markt — es ist ja gerade nicht eingestellt.
+               */}
+              <h2 className="text-base font-semibold text-ink">
+                Dein Auto ist gerade nicht eingestellt
+              </h2>
               <p className="mx-auto mt-2 max-w-md text-sm text-ink-3">
-                Dazu kommt: dein Auto ist gerade nicht eingestellt. Solange es niemand sieht,
-                kann auch niemand danach suchen — und melden können wir dir dann nichts.
+                Solange es niemand sieht, kann auch niemand danach suchen — und melden können
+                wir dir dann nichts. Ausserdem steht im Moment auch sonst kein Auto zum Tausch.
               </p>
+              {/*
+               * In die Garage, nicht auf «Auto anbieten»: Wer schon ein
+               * Fahrzeug hat und es nur pausiert hat, legt dort sonst ein
+               * zweites an — «Auto anbieten» beginnt immer bei null.
+               */}
               <Link
-                href="/inserat/neu"
+                href="/garage"
                 className="mt-5 inline-block rounded-lg bg-marke px-5 py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
               >
-                Auto einstellen
+                Zur Garage
               </Link>
             </>
           )}

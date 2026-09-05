@@ -21,7 +21,19 @@ export default async function globalSetup() {
     );
   }
 
+  /*
+   * Die geprüfte Adresse muss auch die benutzte sein. `databaseUrl()` in
+   * db-connect zieht DATABASE_URL_UNPOOLED und POSTGRES_URL vor — steht dort
+   * eine Produktionsdatenbank (bei Neon ist genau das die übliche
+   * Einrichtung), liefe das `truncate` unten gegen sie, obwohl die Prüfung
+   * oben die harmlose Testadresse gesehen hat. Die Unit-Tests räumen die
+   * beiden Variablen aus demselben Grund weg (src/test/setup.ts).
+   */
   process.env.DATABASE_URL = url;
+  delete process.env.DATABASE_URL_UNPOOLED;
+  delete process.env.POSTGRES_URL;
+  delete process.env.POSTGRES_URL_NON_POOLING;
+
   const { db, sql } = connect();
   await db.execute(raw`truncate table
     deal_vehicle_locks, deal_messages, payments, deals, ring_legs, ring_swaps,

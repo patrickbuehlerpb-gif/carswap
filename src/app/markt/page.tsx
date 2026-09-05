@@ -55,14 +55,23 @@ export default async function MarktPage() {
         <Card className="p-12 text-center">
           {eigeneAktiv > 0 ? (
             <>
+              {/*
+               * Nicht «dein Auto steht hier»: Der Marktplatz zeigt die eigenen
+               * Inserate absichtlich nie — deshalb ist er für die erste Person
+               * überhaupt leer. Wer hier nach seinem Auto sucht und es nicht
+               * findet, hält es für verschwunden.
+               */}
               <h2 className="text-base font-semibold text-ink">
-                Dein Auto steht hier — sonst noch keines
+                Ausser deinem steht noch kein Auto zum Tausch
               </h2>
               <p className="mx-auto mt-2 max-w-md text-sm text-ink-3">
-                Am Anfang ist ein Marktplatz leer; dagegen hilft kein Filter. Dein Inserat ist
-                veröffentlicht und wird verglichen, sobald jemand dazukommt. Wir rechnen jede
-                Nacht neu und schreiben dir, sobald jemand ein Auto wie deines sucht —
-                vorausgesetzt, deine Adresse ist bestätigt und die{" "}
+                Am Anfang ist ein Marktplatz leer; dagegen hilft kein Filter. Dein eigenes
+                Inserat siehst du hier nie — es ist für die anderen da und in deiner{" "}
+                <Link href="/garage" className="textlink">
+                  Garage
+                </Link>{" "}
+                zu sehen. Wir rechnen jede Nacht neu und schreiben dir, sobald jemand ein Auto
+                wie deines sucht — vorausgesetzt, deine Adresse ist bestätigt und die{" "}
                 <Link href="/konto" className="textlink">
                   Treffermeldungen
                 </Link>{" "}

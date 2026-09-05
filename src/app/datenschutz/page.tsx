@@ -117,6 +117,11 @@ export default function DatenschutzPage() {
         Tag später. Ein täglicher Lauf räumt das ab — es bleibt nicht liegen.
       </p>
       <p>
+        Scheitert der Versand einer Mail, halten wir 30 Tage lang fest, wann das war, woran es
+        lag, um welche Art Nachricht es ging und an welche Domain sie sollte — sonst fiele ein
+        Ausfall erst auf, wenn sich jemand beschwert. Die Adresse selbst steht dort nicht.
+      </p>
+      <p>
         Konto, Inserate und Fotos bleiben, bis du sie löschst. Was nach einer
         Kontolöschung übrig bleibt, steht unten. Abgeschlossene Tauschvorgänge und
         Zahlungen bleiben als Buchungsbeleg erhalten — das Obligationenrecht verlangt
