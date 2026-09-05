@@ -145,9 +145,14 @@ export function UserMenu({
               Konto und Auszahlung
             </MenuLink>
             {isAdmin && (
-              <MenuLink href="/admin/meldungen" onClick={() => setOpen(false)}>
-                Gemeldete Inserate
-              </MenuLink>
+              <>
+                <MenuLink href="/admin/betrieb" onClick={() => setOpen(false)}>
+                  Betrieb
+                </MenuLink>
+                <MenuLink href="/admin/meldungen" onClick={() => setOpen(false)}>
+                  Gemeldete Inserate
+                </MenuLink>
+              </>
             )}
             <form action={signOutAction} className="border-t border-line pt-1">
               <button

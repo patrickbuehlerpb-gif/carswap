@@ -40,6 +40,19 @@ hängen.
 | **Tauschvorgang** (`/deals/[id]`) | Verhandlung, Zusage, Treuhand, Telefonnummer der Gegenseite, Übergabe-Checkliste, Abschluss mit Halterwechsel. |
 | **Ringtausch** (`/ringe/[id]`) | Derselbe Ablauf über drei Parteien: drei Zusagen, aufgeteilter Treuhandtopf, drei Übergaben, Halterwechsel im Kreis. |
 
+### Betrieb
+
+`/admin/betrieb` zeigt der Betreiberin auf einer Seite, was los ist: Konten,
+Inserate, Tausche und Ringe je Zustand, wie viel Geld reserviert, ausgezahlt
+und — der wichtigste Punkt — eingezogen, aber nicht weitergeleitet ist. Dazu
+die Liste des Geldes, das gerade unterwegs ist, ältestes zuerst: was dort lange
+steht, hängt. Ganz oben steht, welche Umgebungsvariablen fehlen; dieselben
+Punkte prüft `npm run preflight`, nur läuft im Betrieb kein Skript mehr.
+
+Die Seite ist rein lesend — auslösen lässt sich von dort nichts. Wer kein Admin
+ist, bekommt eine 404 und sieht den Punkt auch nicht im Menü. Ein Konto zum
+Admin macht `npm run admin`.
+
 ### Moderation
 
 Jedes Inserat lässt sich melden; die Meldung geht in die Tabelle `reports` und
@@ -363,12 +376,14 @@ src/
     actions/           Server Actions (auth, listings, deals, watchlist, account)
     api/               Stripe-Webhook, Blob-Upload-Token, Health-Check, Crons
     konto/             Registrierung, Anmeldung, Reset, Profil
+    admin/             Betriebsübersicht und gemeldete Inserate
     inserat/           Inserat anlegen und bearbeiten
   components/          UI, Charts, Formulare, Konfiguratoren
   lib/
     auth/              Passwort-Hashing, Sitzungen, Token, Ratenbegrenzung
     db/                Drizzle-Schema und Verbindung
     queries.ts         Datenzugriff mit Übersetzung in Domänenobjekte
+    betrieb.ts         Kennzahlen für die Betriebsübersicht
     valuation.ts       Bewertungs- und Prognosemodell
     matching.ts        Wunschabgleich, Scoring, Ringsuche
     rings.ts           Ringrechnung: Ausgleiche zerlegen, Ring prüfen
