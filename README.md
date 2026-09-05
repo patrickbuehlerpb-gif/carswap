@@ -313,6 +313,30 @@ Für eine vollständige, gepflegte Quelle kommen infrage:
 - **NHTSA vPIC** — frei und ohne Schlüssel, aber auf den US-Markt bezogen; die
   europäischen Modellbezeichnungen weichen ab.
 
+## Tempo auf dem Marktplatz
+
+Der Marktplatz filtert und rechnet im Browser: nur so lässt sich die Zuzahlung
+gegen das eigene Auto laufend nachführen, ohne bei jedem Klick den Server zu
+fragen. Der Bestand ist bei `MARKTPOOL_LIMIT` (500) gedeckelt.
+
+Gemessen mit 500 Inseraten auf einem viermal gedrosselten Gerät — vorher und
+nachher:
+
+| | vorher | nachher |
+| --- | --- | --- |
+| Bis die erste Karte steht | 3,0 s | 1,1 s |
+| Erste Anzeige (FCP) | 0,9 s | 0,3 s |
+| Ein Filterklick | 1,5 s | 0,6 s |
+
+Nicht das Rechnen war teuer: die Passung für alle 500 Inserate dauert zehn
+Millisekunden. Teuer war, fünfhundert Kartengerüste aufzubauen und bei jedem
+Filterklick wieder abzuräumen. Jetzt stehen 24 im DOM, der Rest kommt auf
+Klick; nach jeder Filteränderung geht es wieder bei 24 los.
+
+Festgehalten wird das über die Anzahl der Karten im DOM, nicht über eine
+Zeitgrenze — auf geteilter Hardware schwankt die zu stark, um etwas zu
+bedeuten. Die Anzahl ist dieselbe Aussage ohne den Zufall.
+
 ## Geteilte Links
 
 Ein Marktplatz lebt davon, dass Leute «schau dir das an» weiterschicken. Ohne

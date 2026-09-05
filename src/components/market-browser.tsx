@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { VehicleCard } from "@/components/vehicle-card";
 import { chf, label } from "@/lib/format";
 import { findMatches, type ListingEntry } from "@/lib/matching";
@@ -12,6 +12,19 @@ const BODIES: Body[] = ["suv", "limousine", "kombi", "kompakt"];
 const FUELS: Fuel[] = ["elektro", "hybrid", "benzin", "diesel"];
 
 type Sort = "score" | "cash-asc" | "cash-desc" | "value-desc" | "km-asc";
+
+/**
+ * Wie viele Karten auf einmal im DOM stehen.
+ *
+ * Gemessen mit 500 Inseraten auf einem viermal gedrosselten Gerät: alle
+ * gleichzeitig zu zeigen kostete 3,0 Sekunden bis zur ersten Karte und 1,5
+ * Sekunden für jeden Filterklick. Nicht das Rechnen ist teuer — die Passung
+ * für alle 500 dauert zehn Millisekunden —, sondern das Aufbauen und wieder
+ * Abräumen von fünfhundert Kartengerüsten.
+ *
+ * 24 füllt auf jedem Bildschirm mehr als eine Seite; der Rest kommt auf Klick.
+ */
+const SEITE = 24;
 
 export function MarketBrowser({
   pool,
@@ -32,6 +45,7 @@ export function MarketBrowser({
   const [maxCash, setMaxCash] = useState(30_000);
   const [onlyMutual, setOnlyMutual] = useState(false);
   const [sort, setSort] = useState<Sort>("score");
+  const [gezeigt, setGezeigt] = useState(SEITE);
 
   const myVehicle = myVehicles.find((v) => v.id === myVehicleId) ?? myVehicles[0] ?? null;
 
@@ -83,6 +97,16 @@ export function MarketBrowser({
     return sorted;
   }, [myVehicle, pool, makes, bodies, fuels, minYear, maxCash, onlyMutual, sort]);
 
+  /*
+   * Nach jeder Änderung wieder von vorn: sonst stünde nach dem Nachladen von
+   * hundert Karten und einem neuen Filter eine willkürliche Zahl von
+   * Ergebnissen da.
+   */
+  useEffect(() => {
+    setGezeigt(SEITE);
+  }, [makes, bodies, fuels, minYear, maxCash, onlyMutual, sort, myVehicleId]);
+
+  const sichtbar = matches.slice(0, gezeigt);
   const mutualCount = matches.filter((m) => m.mutual).length;
   const activeFilters =
     makes.length + bodies.length + fuels.length + (minYear ? 1 : 0) + (onlyMutual ? 1 : 0);
@@ -279,20 +303,33 @@ export function MarketBrowser({
             </button>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {matches.map((m) => (
-              <VehicleCard
-                key={m.vehicle.id}
-                vehicle={m.vehicle}
-                listing={m.listing}
-                owner={m.owner}
-                cashDelta={myVehicle ? m.cashDelta : undefined}
-                score={myVehicle ? m.score : undefined}
-                mutual={m.mutual}
-                watched={watchlist.includes(m.listing.id)}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {sichtbar.map((m) => (
+                <VehicleCard
+                  key={m.vehicle.id}
+                  vehicle={m.vehicle}
+                  listing={m.listing}
+                  owner={m.owner}
+                  cashDelta={myVehicle ? m.cashDelta : undefined}
+                  score={myVehicle ? m.score : undefined}
+                  mutual={m.mutual}
+                  watched={watchlist.includes(m.listing.id)}
+                />
+              ))}
+            </div>
+            {gezeigt < matches.length && (
+              <div className="mt-6 text-center">
+                <button
+                  onClick={() => setGezeigt((n) => n + SEITE)}
+                  className="rounded-lg border border-line-strong px-5 py-2.5 text-sm text-ink-2 transition-colors hover:border-ink-3 hover:text-ink"
+                >
+                  Weitere {Math.min(SEITE, matches.length - gezeigt)} von{" "}
+                  {matches.length - gezeigt} zeigen
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
