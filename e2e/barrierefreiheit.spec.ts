@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { registriere } from "./hilfen";
 
 /**
  * Automatische Prüfung auf Barrierefreiheit über die Hauptseiten.
@@ -9,23 +10,6 @@ import { expect, test, type Page } from "@playwright/test";
  * durchweg echt: fehlende Beschriftungen, zu schwache Kontraste, falsche
  * Verschachtelung. Als Testlauf verankert, damit es nicht wieder wegrutscht.
  */
-
-const PASSWORT = "ein sehr langes Testpasswort";
-
-function eindeutig(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-}
-
-async function registrieren(page: Page): Promise<void> {
-  await page.goto("/konto/registrieren");
-  await page.fill('input[name="name"]', "Prüferin");
-  await page.fill('input[name="email"]', `${eindeutig("e2e-a11y")}@example.invalid`);
-  await page.fill('input[name="password"]', PASSWORT);
-  await page.fill('input[name="location"]', "Basel");
-  await page.fill('input[name="canton"]', "BS");
-  await page.click('button[type="submit"]');
-  await page.waitForURL("**/garage**");
-}
 
 async function pruefe(page: Page, pfad: string) {
   await page.goto(pfad);
@@ -55,7 +39,7 @@ test("Anmeldung und Registrierung sind zugänglich", async ({ page }) => {
 });
 
 test("die angemeldeten Seiten sind zugänglich", async ({ page }) => {
-  await registrieren(page);
+  await registriere(page, { name: "Prüferin", ort: "Basel", kanton: "BS" });
   for (const pfad of ["/garage", "/konto", "/matches", "/deals", "/markt", "/inserat/neu"]) {
     await pruefe(page, pfad);
   }
@@ -63,7 +47,7 @@ test("die angemeldeten Seiten sind zugänglich", async ({ page }) => {
 
 test("die Seite lässt sich auch auf dem Telefon bedienen", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await registrieren(page);
+  await registriere(page, { name: "Prüferin", ort: "Basel", kanton: "BS" });
   for (const pfad of ["/", "/markt", "/garage", "/konto"]) {
     await pruefe(page, pfad);
   }
@@ -75,7 +59,7 @@ test("die Seite lässt sich auch auf dem Telefon bedienen", async ({ page }) => 
  * jede automatische Prüfung und ist trotzdem unbenutzbar.
  */
 test("die eigenen Bedienelemente lassen sich mit der Tastatur bedienen", async ({ page }) => {
-  await registrieren(page);
+  await registriere(page, { name: "Prüferin", ort: "Basel", kanton: "BS" });
 
   // --- Der Sprunglink ist der erste Halt und führt zum Inhalt ---
   await page.goto("/markt");

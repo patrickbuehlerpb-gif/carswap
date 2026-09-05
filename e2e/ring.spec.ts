@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { abmelden, anmelden, registriere } from "./hilfen";
 import { eq, sql as raw } from "drizzle-orm";
 import { connect } from "../scripts/db-connect";
 
@@ -12,39 +13,6 @@ import { connect } from "../scripts/db-connect";
  * Der Geldpfad selbst hat eigene Tests gegen ein Stripe-Doppel.
  */
 
-const PASSWORT = "ein sehr langes Testpasswort";
-
-function eindeutig(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-}
-
-async function registrieren(page: Page, name: string) {
-  const email = `${eindeutig("e2e")}@example.invalid`;
-  await page.goto("/konto/registrieren");
-  await page.fill('input[name="name"]', name);
-  await page.fill('input[name="email"]', email);
-  await page.fill('input[name="password"]', PASSWORT);
-  await page.fill('input[name="location"]', "Zürich");
-  await page.fill('input[name="canton"]', "ZH");
-  await page.click('button[type="submit"]');
-  await page.waitForURL("**/garage**");
-  return email;
-}
-
-async function anmelden(page: Page, email: string) {
-  await page.goto("/konto/anmelden");
-  await page.fill('input[name="email"]', email);
-  await page.fill('input[name="password"]', PASSWORT);
-  await page.click('button[type="submit"]');
-  await page.waitForURL((url) => !url.pathname.startsWith("/konto/anmelden"));
-}
-
-async function abmelden(page: Page) {
-  await page.goto("/garage");
-  await page.locator('button[aria-haspopup="menu"]').first().click();
-  await page.getByRole("button", { name: /Abmelden/i }).click();
-  await page.waitForURL(/\/(\?.*)?$/);
-}
 
 /** Setzt alle Ausgleiche des einzigen Rings in der Testdatenbank auf null. */
 async function ausgleichNullen() {
@@ -103,15 +71,15 @@ test("drei Konten wickeln einen Ring ab und bewerten sich", async ({ page }) => 
   // Anna gibt einen Polestar, Bruno sucht genau den. Bruno gibt einen BMW,
   // Clara sucht einen BMW. Claras Audi geht zurück an Anna — der klassische
   // Fall, in dem sich zwei Wünsche nur über eine dritte Partei auflösen.
-  const anna = await registrieren(page, "Anna Ring");
+  const anna = await registriere(page, { name: "Anna Ring", ort: "Zürich", kanton: "ZH" });
   await inserieren(page, "Polestar", "4", 68000, "BMW");
   await abmelden(page);
 
-  const bruno = await registrieren(page, "Bruno Ring");
+  const bruno = await registriere(page, { name: "Bruno Ring", ort: "Zürich", kanton: "ZH" });
   await inserieren(page, "BMW", "i4", 72000, "Polestar");
   await abmelden(page);
 
-  const clara = await registrieren(page, "Clara Ring");
+  const clara = await registriere(page, { name: "Clara Ring", ort: "Zürich", kanton: "ZH" });
   await inserieren(page, "Audi", "Q4 e-tron", 60000, "BMW");
   await abmelden(page);
 

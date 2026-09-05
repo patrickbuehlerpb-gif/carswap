@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { sql as raw } from "drizzle-orm";
 import { connect } from "../scripts/db-connect";
+import { eindeutig, raeumeKontenAuf, registriere } from "./hilfen";
 
 /**
  * Der Marktplatz mit vielen Inseraten.
@@ -21,15 +22,10 @@ const SEITE = 24;
 const ANZAHL = 60;
 const angelegt: string[] = [];
 
-function eindeutig(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-}
+const registriert: string[] = [];
 
 test.afterAll(async () => {
-  if (!angelegt.length) return;
-  const { db, sql } = connect();
-  for (const id of angelegt) await db.execute(raw`delete from users where id = ${id}`);
-  await sql.end();
+  await raeumeKontenAuf({ ids: angelegt, adressen: registriert });
 });
 
 test.beforeAll(async () => {
@@ -90,4 +86,46 @@ test("kommt ohne Nachladeknopf aus, wenn alles auf eine Seite passt", async ({ p
   await page.getByRole("button", { name: "Lucid", exact: true }).first().click();
   await expect(page.locator("article")).toHaveCount(ANZAHL / 4);
   await expect(page.getByRole("button", { name: /Weitere/ })).toHaveCount(0);
+});
+
+/**
+ * Dieselbe Rechnung auf der Treffer-Seite. «Beide Seiten wollen» war dort
+ * ungedeckelt: wer nichts in die Wunschliste einträgt — und das sind die
+ * meisten —, passt formal zu jedem. Mit 500 Inseraten standen 1560 Zeilen im
+ * DOM und die Seite brauchte auf einem gedrosselten Gerät vier Sekunden.
+ */
+test("Treffer-Seite zeigt je Gruppe eine Seite und lädt nach", async ({ page }) => {
+  const email = await registriere(page, { name: "Suchende" });
+  registriert.push(email);
+
+  // Ein eigenes Auto — ohne das rechnet die Seite nichts.
+  const { db, sql } = connect();
+  const vehicleId = eindeutig("veh_tr");
+  await db.execute(raw`
+    insert into vehicles (
+      id, owner_id, make, model, first_registration, mileage_km, fuel, body,
+      drivetrain, power_ps, list_price_new, condition, service_history, color
+    ) select ${vehicleId}, id, 'Polestar', '4', '2022-03-01', 30000, 'elektro', 'suv',
+      'heck', 272, 60000, 'gut', 'lückenlos scheckheft', 'blau'
+      from users where email = ${email}`);
+  await db.execute(raw`
+    insert into listings (id, vehicle_id, owner_id, status)
+    select ${eindeutig("lst_tr")}, ${vehicleId}, id, 'aktiv' from users where email = ${email}`);
+  await sql.end();
+
+  await page.goto("/matches");
+  // Über die Überschrift zum eigenen Abschnitt, und dort nur die Zeilen
+  // direkt in der Liste: eine Trefferzeile enthält selbst wieder Listen für
+  // Gründe und Bedenken, die sonst mitgezählt würden.
+  const ueberschrift = page.getByRole("heading", { name: /Beide Seiten wollen/ });
+  await expect(ueberschrift).toBeVisible();
+  const zeilen = ueberschrift.locator("xpath=ancestor::section[1]").locator("> ul > li");
+  const gruppe = ueberschrift.locator("xpath=ancestor::section[1]");
+
+  // Die Überschrift nennt alle, die Liste zeigt eine Seite.
+  await expect(zeilen).toHaveCount(12);
+  const knopf = gruppe.getByRole("button", { name: /Weitere \d+ von \d+ zeigen/ });
+  await expect(knopf).toBeVisible();
+  await knopf.click();
+  await expect(zeilen).toHaveCount(24);
 });

@@ -46,8 +46,13 @@ export function MatchFinder({
   // Drei Gruppen, weil genau das den Tauschmarkt beschreibt: beide wollen,
   // nur ich will, oder nur die Gegenseite will.
   const both = matches.filter((m) => m.mutual && m.fitsMyWish);
-  const onlyMe = matches.filter((m) => !m.mutual && m.fitsMyWish).slice(0, 6);
-  const onlyThem = matches.filter((m) => m.mutual && !m.fitsMyWish).slice(0, 6);
+  /*
+   * Kein hartes Abschneiden mehr: die Gruppen zeigen eine Seite und laden auf
+   * Klick nach. Vorher verschwanden Treffer ab dem siebten kommentarlos —
+   * eine Zahl in der Überschrift, die nicht zur Liste passte.
+   */
+  const onlyMe = matches.filter((m) => !m.mutual && m.fitsMyWish);
+  const onlyThem = matches.filter((m) => m.mutual && !m.fitsMyWish);
   const rings = useMemo(() => findRingSwaps(mine, pool, wish, me, 6), [mine, pool, wish, me]);
 
   function toggle<T>(arr: T[], set: (v: T[]) => void, v: T) {
@@ -299,6 +304,16 @@ export function MatchFinder({
   );
 }
 
+/**
+ * Wie viele Treffer eine Gruppe auf einmal zeigt.
+ *
+ * «Beide Seiten wollen» war ungedeckelt. Wer nichts in die Wunschliste
+ * einträgt — und das sind die meisten —, passt formal zu jedem: bei
+ * fünfhundert Inseraten standen dann fünfhundert Zeilen im DOM. Dieselbe
+ * Rechnung wie auf dem Marktplatz, dieselbe Antwort.
+ */
+const GRUPPE = 12;
+
 function MatchGroup({
   title,
   sub,
@@ -312,6 +327,9 @@ function MatchGroup({
   mineId: string;
   empty: string;
 }) {
+  const [gezeigt, setGezeigt] = useState(GRUPPE);
+  const sichtbar = items.slice(0, gezeigt);
+
   return (
     <section>
       <h3 className="mb-1 text-sm font-semibold text-ink">
@@ -321,11 +339,24 @@ function MatchGroup({
       {items.length === 0 ? (
         <EmptyBox text={empty} />
       ) : (
-        <ul className="space-y-3">
-          {items.map((m) => (
-            <MatchRow key={m.vehicle.id} match={m} mineId={mineId} />
-          ))}
-        </ul>
+        <>
+          <ul className="space-y-3">
+            {sichtbar.map((m) => (
+              <MatchRow key={m.vehicle.id} match={m} mineId={mineId} />
+            ))}
+          </ul>
+          {gezeigt < items.length && (
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => setGezeigt((n) => n + GRUPPE)}
+                className="rounded-lg border border-line-strong px-5 py-2 text-sm text-ink-2 transition-colors hover:border-ink-3 hover:text-ink"
+              >
+                Weitere {Math.min(GRUPPE, items.length - gezeigt)} von{" "}
+                {items.length - gezeigt} zeigen
+              </button>
+            </div>
+          )}
+        </>
       )}
     </section>
   );

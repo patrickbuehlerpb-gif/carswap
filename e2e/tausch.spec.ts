@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { abmelden, anmelden, registriere } from "./hilfen";
 
 /**
  * Der vollständige Ablauf im echten Browser: zwei Konten, zwei Inserate,
@@ -9,40 +10,6 @@ import { expect, test, type Page } from "@playwright/test";
  * Tests gegen ein Stripe-Doppel.
  */
 
-const PASSWORT = "ein sehr langes Testpasswort";
-
-function eindeutig(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-}
-
-async function registrieren(page: Page, name: string) {
-  const email = `${eindeutig("e2e")}@example.invalid`;
-  await page.goto("/konto/registrieren");
-  await page.fill('input[name="name"]', name);
-  await page.fill('input[name="email"]', email);
-  await page.fill('input[name="password"]', PASSWORT);
-  await page.fill('input[name="location"]', "Zürich");
-  await page.fill('input[name="canton"]', "ZH");
-  await page.click('button[type="submit"]');
-  await page.waitForURL("**/garage**");
-  return email;
-}
-
-async function anmelden(page: Page, email: string) {
-  await page.goto("/konto/anmelden");
-  await page.fill('input[name="email"]', email);
-  await page.fill('input[name="password"]', PASSWORT);
-  await page.click('button[type="submit"]');
-  await page.waitForURL((url) => !url.pathname.startsWith("/konto/anmelden"));
-}
-
-async function abmelden(page: Page) {
-  await page.goto("/garage");
-  // Das Abmelden steckt im Benutzermenü der Kopfzeile.
-  await page.locator('button[aria-haspopup="menu"]').first().click();
-  await page.getByRole("button", { name: /Abmelden/i }).click();
-  await page.waitForURL(/\/(\?.*)?$/);
-}
 
 /** Legt ein Inserat an und gibt die Fahrzeug-Adresse zurück. */
 async function inserieren(
@@ -81,13 +48,13 @@ test("zwei Konten tauschen ein Fahrzeug und bewerten sich", async ({ page }) => 
   test.slow();
 
   /* ---- Anna inseriert ---- */
-  const anna = await registrieren(page, "Anna Test");
+  const anna = await registriere(page, { name: "Anna Test", ort: "Zürich", kanton: "ZH" });
   const annasAuto = await inserieren(page, "Polestar", "2", 55_000, "Kia");
   expect(annasAuto).toContain("/auto/");
   await abmelden(page);
 
   /* ---- Bruno inseriert und schlägt den Tausch vor ---- */
-  const bruno = await registrieren(page, "Bruno Test");
+  const bruno = await registriere(page, { name: "Bruno Test", ort: "Zürich", kanton: "ZH" });
   await inserieren(page, "Kia", "EV6", 55_000, "Polestar");
 
   await page.goto(annasAuto);

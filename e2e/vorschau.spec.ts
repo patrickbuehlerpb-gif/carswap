@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { sql as raw } from "drizzle-orm";
 import { connect } from "../scripts/db-connect";
+import { eindeutig, raeumeKontenAuf } from "./hilfen";
 
 /**
  * Was ein Chatprogramm sieht, wenn jemand einen Link weiterschickt.
@@ -12,15 +13,8 @@ import { connect } from "../scripts/db-connect";
 const HOST = "https://beispiel.public.blob.vercel-storage.com";
 const angelegt: string[] = [];
 
-function eindeutig(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-}
-
 test.afterAll(async () => {
-  if (!angelegt.length) return;
-  const { db, sql } = connect();
-  for (const id of angelegt) await db.execute(raw`delete from users where id = ${id}`);
-  await sql.end();
+  await raeumeKontenAuf({ ids: angelegt });
 });
 
 async function inseratAnlegen(mitFoto: boolean): Promise<string> {

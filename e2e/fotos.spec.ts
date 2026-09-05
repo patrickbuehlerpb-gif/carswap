@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { eindeutig, raeumeKontenAuf, registriere } from "./hilfen";
 import { sql as raw } from "drizzle-orm";
 import { connect } from "../scripts/db-connect";
 
@@ -11,17 +12,12 @@ import { connect } from "../scripts/db-connect";
  * wird der Aufbau der Seite, nicht der Blob-Speicher.
  */
 
-const PASSWORT = "ein sehr langes Testpasswort";
 const HOST = "https://beispiel.public.blob.vercel-storage.com";
-
-function eindeutig(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-}
 
 /**
  * Die angelegten Konten werden am Ende wieder entfernt. Alle Spec-Dateien
- * teilen sich eine Datenbank, die nur einmal vor dem ganzen Lauf geleert wird
- * — ein hier eingefügtes Inserat stünde sonst im Marktplatz der anderen
+ * teilen sich eine Datenbank, die nur einmal vor dem ganzen Lauf geleert
+ * wird — ein hier eingefügtes Inserat stünde sonst im Marktplatz der anderen
  * Durchläufe und liesse deren Zählungen scheitern.
  */
 const angelegt: string[] = [];
@@ -66,19 +62,9 @@ async function autoMitFotos(anzahl: number): Promise<string> {
   return vehicleId;
 }
 
-async function anmelden(page: import("@playwright/test").Page) {
-  const email = `${eindeutig("e2e-foto")}@example.invalid`;
-  await page.goto("/konto/registrieren");
-  await page.fill('input[name="name"]', "Schauende");
-  await page.fill('input[name="email"]', email);
-  await page.fill('input[name="password"]', PASSWORT);
-  await page.click('button[type="submit"]');
-  await page.waitForURL("**/garage**");
-}
-
 test("Fahrzeugseite zeigt die hochgeladenen Fotos", async ({ page }) => {
   const vehicleId = await autoMitFotos(3);
-  await anmelden(page);
+  await registriere(page, { name: "Schauende" });
   await page.goto(`/auto/${vehicleId}`);
 
   // Das grosse Bild und zwei weitere zur Auswahl.
@@ -96,7 +82,7 @@ test("Fahrzeugseite zeigt die hochgeladenen Fotos", async ({ page }) => {
 
 test("Fahrzeugseite ohne Fotos zeigt die Silhouette statt einer Lücke", async ({ page }) => {
   const vehicleId = await autoMitFotos(0);
-  await anmelden(page);
+  await registriere(page, { name: "Schauende" });
   await page.goto(`/auto/${vehicleId}`);
 
   await expect(page.getByRole("group", { name: "Weitere Fotos" })).toHaveCount(0);

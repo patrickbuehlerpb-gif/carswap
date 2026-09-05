@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { PASSWORT, abmelden, anmeldeVersuch, anmelden, eindeutig, registriere } from "./hilfen";
 
 /**
  * Passwort und E-Mail-Adresse im echten Browser wechseln.
@@ -8,47 +9,15 @@ import { expect, test, type Page } from "@playwright/test";
  * darin sperrt jemanden aus seinem Konto aus.
  */
 
-const PASSWORT = "ein sehr langes Testpasswort";
 const NEUES_PASSWORT = "ein anderes langes Testpasswort";
-
-function eindeutig(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-}
-
-async function registrieren(page: Page): Promise<string> {
-  const email = `${eindeutig("e2e")}@example.invalid`;
-  await page.goto("/konto/registrieren");
-  await page.fill('input[name="name"]', "Nina");
-  await page.fill('input[name="email"]', email);
-  await page.fill('input[name="password"]', PASSWORT);
-  await page.fill('input[name="location"]', "Bern");
-  await page.fill('input[name="canton"]', "BE");
-  await page.click('button[type="submit"]');
-  await page.waitForURL("**/garage**");
-  return email;
-}
-
-async function abmelden(page: Page) {
-  await page.goto("/garage");
-  await page.locator('button[aria-haspopup="menu"]').first().click();
-  await page.getByRole("button", { name: /Abmelden/i }).click();
-  await page.waitForURL(/\/(\?.*)?$/);
-}
 
 /** Meldungen der Formulare — nicht der Routen-Ansager von Next, der ebenfalls role=alert trägt. */
 function fehler(page: Page) {
   return page.locator('p[role="alert"]');
 }
 
-async function anmelden(page: Page, email: string, passwort: string) {
-  await page.goto("/konto/anmelden");
-  await page.fill('input[name="email"]', email);
-  await page.fill('input[name="password"]', passwort);
-  await page.click('button[type="submit"]');
-}
-
 test("Passwort ändern und mit dem neuen wieder anmelden", async ({ page }) => {
-  const email = await registrieren(page);
+  const email = await registriere(page, { name: "Nina", ort: "Bern", kanton: "BE" });
 
   await page.goto("/konto");
   await page.getByRole("button", { name: "Ändern", exact: true }).last().click();
@@ -72,15 +41,14 @@ test("Passwort ändern und mit dem neuen wieder anmelden", async ({ page }) => {
 
   await abmelden(page);
 
-  await anmelden(page, email, PASSWORT);
+  await anmeldeVersuch(page, email, PASSWORT);
   await expect(fehler(page)).toContainText(/stimmt nicht/i);
 
   await anmelden(page, email, NEUES_PASSWORT);
-  await page.waitForURL((url) => !url.pathname.startsWith("/konto/anmelden"));
 });
 
 test("Adresswechsel gilt erst nach der Bestätigung", async ({ page }) => {
-  const email = await registrieren(page);
+  const email = await registriere(page, { name: "Nina", ort: "Bern", kanton: "BE" });
   const neu = `${eindeutig("e2e-neu")}@example.invalid`;
 
   await page.goto("/konto");
@@ -97,11 +65,10 @@ test("Adresswechsel gilt erst nach der Bestätigung", async ({ page }) => {
   await expect(page.getByText(/Wechsel zu/)).toContainText(neu);
 
   await abmelden(page);
-  await anmelden(page, neu, PASSWORT);
+  await anmeldeVersuch(page, neu, PASSWORT);
   await expect(fehler(page)).toContainText(/stimmt nicht/i);
 
   await anmelden(page, email, PASSWORT);
-  await page.waitForURL((url) => !url.pathname.startsWith("/konto/anmelden"));
 
   // Den Wechsel wieder zurücknehmen.
   await page.goto("/konto");

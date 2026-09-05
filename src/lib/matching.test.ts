@@ -284,3 +284,89 @@ describe("Zweiertausch", () => {
     expect(beidseitig.map((m) => m.listing.vehicleId)).toEqual(["v-a"]);
   });
 });
+
+/**
+ * Die Ringsuche hebt nur noch die besten Kandidaten auf, statt jeden
+ * gefundenen Ring als vollständiges Objekt zu sammeln und nach dem Sortieren
+ * fast alle wegzuwerfen. Diese Prüfungen halten fest, dass dabei dasselbe
+ * herauskommt — und dass es dabei bleibt.
+ */
+describe("Ringsuche unter vielen Inseraten", () => {
+  /** Ein Bestand, in dem fast jedes Paar einen Ring ergibt. */
+  function breiterBestand(n: number) {
+    const marken = ["Polestar", "Kia", "Zeekr", "Volvo", "Cupra"];
+    return Array.from({ length: n }, (_, i) =>
+      eintrag(
+        fahrzeug(`v-${i}`, `u-${i}`, {
+          make: marken[i % marken.length],
+          listPriceNew: 50_000 + i * 700,
+          mileageKm: 20_000 + i * 900,
+        }),
+        // Leere Wunschliste: der ungünstigste Fall, weil dann jeder zu jedem
+        // passt — und zugleich der häufigste, weil viele nichts eintragen.
+        wunsch(),
+      ),
+    );
+  }
+
+  it("liefert genau die Besten, die eine unbegrenzte Suche auch liefern würde", () => {
+    const meins = fahrzeug("v-me", "u-me");
+    const pool = breiterBestand(24);
+    const ich = nutzer("u-me");
+
+    const alle = findRingSwaps(meins, pool, undefined, ich, 10_000);
+    const besten = findRingSwaps(meins, pool, undefined, ich, 6);
+
+    expect(alle.length).toBeGreaterThan(6);
+    expect(besten).toEqual(alle.slice(0, 6));
+  });
+
+  it("gibt die Ringe nach Passung sortiert zurück", () => {
+    const besten = findRingSwaps(
+      fahrzeug("v-me", "u-me"),
+      breiterBestand(24),
+      undefined,
+      nutzer("u-me"),
+      6,
+    );
+    const punkte = besten.map((r) => r.score);
+    expect([...punkte].sort((a, b) => b - a)).toEqual(punkte);
+  });
+
+  it("nennt keinen Ring zweimal", () => {
+    const besten = findRingSwaps(
+      fahrzeug("v-me", "u-me"),
+      breiterBestand(24),
+      undefined,
+      nutzer("u-me"),
+      50,
+    );
+    expect(new Set(besten.map((r) => r.id)).size).toBe(besten.length);
+  });
+
+  it("rechnet auch bei den Besten die Zuzahlungen auf null auf", () => {
+    const besten = findRingSwaps(
+      fahrzeug("v-me", "u-me"),
+      breiterBestand(24),
+      undefined,
+      nutzer("u-me"),
+      6,
+    );
+    expect(besten.length).toBe(6);
+    for (const ring of besten) {
+      expect(ring.participants.reduce((n, p) => n + p.cash, 0)).toBe(0);
+      // Und jedes Bein gibt an genau eine andere Person weiter.
+      expect(new Set(ring.participants.map((p) => p.user.id)).size).toBe(3);
+    }
+  });
+
+  it("kommt mit weniger Treffern als gewünscht zurecht", () => {
+    const meins = fahrzeug("v-me", "u-me");
+    const pool = [
+      eintrag(fahrzeug("v-a", "u-a", { make: "Kia" }), wunsch({ makes: ["Polestar"] })),
+      eintrag(fahrzeug("v-b", "u-b", { make: "Zeekr" }), wunsch({ makes: ["Kia"] })),
+    ];
+    const ringe = findRingSwaps(meins, pool, { makes: ["Zeekr"] }, nutzer("u-me"), 6);
+    expect(ringe).toHaveLength(1);
+  });
+});

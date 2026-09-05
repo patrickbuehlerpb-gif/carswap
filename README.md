@@ -250,6 +250,19 @@ Stripe-Doppel, die Gebührenrechnung und die Webhook-Ereignisse.
 
 ### Ablauf im Browser
 
+Gemeinsame Handgriffe stehen in `e2e/hilfen.ts`: Registrieren, An- und
+Abmelden, Aufräumen. Zwei Dinge sind dort bewusst so gelöst:
+
+- **Der Zähler für Registrierungen wird vor jedem Konto zurückgesetzt.** Er
+  zählt pro IP; im Testlauf kommt alles von derselben, was keine echte
+  Nutzerschaft je tut. Dass die Sperre selbst greift, prüfen die Tests gegen
+  die Datenbank, nicht der Browserlauf.
+- **Jede Datei räumt ihre Konten wieder ab.** Alle teilen sich eine Datenbank,
+  die nur einmal vor dem ganzen Lauf geleert wird — ein liegengebliebenes
+  Inserat steht sonst im Marktplatz der anderen Durchläufe und lässt deren
+  Zählungen scheitern. Das ist zweimal passiert, beide Male mit einem
+  Fehlerbild, das nach einem echten Fehler in der Anwendung aussah.
+
 ```bash
 TEST_DATABASE_URL=postgres://…/carswap_test npm run e2e
 ```
@@ -313,7 +326,7 @@ Für eine vollständige, gepflegte Quelle kommen infrage:
 - **NHTSA vPIC** — frei und ohne Schlüssel, aber auf den US-Markt bezogen; die
   europäischen Modellbezeichnungen weichen ab.
 
-## Tempo auf dem Marktplatz
+## Tempo auf Marktplatz und Treffern
 
 Der Marktplatz filtert und rechnet im Browser: nur so lässt sich die Zuzahlung
 gegen das eigene Auto laufend nachführen, ohne bei jedem Klick den Server zu
@@ -333,9 +346,29 @@ Millisekunden. Teuer war, fünfhundert Kartengerüste aufzubauen und bei jedem
 Filterklick wieder abzuräumen. Jetzt stehen 24 im DOM, der Rest kommt auf
 Klick; nach jeder Filteränderung geht es wieder bei 24 los.
 
-Festgehalten wird das über die Anzahl der Karten im DOM, nicht über eine
+Dieselbe Rechnung auf der Treffer-Seite. «Beide Seiten wollen» war dort
+ungedeckelt: wer nichts in die Wunschliste einträgt — und das sind die
+meisten —, passt formal zu jedem.
+
+| | vorher | nachher |
+| --- | --- | --- |
+| Bis die Treffer stehen | 4,0 s | 1,0 s |
+| Erste Anzeige (FCP) | 1,4 s | 0,5 s |
+| Zeilen im DOM | 1560 | 46 |
+
+Dazu kam dort die Ringsuche. Sie sammelte jeden gefundenen Ring als
+vollständiges Objekt — mit Beinen, Beteiligten und Fahrzeugen — und warf nach
+dem Sortieren alle bis auf sechs weg. Bei 500 Inseraten mit leeren
+Wunschlisten sind das eine Viertelmillion Objektgeflechte für sechs
+Ergebnisse: 470 ms auf schneller Hardware, und der Aufwand wächst mit dem
+Quadrat des Marktes. Jetzt hält sie nur die besten Kandidaten fest und baut
+die Ringe erst am Ende — 49 ms bei 500, 158 ms bei 1000.
+
+Festgehalten wird all das über die Anzahl der Zeilen im DOM, nicht über eine
 Zeitgrenze — auf geteilter Hardware schwankt die zu stark, um etwas zu
-bedeuten. Die Anzahl ist dieselbe Aussage ohne den Zufall.
+bedeuten. Die Anzahl ist dieselbe Aussage ohne den Zufall. Dass die
+beschränkte Ringsuche dasselbe liefert wie eine unbeschränkte, prüft
+`src/lib/matching.test.ts` direkt gegeneinander.
 
 ## Geteilte Links
 
