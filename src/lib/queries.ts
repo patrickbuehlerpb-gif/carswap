@@ -217,6 +217,22 @@ export async function getMyListings(userId: string): Promise<ListingView[]> {
   }));
 }
 
+/**
+ * Wie viele eigene Inserate gerade aktiv sind.
+ *
+ * Getrennt von `getMyVehicles`, weil ein Auto in der Garage und ein Auto im
+ * Marktplatz zweierlei sind: ein pausiertes Inserat sieht niemand, und die
+ * Treffermeldungen gehen nur an Leute mit aktivem Inserat. Wo die Seite
+ * verspricht «wir schreiben dir», muss sie das hier fragen.
+ */
+export async function countMyActiveListings(userId: string): Promise<number> {
+  const rows = await db
+    .select({ n: raw<number>`count(*)::int` })
+    .from(listings)
+    .where(and(eq(listings.ownerId, userId), eq(listings.status, "aktiv")));
+  return rows[0]?.n ?? 0;
+}
+
 /** Zählt einen Aufruf. Fehler hier dürfen die Seite nicht kippen. */
 export async function countListingView(listingId: string): Promise<void> {
   try {

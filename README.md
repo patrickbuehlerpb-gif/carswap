@@ -377,6 +377,28 @@ bedeuten. Die Anzahl ist dieselbe Aussage ohne den Zufall. Dass die
 beschränkte Ringsuche dasselbe liefert wie eine unbeschränkte, prüft
 `src/lib/matching.test.ts` direkt gegeneinander.
 
+## Der erste Tag
+
+Am Anfang ist der Marktplatz leer. Das ist kein Randfall, sondern der Zustand,
+in dem die ersten Nutzerinnen die Seite sehen — und was dort steht, entscheidet,
+ob sie wiederkommen.
+
+Zwei Stellen sagten das Falsche. Der Marktplatz forderte «Sei der Erste — Auto
+einstellen», auch wenn genau das gerade getan worden war: `getActiveListings`
+lässt die eigenen Inserate weg, für die erste Person ist der Pool also leer,
+obwohl ihr Auto drinsteht. Und die Treffer-Seite riet, die Kriterien zu
+erweitern, obwohl es überhaupt nichts zu filtern gab.
+
+Jetzt unterscheiden beide Seiten, ob jemand selbst schon inseriert hat
+(`countMyActiveListings`), und sagen im leeren Markt, was tatsächlich gilt: es
+gibt nichts zu vergleichen, das Inserat ist trotzdem sichtbar, und die
+Treffermeldung kommt von selbst. Das Versprechen ist an die Bedingungen
+geknüpft, unter denen es auch eingehalten wird — bestätigte Adresse und
+eingeschalteter Schalter, siehe Treffermeldungen weiter unten.
+
+`e2e/tag-eins.spec.ts` hält beide Zustände am selben Konto fest: erst ohne
+eigenes Inserat, dann mit.
+
 ## Geteilte Links
 
 Ein Marktplatz lebt davon, dass Leute «schau dir das an» weiterschicken. Ohne

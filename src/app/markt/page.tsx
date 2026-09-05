@@ -6,6 +6,7 @@ import { getSessionUser } from "@/lib/auth/session";
 import {
   MARKTPOOL_LIMIT,
   countActiveListings,
+  countMyActiveListings,
   getActiveListings,
   getMyVehicles,
   getWatchlistIds,
@@ -20,11 +21,12 @@ export const dynamic = "force-dynamic";
 
 export default async function MarktPage() {
   const me = await getSessionUser();
-  const [pool, gesamt, myVehicles, watchlist] = await Promise.all([
+  const [pool, gesamt, myVehicles, watchlist, eigeneAktiv] = await Promise.all([
     getActiveListings(me?.id),
     countActiveListings(me?.id),
     me ? getMyVehicles(me.id) : Promise.resolve([]),
     me ? getWatchlistIds(me.id) : Promise.resolve([]),
+    me ? countMyActiveListings(me.id) : Promise.resolve(0),
   ]);
 
   return (
@@ -32,21 +34,52 @@ export default async function MarktPage() {
       <SectionHead
         title="Marktplatz"
         sub={
-          myVehicles.length
-            ? "Alle Autos, die zum Tausch stehen. Jede Zuzahlung ist gegen dein ausgewähltes Auto gerechnet. Du siehst also immer, was dich ein Tausch unter dem Strich kostet."
-            : "Alle Autos, die zum Tausch stehen. Stell dein eigenes ein, dann rechnen wir jede Zuzahlung direkt dagegen."
+          // Solange nichts dasteht, wäre jede Erklärung zur Zuzahlung ein
+          // Versprechen auf eine Rechnung, die es gerade nicht gibt.
+          pool.length === 0
+            ? "Alle Autos, die zum Tausch stehen."
+            : myVehicles.length
+              ? "Alle Autos, die zum Tausch stehen. Jede Zuzahlung ist gegen dein ausgewähltes Auto gerechnet. Du siehst also immer, was dich ein Tausch unter dem Strich kostet."
+              : "Alle Autos, die zum Tausch stehen. Stell dein eigenes ein, dann rechnen wir jede Zuzahlung direkt dagegen."
         }
       />
 
       {pool.length === 0 ? (
+        /*
+         * Tag eins. Der Marktplatz ist am Anfang leer, und wer selbst schon
+         * ein Auto eingestellt hat, bekam trotzdem «Sei der Erste» zu lesen —
+         * eine Aufforderung zu etwas, das er gerade getan hatte. Die beiden
+         * Fälle sagen deshalb Verschiedenes: der eine, was zu tun ist, der
+         * andere, dass nichts zu tun ist.
+         */
         <Card className="p-12 text-center">
-          <p className="text-sm text-ink-2">Aktuell steht kein Auto zum Tausch.</p>
-          <Link
-            href="/inserat/neu"
-            className="mt-4 inline-block rounded-lg bg-marke px-5 py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
-          >
-            Sei der Erste — Auto einstellen
-          </Link>
+          {eigeneAktiv > 0 ? (
+            <>
+              <h2 className="text-base font-semibold text-ink">
+                Dein Auto steht hier — sonst noch keines
+              </h2>
+              <p className="mx-auto mt-2 max-w-md text-sm text-ink-3">
+                Am Anfang ist ein Marktplatz leer; dagegen hilft kein Filter. Dein Inserat ist
+                veröffentlicht und wird verglichen, sobald jemand dazukommt. Wir rechnen jede
+                Nacht neu und schreiben dir, sobald jemand ein Auto wie deines sucht —
+                vorausgesetzt, deine Adresse ist bestätigt und die{" "}
+                <Link href="/konto" className="textlink">
+                  Treffermeldungen
+                </Link>{" "}
+                sind an. Du musst hier nicht täglich vorbeischauen.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-ink-2">Aktuell steht kein Auto zum Tausch.</p>
+              <Link
+                href="/inserat/neu"
+                className="mt-4 inline-block rounded-lg bg-marke px-5 py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
+              >
+                Sei der Erste — Auto einstellen
+              </Link>
+            </>
+          )}
         </Card>
       ) : (
         <>
