@@ -52,6 +52,9 @@ export interface Geld {
   liegengebliebenAnzahl: number;
   /** Was quitt an abgeschlossenen Vorgängen verdient hat. */
   gebuehrenMinor: number;
+  /** Offene Rückbuchungen — jede kostet die Betreiberin Geld, bis sie geklärt ist. */
+  angefochtenAnzahl: number;
+  angefochtenMinor: number;
 }
 
 export interface Betriebsbild {
@@ -194,10 +197,28 @@ async function zaehleGeld(): Promise<Geld> {
     .from(payments)
     .where(and(eq(payments.status, "eingezogen"), isNull(payments.stripeTransferId)));
 
+  // Offen ist eine Rückbuchung, solange Stripe sie nicht entschieden hat.
+  // «won» heisst, das Geld ist zurück; «lost» ist entschieden und gehört in
+  // die Nachbetrachtung, nicht in die Liste dessen, was noch zu tun ist.
+  const [angefochten] = await db
+    .select({
+      anzahl: raw<number>`count(*)::int`,
+      summe: raw<number>`coalesce(sum(${payments.disputeAmountMinor}), 0)::int`,
+    })
+    .from(payments)
+    .where(
+      and(
+        isNotNull(payments.disputedAt),
+        raw`coalesce(${payments.disputeStatus}, '') not in ('won', 'lost', 'warning_closed')`,
+      ),
+    );
+
   return {
     ...row,
     liegengebliebenAnzahl: liegen.anzahl,
     liegengebliebenMinor: liegen.summe,
+    angefochtenAnzahl: angefochten.anzahl,
+    angefochtenMinor: angefochten.summe,
   };
 }
 

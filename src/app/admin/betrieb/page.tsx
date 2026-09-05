@@ -47,6 +47,18 @@ export default async function BetriebPage() {
         }
       />
 
+      {bild.geld.angefochtenAnzahl > 0 && (
+        <Card className="border-bad/35 bg-bad/8 p-5">
+          <h2 className="text-sm font-semibold text-bad">Rückbuchung offen</h2>
+          <p className="mt-1 text-sm text-ink-2">
+            {bild.geld.angefochtenAnzahl} Zahlung(en) über{" "}
+            <span className="betrag">{chf(bild.geld.angefochtenMinor / 100)}</span> sind
+            zurückgebucht. Der Betrag ist bereits vom Plattformkonto abgezogen. Ohne
+            fristgerechte Stellungnahme im Stripe-Dashboard bleibt er weg.
+          </p>
+        </Card>
+      )}
+
       {bild.geld.liegengebliebenAnzahl > 0 && (
         <Card className="border-bad/35 bg-bad/8 p-5">
           <h2 className="text-sm font-semibold text-bad">Geld liegt auf dem Plattformkonto</h2>

@@ -45,7 +45,8 @@ hängen.
 
 `/admin/betrieb` zeigt der Betreiberin auf einer Seite, was los ist: Konten,
 Inserate, Tausche und Ringe je Zustand, wie viel Geld reserviert, ausgezahlt
-und — der wichtigste Punkt — eingezogen, aber nicht weitergeleitet ist. Dazu
+und — die beiden wichtigsten Punkte — eingezogen aber nicht weitergeleitet
+beziehungsweise zurückgebucht ist. Dazu
 die Liste des Geldes, das gerade unterwegs ist, ältestes zuerst: was dort lange
 steht, hängt. Ganz oben steht, welche Umgebungsvariablen fehlen; dieselben
 Punkte prüft `npm run preflight`, nur läuft im Betrieb kein Skript mehr.
@@ -390,6 +391,26 @@ eingerichtet sind.
 > Kartenautorisierungen verfallen nach sieben Tagen. Wird die Übergabe bis
 > dahin nicht von beiden Seiten bestätigt, muss neu eingezahlt werden.
 
+### Rückbuchungen
+
+Eine Kartenrückbuchung ist der teuerste Fall im ganzen System: Stripe zieht
+den Betrag sofort vom **Plattformkonto** ein — nicht vom Empfänger, dem er
+längst überwiesen wurde. Bis zur Entscheidung liegt quitt in Vorleistung, und
+ohne fristgerechte Stellungnahme ist der Fall verloren.
+
+`charge.dispute.created` und `charge.dispute.closed` werden deshalb verarbeitet.
+Vermerkt wird in eigenen Spalten (`disputed_at`, `dispute_status`,
+`dispute_amount_minor`) und **nicht** im Zahlungsstatus: beides gilt
+gleichzeitig — eine Zahlung kann längst ausgezahlt und trotzdem angefochten
+sein. Als Status geschrieben ginge der Abwicklungsstand verloren und damit die
+Angabe, ob das Geld überhaupt schon beim Empfänger war.
+
+Gemeldet wird an die Betreiberin (`OPERATOR_EMAIL`) mit Betrag, Grund und
+Frist, an beide Beteiligten, in den Verlauf des Vorgangs und ins Log. Offene
+Fälle stehen in `/admin/betrieb` und unter `rueckbuchungen` in `/api/health`.
+Ohne gesetzte `OPERATOR_EMAIL` schreibt das Log einen Fehler — dann erfährt
+niemand davon.
+
 ## Struktur
 
 ```
@@ -526,9 +547,11 @@ Der Lauf macht vier Dinge und ist beliebig oft wiederholbar:
   Fahrzeugwerten und steht mit dem Vorschlag fest. Wer einen anderen Betrag
   will, muss ablehnen und neu vorschlagen — ein Gegenangebot wie beim
   Zweiertausch gibt es nicht.
-- **Rückbuchungen** (Chargebacks) und Erstattungen nach abgeschlossenem Tausch
-  werden erkannt und beiden Seiten gemeldet, aber nicht automatisch geheilt —
-  das braucht einen Streitfall-Prozess.
+- **Der Streitfall selbst.** Rückbuchungen und Erstattungen werden erkannt,
+  gemeldet und in der Betriebsübersicht geführt (siehe unten) — die
+  Stellungnahme bei Stripe und die Einigung zwischen den Beteiligten macht
+  weiterhin ein Mensch. Automatisch geheilt wird nichts: nach einem
+  abgeschlossenen Tausch sind die Autos umgeschrieben.
 - **Missbrauchsschutz**: automatische Betrugserkennung bei auffälligen
   Wertdifferenzen und eine Prüfung neuer Konten. Melden, benachrichtigen,
   abhaken, ein Inserat sperren und ein Konto stilllegen gibt es

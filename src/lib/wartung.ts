@@ -262,3 +262,23 @@ async function offeneRingAbschluesse(): Promise<string[]> {
     .groupBy(ringSwaps.id);
   return rows.filter((r) => r.bestaetigt === 3).map((r) => r.id);
 }
+
+/**
+ * Offene Rückbuchungen. Bis Stripe entschieden hat, fehlt das Geld auf dem
+ * Plattformkonto — und ohne fristgerechte Stellungnahme bleibt es weg.
+ */
+export async function offeneRueckbuchungen(): Promise<{ anzahl: number; summeMinor: number }> {
+  const [row] = await db
+    .select({
+      anzahl: raw<number>`count(*)::int`,
+      summeMinor: raw<number>`coalesce(sum(${payments.disputeAmountMinor}), 0)::int`,
+    })
+    .from(payments)
+    .where(
+      and(
+        isNotNull(payments.disputedAt),
+        raw`coalesce(${payments.disputeStatus}, '') not in ('won', 'lost', 'warning_closed')`,
+      ),
+    );
+  return row ?? { anzahl: 0, summeMinor: 0 };
+}

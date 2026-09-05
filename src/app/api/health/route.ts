@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { stripeConfigured } from "@/lib/payments";
 import { siteUrlConfigured } from "@/lib/mail";
 import { missingOperatorFields } from "@/lib/operator";
-import { haengendeGelder } from "@/lib/wartung";
+import { haengendeGelder, offeneRueckbuchungen } from "@/lib/wartung";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +70,18 @@ export async function GET(request: Request) {
       : "keines";
   } catch {
     checks.liegengebliebenesGeld = "nicht ermittelbar";
+  }
+
+  // Eine offene Rückbuchung hat Stripe bereits vom Plattformkonto abgezogen.
+  // Ohne fristgerechte Stellungnahme bleibt der Betrag weg — das muss die
+  // Betreiberin sehen, ohne auf eine Mail zu warten.
+  try {
+    const angefochten = await offeneRueckbuchungen();
+    checks.rueckbuchungen = angefochten.anzahl
+      ? `${angefochten.anzahl} offen über ${(angefochten.summeMinor / 100).toFixed(2)} CHF`
+      : "keine";
+  } catch {
+    checks.rueckbuchungen = "nicht ermittelbar";
   }
 
   const status = healthy ? 200 : 503;

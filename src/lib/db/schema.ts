@@ -392,6 +392,19 @@ export const payments = pgTable(
     stripeTransferId: text("stripe_transfer_id"),
     /** Zeitpunkt der Reservierung — Stripe lässt sie nach sieben Tagen verfallen. */
     authorizedAt: timestamp("authorized_at", { withTimezone: true }),
+    /**
+     * Rückbuchung: die Bank des Zahlenden holt sich das Geld zurück.
+     *
+     * Eine eigene Spalte und kein Status, weil beides gleichzeitig gilt: eine
+     * Zahlung kann längst ausgezahlt und trotzdem angefochten sein. Als Status
+     * geschrieben ginge der Abwicklungsstand verloren — und damit die Angabe,
+     * ob das Geld überhaupt schon beim Empfänger war.
+     */
+    disputedAt: timestamp("disputed_at", { withTimezone: true }),
+    /** Stand bei Stripe: needs_response, under_review, won, lost … */
+    disputeStatus: text("dispute_status"),
+    /** Angefochtener Betrag in Rappen — kann kleiner sein als der ganze. */
+    disputeAmountMinor: integer("dispute_amount_minor"),
     lastError: text("last_error"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

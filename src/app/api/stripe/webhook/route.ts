@@ -12,17 +12,27 @@ import {
   ringParticipantIds,
 } from "@/lib/rings-db";
 import { sendMail, siteUrl } from "@/lib/mail";
+import { operator } from "@/lib/operator";
 
 /** Der Rohtext wird für die Signaturprüfung gebraucht, also kein Body-Parsing. */
 export const dynamic = "force-dynamic";
 
-/** Ereignisarten, auf die diese Anwendung reagiert. */
-const HANDLED = new Set<string>([
+/**
+ * Ereignisarten, auf die diese Anwendung reagiert.
+ *
+ * Exportiert, damit ein Test sie festhalten kann: `handleEvent` lässt sich
+ * einzeln aufrufen und geht dabei an dieser Liste vorbei. Eine hier
+ * vergessene Art würde in Produktion stillschweigend verworfen, während
+ * jeder Test weiter grün ist.
+ */
+export const HANDLED = new Set<string>([
   "checkout.session.completed",
   "checkout.session.expired",
   "payment_intent.canceled",
   "payment_intent.payment_failed",
   "charge.refunded",
+  "charge.dispute.created",
+  "charge.dispute.closed",
   "account.updated",
 ]);
 
@@ -210,6 +220,55 @@ export async function handleEvent(event: Stripe.Event): Promise<void> {
       break;
     }
 
+    /**
+     * Rückbuchung: die Bank des Zahlenden holt sich das Geld zurück.
+     *
+     * Das ist der teuerste Fall im ganzen System. Stripe zieht den Betrag
+     * sofort vom Plattformkonto ein — nicht vom Empfänger, dem er längst
+     * überwiesen wurde. Bis zur Entscheidung liegt quitt also in Vorleistung,
+     * und ohne Stellungnahme innerhalb der Frist ist der Fall verloren.
+     * Deshalb geht hier zuerst eine Nachricht an die Betreiberin.
+     */
+    case "charge.dispute.created":
+    case "charge.dispute.closed": {
+      const dispute = event.data.object;
+      const intentId =
+        typeof dispute.payment_intent === "string"
+          ? dispute.payment_intent
+          : dispute.payment_intent?.id;
+      if (!intentId) return;
+
+      const [zahlung] = await db
+        .select()
+        .from(payments)
+        .where(eq(payments.stripePaymentIntentId, intentId))
+        .limit(1);
+      if (!zahlung) return;
+
+      await db
+        .update(payments)
+        .set({
+          // Beim Schliessen bleibt der ursprüngliche Zeitpunkt stehen: wann
+          // die Rückbuchung kam, ist für die Nachbetrachtung wichtiger als
+          // wann sie entschieden wurde.
+          disputedAt: zahlung.disputedAt ?? new Date(dispute.created * 1000),
+          disputeStatus: dispute.status,
+          disputeAmountMinor: dispute.amount,
+          updatedAt: new Date(),
+        })
+        .where(eq(payments.id, zahlung.id));
+
+      if (event.type === "charge.dispute.created") {
+        await meldeRueckbuchung(zahlung, dispute);
+      } else {
+        console.warn(
+          `Rückbuchung zu Zahlung ${zahlung.id} abgeschlossen: ${dispute.status} ` +
+            `(${(dispute.amount / 100).toFixed(2)} ${dispute.currency.toUpperCase()}).`,
+        );
+      }
+      break;
+    }
+
     /** Auszahlungsfreigabe der Gegenseite hat sich geändert. */
     case "account.updated": {
       const account = event.data.object;
@@ -318,6 +377,82 @@ async function flagRefundAfterCompletion(
       text:
         "Zu eurem Tausch wurde der Ausgleich zurückerstattet, obwohl der Vorgang bereits " +
         `abgeschlossen war. Bitte meldet euch beim Support.\n\n${adresse}\n`,
+    });
+  }
+}
+
+/**
+ * Meldet eine neue Rückbuchung: an die Betreiberin, weil nur sie bei Stripe
+ * Stellung nehmen kann, und an die Beteiligten, damit der Vorgang für sie
+ * nicht stillschweigend hängt.
+ */
+async function meldeRueckbuchung(
+  zahlung: typeof payments.$inferSelect,
+  dispute: Stripe.Dispute,
+): Promise<void> {
+  const betrag = `${(dispute.amount / 100).toFixed(2)} ${dispute.currency.toUpperCase()}`;
+  const adresse = zahlung.dealId
+    ? `${siteUrl()}/deals/${zahlung.dealId}`
+    : `${siteUrl()}/ringe/${zahlung.ringId}`;
+  const frist = dispute.evidence_details?.due_by
+    ? new Date(dispute.evidence_details.due_by * 1000).toISOString().slice(0, 10)
+    : null;
+
+  console.warn(
+    `Rückbuchung über ${betrag} zu Zahlung ${zahlung.id} (${adresse}), Grund: ${dispute.reason}` +
+      (frist ? `, Stellungnahme bis ${frist}` : ""),
+  );
+
+  const betreiberin = operator().email;
+  if (betreiberin) {
+    await sendMail({
+      to: betreiberin,
+      subject: `quitt: Rückbuchung über ${betrag}`,
+      text:
+        `Zu einem Vorgang wurde das Geld zurückgebucht.\n\n` +
+        `Betrag:   ${betrag}\n` +
+        `Grund:    ${dispute.reason}\n` +
+        `Zahlung:  ${zahlung.id}\n` +
+        `Vorgang:  ${adresse}\n` +
+        (frist ? `Frist:    Stellungnahme bis ${frist}\n` : "") +
+        `\nDer Betrag ist bereits vom Plattformkonto abgezogen. Ohne fristgerechte ` +
+        `Stellungnahme im Stripe-Dashboard ist der Fall verloren.\n`,
+    });
+  } else {
+    console.error(
+      "Rückbuchung, aber OPERATOR_EMAIL ist nicht gesetzt — niemand wurde benachrichtigt.",
+    );
+  }
+
+  const hinweis =
+    `Zu eurem Tausch wurde der Ausgleich über ${betrag} von der Bank zurückgebucht. ` +
+    "Wir klären das und melden uns. Bitte schreibt bis dahin nichts ab und übergebt nichts weiter.";
+
+  if (zahlung.ringId) {
+    const [ring] = await db.select().from(ringSwaps).where(eq(ringSwaps.id, zahlung.ringId)).limit(1);
+    if (ring) await addRingSystemMessage(zahlung.ringId, ring.initiatorId, hinweis);
+  } else if (zahlung.dealId) {
+    const [row] = await db.select().from(deals).where(eq(deals.id, zahlung.dealId)).limit(1);
+    if (row) {
+      await db.insert(dealMessages).values({
+        id: newId("msg"),
+        dealId: zahlung.dealId,
+        authorId: row.initiatorId,
+        body: hinweis,
+        system: true,
+      });
+    }
+  }
+
+  const beteiligte = await db
+    .select({ email: users.email })
+    .from(users)
+    .where(inArray(users.id, [zahlung.payerId, zahlung.payeeId]));
+  for (const person of beteiligte) {
+    await sendMail({
+      to: person.email,
+      subject: "quitt: Rückbuchung zu eurem Tausch",
+      text: `${hinweis}\n\n${adresse}\n`,
     });
   }
 }
