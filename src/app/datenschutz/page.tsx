@@ -66,7 +66,7 @@ export default function DatenschutzPage() {
       <H2>Deine Rechte</H2>
       <p>
         Auskunft und Löschung erledigst du selbst unter{" "}
-        <a href="/konto" className="text-marke hover:underline">
+        <a href="/konto" className="textlink">
           Konto
         </a>
         : «Meine Daten herunterladen» gibt alles aus, was zu dir gespeichert ist, «Konto löschen»

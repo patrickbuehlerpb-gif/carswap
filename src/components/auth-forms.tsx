@@ -90,7 +90,7 @@ export function SignUpForm() {
       <Submit>Konto erstellen</Submit>
       <p className="text-center text-sm text-ink-3">
         Schon registriert?{" "}
-        <Link href="/konto/anmelden" className="text-marke hover:underline">
+        <Link href="/konto/anmelden" className="textlink">
           Anmelden
         </Link>
       </p>
@@ -115,7 +115,7 @@ export function SignInForm({ next }: { next?: string }) {
         <Link href="/konto/passwort-vergessen" className="text-ink-3 hover:text-ink">
           Passwort vergessen?
         </Link>
-        <Link href="/konto/registrieren" className="text-marke hover:underline">
+        <Link href="/konto/registrieren" className="textlink">
           Konto erstellen
         </Link>
       </div>

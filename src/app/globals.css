@@ -112,7 +112,25 @@
    * Aktualisieren nicht, und der wichtigste Wert auf der Seite bekommt eine
    * eigene Stimme neben dem Fliesstext.
    */
-  .betrag {
+  /**
+ * Ein Link mitten im Fliesstext.
+ *
+ * Farbe allein genügt nicht: wer Farben schlecht unterscheidet, sieht sonst
+ * gar keinen Link (WCAG 1.4.1). Deshalb immer unterstrichen — beim Zeigen
+ * wird die Linie kräftiger, statt überhaupt erst zu erscheinen.
+ */
+.textlink {
+  color: var(--color-marke);
+  text-decoration-line: underline;
+  text-decoration-color: color-mix(in oklab, var(--color-marke) 45%, transparent);
+  text-underline-offset: 0.18em;
+  transition: text-decoration-color 150ms;
+}
+.textlink:hover {
+  text-decoration-color: var(--color-marke);
+}
+
+.betrag {
     font-family: var(--font-mono);
     font-weight: 500;
     font-variant-numeric: tabular-nums;

@@ -148,19 +148,27 @@ export function TrefferMeldungen({ an }: { an: boolean }) {
           role="switch"
           aria-checked={aktiv}
           aria-label="Mail, wenn jemand dein Auto sucht"
-          disabled={pending}
-          onClick={() =>
+          /*
+           * Ausdrücklich nicht `disabled` während gespeichert wird: ein
+           * gesperrtes Element kann keinen Fokus halten, der Browser nimmt ihn
+           * weg und gibt ihn nicht zurück. Wer die Seite mit der Tastatur
+           * bedient, stünde nach einem Umlegen wieder am Seitenanfang.
+           * Ein zweiter Klick währenddessen wird stattdessen hier verworfen.
+           */
+          aria-busy={pending}
+          onClick={() => {
+            if (pending) return;
             start(async () => {
               const neu = !aktiv;
               setAktiv(neu);
               const res = await setMatchNotifyAction(neu);
               if (res.error) setAktiv(!neu);
               setMeldung(res.error ?? res.notice ?? null);
-            })
-          }
-          className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60 ${
-            aktiv ? "bg-marke" : "bg-line-strong"
-          }`}
+            });
+          }}
+          className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors ${
+            pending ? "opacity-60" : ""
+          } ${aktiv ? "bg-marke" : "bg-line-strong"}`}
         >
           <span
             className={`absolute top-0.5 h-5 w-5 rounded-full bg-surface transition-[left] ${
@@ -235,7 +243,7 @@ function Aufklapper({
           type="button"
           onClick={() => setOffen((v) => !v)}
           aria-expanded={offen}
-          className="text-marke hover:underline"
+          className="textlink"
         >
           {offen ? "Abbrechen" : knopf}
         </button>
@@ -315,7 +323,7 @@ export function EmailAendern({ offeneAdresse }: { offeneAdresse: string | null }
               setAbbruch(res.notice ?? "Der Wechsel wurde abgebrochen.");
             })
           }
-          className="mt-2 text-sm text-marke hover:underline disabled:opacity-60"
+          className="textlink mt-2 text-sm disabled:opacity-60"
         >
           {pending ? "Wird abgebrochen …" : "Wechsel abbrechen"}
         </button>

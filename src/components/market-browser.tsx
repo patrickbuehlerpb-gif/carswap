@@ -111,13 +111,13 @@ export function MarketBrowser({
               {signedIn ? (
                 <>
                   Stelle dein Auto ein, dann rechnen wir jede Zuzahlung direkt dagegen.{" "}
-                  <Link href="/inserat/neu" className="text-marke hover:underline">
+                  <Link href="/inserat/neu" className="textlink">
                     Auto anbieten
                   </Link>
                 </>
               ) : (
                 <>
-                  <Link href="/konto/registrieren" className="text-marke hover:underline">
+                  <Link href="/konto/registrieren" className="textlink">
                     Konto erstellen
                   </Link>{" "}
                   und Auto einstellen, um Zuzahlungen zu sehen.

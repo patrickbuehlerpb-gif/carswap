@@ -133,7 +133,13 @@ export async function setMatchNotifyAction(an: boolean): Promise<AccountResult> 
     .update(users)
     .set({ notifyMatches: an, updatedAt: new Date() })
     .where(eq(users.id, me.id));
-  revalidatePath("/konto");
+  /*
+   * Bewusst ohne revalidatePath: die Kontoseite wird ohnehin bei jedem Aufruf
+   * frisch gerechnet, es gibt also nichts zu verwerfen. Der Aufruf hatte aber
+   * eine Wirkung — er ersetzte den Seitenbaum, und damit verlor der Schalter
+   * den Fokus. Wer die Seite mit der Tastatur bedient, stand danach wieder
+   * am Seitenanfang.
+   */
   return {
     ok: true,
     notice: an

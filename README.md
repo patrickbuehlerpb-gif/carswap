@@ -305,6 +305,30 @@ Für eine vollständige, gepflegte Quelle kommen infrage:
 - **NHTSA vPIC** — frei und ohne Schlüssel, aber auf den US-Markt bezogen; die
   europäischen Modellbezeichnungen weichen ab.
 
+## Barrierefreiheit
+
+`e2e/barrierefreiheit.spec.ts` fährt mit axe über die öffentlichen Seiten, die
+Anmeldung, die angemeldeten Bereiche und dieselben Seiten noch einmal auf
+390 px. Jeder Verstoss lässt den Lauf scheitern — es gibt keine Ausnahmeliste.
+
+Zwei Befunde kamen dabei heraus und sind behoben:
+
+- **Links im Fliesstext waren nur an der Farbe zu erkennen** (WCAG 1.4.1). Wer
+  Farben schlecht unterscheidet, sah dort keinen Link. Sie sind jetzt immer
+  unterstrichen (`.textlink` in `globals.css`); beim Zeigen wird die Linie
+  kräftiger, statt überhaupt erst zu erscheinen.
+- **Der Schalter für die Treffermeldungen verlor beim Umlegen den Fokus.** Er
+  war während des Speicherns `disabled`, und ein gesperrtes Element kann keinen
+  Fokus halten — der Browser nimmt ihn weg und gibt ihn nicht zurück. Wer die
+  Seite mit der Tastatur bedient, stand danach wieder am Seitenanfang. Statt zu
+  sperren zeigt der Schalter jetzt `aria-busy` und verwirft einen zweiten Klick
+  selbst.
+
+Was axe nicht sieht, prüft derselbe Lauf von Hand: Sprunglink, Benutzermenü mit
+Enter und Escape, Schalter mit der Leertaste, Aufklapper mit Enter — und dass
+der Fokus dabei jeweils dort bleibt, wo er hingehört. Die Farbpalette prüft
+`npm run palette` getrennt, auch auf Rot-Grün-Schwäche.
+
 ## Sicherheit
 
 Ein paar Entscheidungen, die nicht offensichtlich sind:

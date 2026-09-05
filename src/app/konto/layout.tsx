@@ -6,11 +6,11 @@ export default function KontoLayout({ children }: { children: React.ReactNode })
       {children}
       <p className="mt-8 text-center text-xs text-ink-3">
         Mit der Nutzung akzeptierst du unsere{" "}
-        <Link href="/agb" className="text-marke hover:underline">
+        <Link href="/agb" className="textlink">
           AGB
         </Link>{" "}
         und die{" "}
-        <Link href="/datenschutz" className="text-marke hover:underline">
+        <Link href="/datenschutz" className="textlink">
           Datenschutzerklärung
         </Link>
         .
