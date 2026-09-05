@@ -11,16 +11,21 @@ interface NavItem {
   badge?: boolean;
 }
 
-const PUBLIC_NAV: NavItem[] = [
-  { href: "/markt", label: "Marktplatz" },
-  { href: "/wert", label: "Wertrechner" },
-];
+/**
+ * Nach Wichtigkeit sortiert, nicht nach öffentlich/privat. Auf dem Telefon
+ * passen nicht alle Punkte nebeneinander — die Leiste scrollt dann seitwärts,
+ * und was hinten steht, sieht man erst nach dem Wischen. Deshalb steht
+ * «Tausche» weit vorn: dort hängt der Zähler der laufenden Vorgänge.
+ */
+const PUBLIC_NAV: NavItem[] = [{ href: "/markt", label: "Marktplatz" }];
 
 const PRIVATE_NAV: NavItem[] = [
+  { href: "/deals", label: "Tausche", badge: true },
   { href: "/matches", label: "Treffer" },
   { href: "/garage", label: "Garage" },
-  { href: "/deals", label: "Tausche", badge: true },
 ];
+
+const PUBLIC_NAV_ENDE: NavItem[] = [{ href: "/wert", label: "Wertrechner" }];
 
 export function NavLinks({
   signedIn,
@@ -32,13 +37,17 @@ export function NavLinks({
   mobile?: boolean;
 }) {
   const pathname = usePathname();
-  const items = signedIn ? [...PUBLIC_NAV, ...PRIVATE_NAV] : PUBLIC_NAV;
+  const items = signedIn
+    ? [...PUBLIC_NAV, ...PRIVATE_NAV, ...PUBLIC_NAV_ENDE]
+    : [...PUBLIC_NAV, ...PUBLIC_NAV_ENDE];
 
   return (
     <nav
       className={
         mobile
-          ? "flex items-center gap-1 overflow-x-auto border-t border-line px-5 py-2 md:hidden"
+          ? // Der weiche Rand rechts zeigt, dass die Leiste noch weitergeht —
+            // ohne ihn sieht ein abgeschnittener Punkt nach Fehler aus.
+            "flex items-center gap-1 overflow-x-auto border-t border-line px-5 py-2 [mask-image:linear-gradient(to_right,black_calc(100%-28px),transparent)] md:hidden"
           : "hidden items-center gap-1 md:flex"
       }
     >

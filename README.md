@@ -391,7 +391,30 @@ Nach dem ersten Deployment:
    `payment_intent.payment_failed`, `charge.refunded`, `account.updated`) und
    das Signaturgeheimnis als `STRIPE_WEBHOOK_SECRET` hinterlegen.
 2. Einen Vercel-Blob-Store verbinden, damit Fotouploads funktionieren.
-3. `/api/health` prüfen — die Antwort listet auf, was konfiguriert ist.
+3. `CRON_SECRET` setzen. Vercel schickt es dem nächtlichen Wartungslauf
+   (`vercel.json`) als Bearer-Token mit; ohne das Geheimnis antwortet der Lauf
+   in Produktion nur mit 401.
+4. `/api/health` prüfen — die Antwort listet auf, was konfiguriert ist, und
+   meldet unter `liegengebliebenesGeld`, ob ein eingezogener Betrag noch nicht
+   beim Empfänger ist.
+
+## Wartungslauf
+
+`vercel.json` richtet einen täglichen Cron auf `/api/cron/wartung` ein. Der Lauf
+macht drei Dinge und ist beliebig oft wiederholbar:
+
+- **Verwaiste Zahlungen freigeben.** Beim Abbruch eines Tauschs wird die
+  Reservierung sofort freigegeben. Scheitert das gerade an Stripe, bleibt sie
+  auf der Karte des Nutzers stehen — der Lauf holt es nach und vermerkt einen
+  erneuten Fehlschlag, statt ihn zu verschlucken.
+- **Aufräumen.** Abgelaufene Sitzungen, verbrauchte Einmal-Token und alte
+  Zählerstände der Ratenbegrenzung. Verbrauchte Token bleiben einen Tag stehen,
+  damit ein zweiter Klick auf denselben Link «bereits verwendet» meldet und
+  nicht «unbekannt».
+- **Liegengebliebenes Geld melden.** Ein eingezogener Betrag ohne Weiterleitung
+  liegt auf dem Plattformkonto und gehört jemand anderem. Geheilt wird das nicht
+  automatisch — dazu müsste der ganze Abschluss erneut laufen —, aber es steht
+  in der Antwort, im Log und unter `/api/health`.
 
 ## Was vor dem Livegang noch fehlt
 
@@ -448,4 +471,5 @@ Nach dem ersten Deployment:
 | `OPERATOR_NAME`, `OPERATOR_LEGAL_FORM`, `OPERATOR_ADDRESS`, `OPERATOR_UID`, `OPERATOR_EMAIL` | Pflichtangaben im Impressum | die Seite benennt die fehlenden Felder einzeln |
 | `OPERATOR_REGISTER`, `OPERATOR_PHONE` | ergänzende Angaben | werden weggelassen |
 | `HEALTH_TOKEN` | Details unter `/api/health` (nur als `Authorization: Bearer …`) | Details nur ausserhalb der Produktion |
+| `CRON_SECRET` | Wartungslauf unter `/api/cron/wartung` | ersatzweise `HEALTH_TOKEN`; ohne beide läuft er in Produktion nicht |
 | `PLATFORM_FEE_PERCENT` / `PLATFORM_FEE_FIXED_MINOR` | Zahlungsgebühr | 2.9 % + 30 Rappen |

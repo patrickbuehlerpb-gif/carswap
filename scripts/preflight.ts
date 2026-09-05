@@ -140,6 +140,14 @@ async function main() {
     hinweis: "HEALTH_TOKEN setzen und als Bearer-Token mitschicken.",
   });
 
+  pruefe(gesetzt("CRON_SECRET") || gesetzt("HEALTH_TOKEN"), "Wartungslauf", {
+    grad: "warnung",
+    folge:
+      "Der nächtliche Lauf antwortet in Produktion nur mit 401. Reservierungen zu abgebrochenen " +
+      "Tauschen bleiben dann auf den Karten stehen, und abgelaufene Sitzungen sammeln sich an.",
+    hinweis: "CRON_SECRET setzen — Vercel schickt es dem Cron als Bearer-Token mit.",
+  });
+
   /* ---------------- Ausgabe ---------------- */
 
   const zeichen: Record<Grad, string> = { ok: "✓", warnung: "!", fehler: "✗" };

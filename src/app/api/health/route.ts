@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { stripeConfigured } from "@/lib/payments";
 import { siteUrlConfigured } from "@/lib/mail";
 import { missingOperatorFields } from "@/lib/operator";
+import { haengendeGelder } from "@/lib/wartung";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,21 @@ export async function GET(request: Request) {
   checks.impressum = fehlendeAngaben.length
     ? `unvollständig (${fehlendeAngaben.join(", ")})`
     : "vollständig";
+  checks.wartung = process.env.CRON_SECRET || process.env.HEALTH_TOKEN
+    ? "konfiguriert"
+    : "nicht konfiguriert";
+
+  // Eingezogenes Geld, das noch nicht beim Empfänger ist, liegt auf dem
+  // Plattformkonto und gehört jemand anderem. Das muss die Betreiberin sehen,
+  // ohne in die Datenbank zu schauen.
+  try {
+    const liegengeblieben = await haengendeGelder();
+    checks.liegengebliebenesGeld = liegengeblieben.anzahl
+      ? `${liegengeblieben.anzahl} Zahlung(en) über ${(liegengeblieben.summeMinor / 100).toFixed(2)} CHF`
+      : "keines";
+  } catch {
+    checks.liegengebliebenesGeld = "nicht ermittelbar";
+  }
 
   const status = healthy ? 200 : 503;
   if (!darfDetails(request)) {

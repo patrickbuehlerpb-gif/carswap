@@ -90,7 +90,7 @@ export default async function KontoPage({
         <h2 className="text-base font-semibold text-ink">Sicherheit</h2>
         <dl className="mt-4 space-y-3 text-sm">
           <div className="flex items-baseline justify-between gap-4 border-b border-line pb-3">
-            <dt className="text-ink-3">E-Mail</dt>
+            <dt className="whitespace-nowrap text-ink-3">E-Mail</dt>
             <dd className="text-ink">
               {me.email}{" "}
               {me.emailVerified ? (
