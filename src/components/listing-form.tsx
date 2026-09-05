@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
+import Image from "next/image";
 import { upload } from "@vercel/blob/client";
+import { BildFehler, verkleinere } from "@/lib/bilder";
 import { Combobox } from "@/components/combobox";
 import { ValueChart } from "@/components/value-chart";
 import { VehicleVisual } from "@/components/vehicle-visual";
@@ -200,18 +202,33 @@ export function ListingForm({
     setUploading(true);
     try {
       for (const file of Array.from(files)) {
-        if (file.size > 8 * 1024 * 1024) {
-          setUploadError(`${file.name} ist grösser als 8 MB.`);
+        if (file.size > 25 * 1024 * 1024) {
+          setUploadError(`${file.name} ist grösser als 25 MB.`);
           continue;
         }
-        const dimensions = await readDimensions(file);
-        const blob = await upload(file.name, file, {
+        // Verkleinern passiert hier im Browser, nicht auf dem Server: was gar
+        // nicht erst hochgeladen wird, kostet niemanden Wartezeit.
+        let klein;
+        try {
+          klein = await verkleinere(file);
+        } catch (err) {
+          // Ein unlesbares Bild betrifft nur diese eine Datei. Wer fünf Fotos
+          // auswählt und eines davon ist ein Format, das der Browser nicht
+          // kennt, soll die anderen vier trotzdem bekommen.
+          setUploadError(err instanceof BildFehler ? err.message : `${file.name} liess sich nicht lesen.`);
+          continue;
+        }
+        if (klein.datei.size > 8 * 1024 * 1024) {
+          setUploadError(`${file.name} lässt sich nicht klein genug rechnen.`);
+          continue;
+        }
+        const blob = await upload(klein.datei.name, klein.datei, {
           access: "public",
           handleUploadUrl: "/api/blob/upload",
         });
         setV((prev) => ({
           ...prev,
-          photos: [...prev.photos, { url: blob.url, ...dimensions }],
+          photos: [...prev.photos, { url: blob.url, width: klein.width, height: klein.height }],
         }));
       }
     } catch (err) {
@@ -551,17 +568,20 @@ export function ListingForm({
         <Card className="p-5 sm:p-6">
           <h2 className="text-base font-semibold text-ink">Fotos</h2>
           <p className="mt-1 text-sm text-ink-3">
-            Bis zu zehn Bilder, je höchstens 8 MB. Ohne Fotos zeigen wir eine schematische
-            Darstellung.
+            Bis zu zehn Bilder. Wir verkleinern sie schon im Browser — das spart dir Wartezeit
+            beim Hochladen und allen anderen Datenvolumen beim Ansehen. Ohne Fotos zeigen wir
+            eine schematische Darstellung.
           </p>
 
           <div className="mt-4 flex flex-wrap gap-3">
             {v.photos.map((p, i) => (
               <div key={p.url} className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                   src={p.url}
                   alt={`Foto ${i + 1}`}
+                  width={144}
+                  height={96}
+                  sizes="144px"
                   className="h-24 w-36 rounded-lg border border-line object-cover"
                 />
                 <button
@@ -741,8 +761,15 @@ export function ListingForm({
       <div className="min-w-0 space-y-5 lg:sticky lg:top-24 lg:self-start">
         <Card className="overflow-hidden">
           {v.photos[0] ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={v.photos[0].url} alt="" className="aspect-[16/9] w-full object-cover" />
+            <div className="relative aspect-[16/9] w-full bg-surface-2">
+              <Image
+                src={v.photos[0].url}
+                alt=""
+                fill
+                sizes="(max-width: 1024px) 100vw, 380px"
+                className="object-cover"
+              />
+            </div>
           ) : (
             <VehicleVisual
               id={vehicleId ?? "vorschau"}
@@ -897,19 +924,3 @@ function Chip({
   );
 }
 
-/** Bildmasse aus der Datei lesen, damit das Layout nicht springt. */
-function readDimensions(file: File): Promise<{ width: number; height: number }> {
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      resolve({ width: img.naturalWidth, height: img.naturalHeight });
-      URL.revokeObjectURL(url);
-    };
-    img.onerror = () => {
-      resolve({ width: 1600, height: 900 });
-      URL.revokeObjectURL(url);
-    };
-    img.src = url;
-  });
-}

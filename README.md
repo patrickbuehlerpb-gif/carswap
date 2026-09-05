@@ -33,6 +33,7 @@ hängen.
 | --- | --- |
 | **Konto** (`/konto/*`) | Registrierung, Anmeldung, E-Mail-Bestätigung, Passwort-Reset, Passwort und Adresse ändern, Profil, Treffermeldungen an/aus, Auszahlungskonto. |
 | **Inserat** (`/inserat/neu`) | Fahrzeug einstellen mit Live-Bewertung während der Eingabe, Fotoupload, Wunschliste. Pausieren und Archivieren inklusive. |
+| **Fahrzeug** (`/auto/[id]`) | Alle Angaben, Wertverlauf und die Fotogalerie des Inserats. |
 | **Marktplatz** (`/markt`) | Alle Inserate mit Filtern. Angemeldet wird die Zuzahlung laufend gegen das eigene Fahrzeug gerechnet. |
 | **Matches** (`/matches`) | Drei Gruppen — beide wollen, nur du, nur die Gegenseite — plus Ringtausch über drei Parteien. Beidseitige Treffer kommen zusätzlich täglich per Mail. |
 | **Wertrechner** (`/wert`) | Wertverlauf, Prognoseband, vollständige Aufschlüsselung und Sensitivitätsanalyse. |
@@ -111,6 +112,27 @@ dieselben Stationen wie ein Zweiertausch, mit drei Unterschieden:
   Empfängerkonten geprüft — sonst bliebe der Ring nach der ersten Überweisung
   auf halbem Weg stehen. Springt jemand ab, geht alles zurück und kein
   Fahrzeug bewegt sich.
+
+### Fotos
+
+Ein heutiges Telefon liefert 4000×3000 Pixel und mehrere Megabyte. Angezeigt
+wird ein Inserat nie breiter als ein Bildschirm — deshalb verkleinert
+`lib/bilder.ts` jedes Foto **im Browser**, bevor es hochgeht: längste Kante
+2000 Pixel, WebP mit Qualität 0,85, JPEG als Rückfall für Browser ohne
+WebP-Codierung. Was gar nicht erst hochgeladen wird, muss auch nicht bezahlt
+und nicht wieder verkleinert werden, und die inserierende Person wartet nicht
+minutenlang auf einem Mobilnetz.
+
+Entscheidend ist dabei `imageOrientation: "from-image"` beim Dekodieren:
+iPhones speichern hochkant aufgenommene Bilder quer und legen die Drehung nur
+in die EXIF-Daten. Beim Zeichnen auf eine Leinwand geht die Angabe verloren —
+ohne diese Einstellung läge jedes Hochkantfoto nachher auf der Seite.
+
+Angezeigt werden die Fotos über `next/image`, das je Bildschirmbreite eine
+passende Fassung in AVIF oder WebP ausliefert (`remotePatterns` in
+`next.config.ts`). Auf der Fahrzeugseite steht eine Galerie; ohne Fotos bleibt
+die generierte Silhouette — ein ehrlicher Platzhalter statt einer Behauptung
+über das Fahrzeug.
 
 ## Erscheinungsbild
 
@@ -384,6 +406,7 @@ src/
     db/                Drizzle-Schema und Verbindung
     queries.ts         Datenzugriff mit Übersetzung in Domänenobjekte
     betrieb.ts         Kennzahlen für die Betriebsübersicht
+    bilder.ts          Fotos im Browser verkleinern, bevor sie hochgehen
     valuation.ts       Bewertungs- und Prognosemodell
     matching.ts        Wunschabgleich, Scoring, Ringsuche
     rings.ts           Ringrechnung: Ausgleiche zerlegen, Ring prüfen

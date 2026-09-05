@@ -10,6 +10,14 @@ const MAX_BYTES = 8 * 1024 * 1024;
  * Fotos gehen direkt vom Browser zu Vercel Blob. Diese Route stellt nur das
  * kurzlebige Upload-Token aus — so umgeht der Upload die 1-MB-Grenze von
  * Server Actions und belastet die Anwendung nicht mit Dateiinhalten.
+ *
+ * Bewusst ohne `onUploadCompleted`: der Rückruf verlangt eine von aussen
+ * erreichbare Adresse, die sich aus den Kopfzeilen ableiten muss. Lässt sie
+ * sich nicht ableiten — hinter einem Proxy, in der Vorschau, im Testlauf —,
+ * scheitert die ganze Tokenausgabe und niemand kann mehr ein Foto hochladen.
+ * Zu melden hätte der Rückruf ohnehin nichts: die Zuordnung zum Fahrzeug
+ * passiert erst beim Speichern des Inserats, damit ein abgebrochener Upload
+ * nichts verändert.
  */
 export async function POST(request: Request): Promise<NextResponse> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
@@ -40,11 +48,6 @@ export async function POST(request: Request): Promise<NextResponse> {
           addRandomSuffix: true,
           tokenPayload: JSON.stringify({ userId: user.id }),
         };
-      },
-      onUploadCompleted: async ({ blob, tokenPayload }) => {
-        // Nur protokollieren — die Zuordnung zum Fahrzeug passiert beim
-        // Speichern des Inserats, damit verwaiste Uploads nichts verändern.
-        console.info("[blob] Upload fertig", blob.pathname, tokenPayload);
       },
     });
     return NextResponse.json(result);

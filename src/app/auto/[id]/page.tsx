@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ValueChart } from "@/components/value-chart";
 import { ValuationBreakdown } from "@/components/valuation-breakdown";
-import { VehicleVisual } from "@/components/vehicle-visual";
+import { FotoGalerie } from "@/components/foto-galerie";
 import { Badge, Card, SectionHead, SpecRow } from "@/components/ui";
 import { WatchButton } from "@/components/watch-button";
 import { Sterne } from "@/components/review-form";
@@ -86,10 +86,11 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
         {/* --------------- Linke Spalte --------------- */}
         <div className="min-w-0 space-y-8">
           <div>
-            <VehicleVisual
-              id={vehicle.id}
+            <FotoGalerie
+              photos={vehicle.photos ?? []}
+              vehicleId={vehicle.id}
               body={vehicle.body}
-              className="aspect-[16/8] w-full rounded-xl border border-line"
+              alt={`${vehicleFullTitle(vehicle)}, ${vehicle.color}`}
               label={`${vehicle.color} · ${vehicle.year}`}
             />
             <div className="mt-5 flex flex-wrap items-start justify-between gap-4">

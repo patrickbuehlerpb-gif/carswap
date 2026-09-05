@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Badge, ScorePill } from "@/components/ui";
 import { VehicleVisual } from "@/components/vehicle-visual";
@@ -30,15 +31,17 @@ export function VehicleCard({
     <article className="group flex flex-col overflow-hidden rounded-xl border border-line bg-surface card-shadow transition-colors hover:border-line-strong">
       <Link href={`/auto/${vehicle.id}`} className="block">
         {photo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={photo.url}
-            alt={`${vehicleFullTitle(vehicle)}, ${vehicle.color}`}
-            width={photo.width}
-            height={photo.height}
-            className="aspect-[16/9] w-full object-cover"
-            loading="lazy"
-          />
+          <div className="relative aspect-[16/9] w-full overflow-hidden bg-surface-2">
+            <Image
+              src={photo.url}
+              alt={`${vehicleFullTitle(vehicle)}, ${vehicle.color}`}
+              fill
+              // Das Raster ist ein-, zwei- oder dreispaltig. Ohne diese
+              // Angabe lädt ein Telefon die Fassung für einen Desktop.
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              className="object-cover"
+            />
+          </div>
         ) : (
           <VehicleVisual
             id={vehicle.id}
