@@ -197,6 +197,28 @@ describe("Ausstattung", () => {
   });
 });
 
+describe("Aufschlüsselung", () => {
+  function zustandsposten(v: Parameters<typeof valuate>[0]) {
+    return valuate(v, STICHTAG).breakdown.find((b) => b.label.startsWith("Zustand:"));
+  }
+
+  it("gibt den Zustand als Selbsteinschätzung aus, nicht als Beleg", () => {
+    // Den Zustand trägt die inserierende Person selbst ein. Ein Posten, der
+    // Franken verschiebt, darf sich nicht auf einen Beleg berufen, den es
+    // nicht gibt — «mit Fotos belegt» stand vorher sogar ohne ein einziges Foto da.
+    const ohneFotos = zustandsposten(fahrzeug({ photos: [] }));
+    expect(ohneFotos?.hint).toBe("Selbsteinschätzung des Besitzers");
+    expect(ohneFotos?.hint).not.toContain("belegt");
+  });
+
+  it("erwähnt Fotos nur, wenn welche da sind", () => {
+    const mitFotos = zustandsposten(
+      fahrzeug({ photos: [{ url: "https://example.invalid/a.webp", width: 1200, height: 800 }] }),
+    );
+    expect(mitFotos?.hint).toBe("Selbsteinschätzung des Besitzers, Fotos im Inserat");
+  });
+});
+
 describe("Verlauf", () => {
   it("liefert Vergangenheit und Prognose in aufsteigenden Monaten", () => {
     const punkte = valueHistory(fahrzeug(), 12, 12, STICHTAG);

@@ -9,7 +9,6 @@ export interface SeedUser {
   rating: number;
   ratingCount: number;
   swapsCompleted: number;
-  verified: boolean;
   avatarColor: string;
 }
 
@@ -24,7 +23,6 @@ export const seedUsers: SeedUser[] = [
     rating: 4.9,
     ratingCount: 2,
     swapsCompleted: 1,
-    verified: true,
     avatarColor: "#7dd3fc",
   },
   {
@@ -37,7 +35,6 @@ export const seedUsers: SeedUser[] = [
     rating: 4.8,
     ratingCount: 6,
     swapsCompleted: 3,
-    verified: true,
     avatarColor: "#fca5a5",
   },
   {
@@ -50,7 +47,6 @@ export const seedUsers: SeedUser[] = [
     rating: 4.6,
     ratingCount: 2,
     swapsCompleted: 1,
-    verified: true,
     avatarColor: "#fcd34d",
   },
   {
@@ -63,7 +59,6 @@ export const seedUsers: SeedUser[] = [
     rating: 5.0,
     ratingCount: 10,
     swapsCompleted: 5,
-    verified: true,
     avatarColor: "#86efac",
   },
   {
@@ -76,7 +71,6 @@ export const seedUsers: SeedUser[] = [
     rating: 4.4,
     ratingCount: 1,
     swapsCompleted: 0,
-    verified: false,
     avatarColor: "#c4b5fd",
   },
   {
@@ -89,7 +83,6 @@ export const seedUsers: SeedUser[] = [
     rating: 4.7,
     ratingCount: 4,
     swapsCompleted: 2,
-    verified: true,
     avatarColor: "#f9a8d4",
   },
   {
@@ -102,7 +95,6 @@ export const seedUsers: SeedUser[] = [
     rating: 4.9,
     ratingCount: 8,
     swapsCompleted: 4,
-    verified: true,
     avatarColor: "#5eead4",
   },
   {
@@ -115,7 +107,6 @@ export const seedUsers: SeedUser[] = [
     rating: 4.5,
     ratingCount: 2,
     swapsCompleted: 1,
-    verified: true,
     avatarColor: "#fdba74",
   },
   {
@@ -128,7 +119,6 @@ export const seedUsers: SeedUser[] = [
     rating: 4.8,
     ratingCount: 4,
     swapsCompleted: 2,
-    verified: true,
     avatarColor: "#a5b4fc",
   },
   {
@@ -141,7 +131,6 @@ export const seedUsers: SeedUser[] = [
     rating: 4.6,
     ratingCount: 2,
     swapsCompleted: 1,
-    verified: true,
     avatarColor: "#bef264",
   },
 ];

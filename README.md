@@ -194,6 +194,13 @@ Neupreis ist der Preis der konfigurierten Version, die Sonderausstattung steckt
 also bereits darin; ein zweites Mal addiert hätte sie gut ausgestattete
 Fahrzeuge doppelt bewertet. Die Liste dient der Beschreibung und dem Matching.
 
+Alle Angaben, aus denen sich das rechnet, stammen von der inserierenden
+Person. Die Aufschlüsselung sagt das jetzt auch: Beim Posten «Zustand» stand
+lange «Bewertung durch Besitzer, mit Fotos belegt» — belegt war nie etwas,
+niemand prüft den Zustand, und der Satz erschien auch bei einem Inserat ohne
+ein einziges Foto. Ein Posten, der Franken verschiebt, darf sich nicht auf
+einen Beleg berufen, den es nicht gibt.
+
 `valuate()` gibt die Aufschlüsselung so zurück, dass Listenpreis plus alle
 ausgewiesenen Faktoren exakt dem Endwert entsprechen. `valueHistory()` rechnet
 dasselbe Modell rückwirkend und als Prognose mit wachsendem Unsicherheitsband
@@ -616,6 +623,30 @@ Schrägstrich am Ende) — die Prüfung in `lib/mail.ts` weist alles andere ab.
 `.app`-Adresse eingerichtet, nicht als zweite eigenständige Seite, damit
 Mail-Links, Stripe-Rücksprünge und Vorschaubilder nur eine Herkunft haben.
 
+### Mail einrichten
+
+Eine Bestätigungsmail, die im Spam landet, ist so gut wie keine: Ohne bestätigte
+Adresse gilt bei uns die Adresspflicht nicht, und wer sein Passwort vergisst,
+kommt nicht mehr ins Konto. Deshalb gehört zum Livegang mehr als ein
+`RESEND_API_KEY`:
+
+1. **Domain bei Resend eintragen** und die angezeigten DNS-Einträge setzen —
+   Resend nennt die genauen Werte, sie sind je Konto verschieden. Es sind
+   drei Arten: ein DKIM-Schlüssel (TXT), ein SPF-Eintrag (TXT) und ein
+   MX-Eintrag für Rückläufer.
+2. **Von einer Subdomain senden**, etwa `mail.autotauschen.app`. Bleibt der
+   Ruf der Absenderdomain einmal an einer Beschwerde hängen, trifft es dann
+   nicht die Hauptdomain, unter der die Seite läuft.
+3. **DMARC setzen** (`_dmarc` als TXT). Zum Start `p=none` mit einer
+   Berichtsadresse: dann sieht man eine Woche lang, was ankommt, ohne dass
+   etwas abgewiesen wird. Danach schrittweise auf `quarantine`.
+4. **`MAIL_FROM` passend setzen**, zum Beispiel
+   `autotauschen <noreply@mail.autotauschen.app>` — die Adresse muss zur
+   verifizierten Domain gehören, sonst lehnt Resend jede Nachricht ab.
+5. **Eine Testmail an ein echtes Postfach** schicken (Registrierung mit einer
+   eigenen Adresse) und nachsehen, ob sie im Posteingang landet, nicht im
+   Spam. Kommt sie nicht an, steht der Grund unter `/admin/betrieb`.
+
 Nach dem ersten Deployment:
 
 1. In Stripe einen Webhook auf `https://autotauschen.app/api/stripe/webhook`
@@ -630,6 +661,20 @@ Nach dem ersten Deployment:
 4. `/api/health` prüfen — die Antwort listet auf, was konfiguriert ist, und
    meldet unter `liegengebliebenesGeld`, ob ein eingezogener Betrag noch nicht
    beim Empfänger ist.
+
+### Datensicherung
+
+Die Anwendung sichert nichts selbst — das ist Sache des Datenbankanbieters, und
+es ist die eine Aufgabe, die sich nicht nachholen lässt. Vor dem Livegang
+gehört geprüft, dass beim Anbieter eine Sicherung läuft und wie weit sie
+zurückreicht (bei Neon und Vercel Postgres heisst das Point-in-Time-Recovery,
+je nach Tarif zwischen einem und dreissig Tagen).
+
+Was ohne Sicherung verloren wäre: Konten, Inserate, Fahrzeugdaten, Nachrichten
+und Bewertungen. Nicht verloren wären die Zahlungen — die stehen bei Stripe und
+liessen sich von dort rekonstruieren — und die Fotos, die im Blob-Speicher
+liegen. Genau diese Trennung macht den Ernstfall überschaubar: Geld ist nie nur
+bei uns.
 
 ## Tägliche Läufe
 

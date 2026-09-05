@@ -300,7 +300,16 @@ export function valuate(vehicle: Vehicle, asOf?: string): Valuation {
     {
       label: `Zustand: ${vehicle.condition}`,
       amount: Math.round(base * (CONDITION_FACTOR[vehicle.condition] - 1)),
-      hint: "Bewertung durch Besitzer, mit Fotos belegt",
+      /*
+       * Hier stand «Bewertung durch Besitzer, mit Fotos belegt». Belegt war
+       * nie etwas: den Zustand trägt die inserierende Person selbst ein,
+       * niemand prüft ihn, und der Satz erschien auch bei einem Inserat ganz
+       * ohne Fotos. Ein Posten, der Franken verschiebt, darf sich nicht auf
+       * einen Beleg berufen, den es nicht gibt.
+       */
+      hint: vehicle.photos.length
+        ? "Selbsteinschätzung des Besitzers, Fotos im Inserat"
+        : "Selbsteinschätzung des Besitzers",
     },
     {
       label: `Serviceheft: ${vehicle.serviceHistory}`,

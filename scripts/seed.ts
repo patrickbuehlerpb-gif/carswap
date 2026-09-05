@@ -73,7 +73,13 @@ async function main() {
         ratingSum: Math.round(u.rating * 10) * u.ratingCount,
         ratingCount: u.ratingCount,
         swapsCompleted: u.swapsCompleted,
-        identityVerified: u.verified,
+        /*
+         * Bewusst hart auf false: Die Ausweisprüfung ist vorbereitet, aber
+         * nichts im Produkt setzt sie. Demo-Konten mit dem Abzeichen «Ausweis
+         * geprüft» zeigten beim Durchklicken ein Vertrauenssignal, das es in
+         * Wirklichkeit nirgends gibt.
+         */
+        identityVerified: false,
         createdAt: new Date(u.memberSince),
       })),
     )
