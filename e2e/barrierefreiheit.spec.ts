@@ -45,11 +45,37 @@ test("die angemeldeten Seiten sind zugänglich", async ({ page }) => {
   }
 });
 
+/**
+ * Seitwärts laufender Inhalt ist auf dem Telefon kein Schönheitsfehler: die
+ * Seite ruckelt beim Wischen, und was rechts hinausragt — oft gerade der Knopf
+ * mit der wichtigsten Handlung — ist nicht mehr zu erreichen. Der Kopfbereich
+ * ist dafür der empfindlichste Ort, weil dort Name, Navigation und Knöpfe in
+ * einer Zeile stehen; ein längerer Name kann ihn schon sprengen.
+ */
+async function ohneQuerlauf(page: Page, pfad: string) {
+  await page.goto(pfad);
+  const mass = await page.evaluate(() => ({
+    inhalt: document.documentElement.scrollWidth,
+    fenster: document.documentElement.clientWidth,
+  }));
+  expect(
+    mass.inhalt,
+    `${pfad}: Inhalt ${mass.inhalt} px breit, Fenster ${mass.fenster} px`,
+  ).toBeLessThanOrEqual(mass.fenster);
+}
+
 test("die Seite lässt sich auch auf dem Telefon bedienen", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
+
+  // Erst abgemeldet: da stehen «Konto erstellen» und «Anmelden» im Kopf.
+  for (const pfad of ["/", "/markt", "/konto/anmelden"]) {
+    await ohneQuerlauf(page, pfad);
+  }
+
   await registriere(page, { name: "Prüferin", ort: "Basel", kanton: "BS" });
   for (const pfad of ["/", "/markt", "/garage", "/konto"]) {
     await pruefe(page, pfad);
+    await ohneQuerlauf(page, pfad);
   }
 });
 

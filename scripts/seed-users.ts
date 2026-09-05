@@ -16,7 +16,7 @@ export interface SeedUser {
 export const seedUsers: SeedUser[] = [
   {
     id: "u-001",
-    email: "lenah@demo.carswap.ch",
+    email: "lenah@demo.autotauschen.app",
     name: "Lena H.",
     location: "Zürich",
     canton: "ZH",
@@ -29,7 +29,7 @@ export const seedUsers: SeedUser[] = [
   },
   {
     id: "u-002",
-    email: "michelel@demo.carswap.ch",
+    email: "michelel@demo.autotauschen.app",
     name: "Michèle L.",
     location: "Winterthur",
     canton: "ZH",
@@ -42,7 +42,7 @@ export const seedUsers: SeedUser[] = [
   },
   {
     id: "u-003",
-    email: "danielk@demo.carswap.ch",
+    email: "danielk@demo.autotauschen.app",
     name: "Daniel K.",
     location: "Zug",
     canton: "ZG",
@@ -55,7 +55,7 @@ export const seedUsers: SeedUser[] = [
   },
   {
     id: "u-004",
-    email: "sandrar@demo.carswap.ch",
+    email: "sandrar@demo.autotauschen.app",
     name: "Sandra R.",
     location: "Bern",
     canton: "BE",
@@ -68,7 +68,7 @@ export const seedUsers: SeedUser[] = [
   },
   {
     id: "u-005",
-    email: "tobiasm@demo.carswap.ch",
+    email: "tobiasm@demo.autotauschen.app",
     name: "Tobias M.",
     location: "Luzern",
     canton: "LU",
@@ -81,7 +81,7 @@ export const seedUsers: SeedUser[] = [
   },
   {
     id: "u-006",
-    email: "annas@demo.carswap.ch",
+    email: "annas@demo.autotauschen.app",
     name: "Anna S.",
     location: "St. Gallen",
     canton: "SG",
@@ -94,7 +94,7 @@ export const seedUsers: SeedUser[] = [
   },
   {
     id: "u-007",
-    email: "marcob@demo.carswap.ch",
+    email: "marcob@demo.autotauschen.app",
     name: "Marco B.",
     location: "Basel",
     canton: "BS",
@@ -107,7 +107,7 @@ export const seedUsers: SeedUser[] = [
   },
   {
     id: "u-008",
-    email: "juliaw@demo.carswap.ch",
+    email: "juliaw@demo.autotauschen.app",
     name: "Julia W.",
     location: "Aarau",
     canton: "AG",
@@ -120,7 +120,7 @@ export const seedUsers: SeedUser[] = [
   },
   {
     id: "u-009",
-    email: "retof@demo.carswap.ch",
+    email: "retof@demo.autotauschen.app",
     name: "Reto F.",
     location: "Chur",
     canton: "GR",
@@ -133,7 +133,7 @@ export const seedUsers: SeedUser[] = [
   },
   {
     id: "u-010",
-    email: "elenav@demo.carswap.ch",
+    email: "elenav@demo.autotauschen.app",
     name: "Elena V.",
     location: "Lugano",
     canton: "TI",

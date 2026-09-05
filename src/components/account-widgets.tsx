@@ -432,7 +432,7 @@ export function PayoutSetup({
         )}
       </div>
       <p className="text-xs text-ink-3">
-        Die Identitätsprüfung übernimmt Stripe. quitt sieht deine Bankdaten nicht.
+        Die Identitätsprüfung übernimmt Stripe. autotauschen sieht deine Bankdaten nicht.
       </p>
     </div>
   );
@@ -473,7 +473,7 @@ export function DatenUndLoeschung() {
       const url = URL.createObjectURL(new Blob([res.json], { type: "application/json" }));
       const a = document.createElement("a");
       a.href = url;
-      a.download = "quitt-meine-daten.json";
+      a.download = "autotauschen-meine-daten.json";
       a.click();
       URL.revokeObjectURL(url);
     });

@@ -47,7 +47,9 @@ export function NavLinks({
         mobile
           ? // Der weiche Rand rechts zeigt, dass die Leiste noch weitergeht —
             // ohne ihn sieht ein abgeschnittener Punkt nach Fehler aus.
-            "flex items-center gap-1 overflow-x-auto border-t border-line px-5 py-2 [mask-image:linear-gradient(to_right,black_calc(100%-28px),transparent)] md:hidden"
+            // `min-w-0` ist nötig, damit die Leiste neben dem angehefteten
+            // «Anmelden» schrumpfen darf statt die Zeile zu sprengen.
+            "flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-5 py-2 [mask-image:linear-gradient(to_right,black_calc(100%-28px),transparent)]"
           : "hidden items-center gap-1 md:flex"
       }
     >

@@ -219,7 +219,7 @@ export async function createEscrowCheckout(
             currency: CURRENCY,
             unit_amount: chargeMinor,
             product_data: {
-              name: "quitt — hinterlegter Ausgleich",
+              name: "autotauschen — hinterlegter Ausgleich",
               description: `${description} — davon ${(feeMinor / 100).toFixed(2)} CHF Zahlungsgebühr`,
             },
           },
@@ -228,7 +228,7 @@ export async function createEscrowCheckout(
       payment_intent_data: {
         capture_method: "manual",
         transfer_group: deal.id,
-        description: `quitt Tausch ${deal.id}`,
+        description: `autotauschen Tausch ${deal.id}`,
         metadata: { carswap_deal_id: deal.id, carswap_payment_id: paymentId },
       },
       metadata: { carswap_deal_id: deal.id, carswap_payment_id: paymentId },
@@ -461,7 +461,7 @@ export async function createRingCheckout(
             currency: CURRENCY,
             unit_amount: chargeMinor,
             product_data: {
-              name: "quitt — hinterlegter Ausgleich (Ringtausch)",
+              name: "autotauschen — hinterlegter Ausgleich (Ringtausch)",
               description: `${description} — davon ${(feeMinor / 100).toFixed(2)} CHF Zahlungsgebühr`,
             },
           },
@@ -470,7 +470,7 @@ export async function createRingCheckout(
       payment_intent_data: {
         capture_method: "manual",
         transfer_group: ringId,
-        description: `quitt Ringtausch ${ringId}`,
+        description: `autotauschen Ringtausch ${ringId}`,
         metadata: { carswap_ring_id: ringId, carswap_payment_id: paymentId },
       },
       metadata: { carswap_ring_id: ringId, carswap_payment_id: paymentId },

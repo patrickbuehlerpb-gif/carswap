@@ -36,15 +36,15 @@ export const metadata: Metadata = {
    */
   metadataBase: new URL(siteUrl()),
   title: {
-    default: "quitt — Autos tauschen statt verkaufen",
-    template: "%s · quitt",
+    default: "autotauschen — dein Auto gegen ein anderes, mit Ausgleich",
+    template: "%s · autotauschen",
   },
   description: BESCHREIBUNG,
   openGraph: {
     type: "website",
-    siteName: "quitt",
+    siteName: "autotauschen",
     locale: "de_CH",
-    title: "quitt — Autos tauschen statt verkaufen",
+    title: "autotauschen — dein Auto gegen ein anderes, mit Ausgleich",
     description: BESCHREIBUNG,
   },
   twitter: { card: "summary_large_image" },
@@ -67,7 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="mt-auto border-t border-line bg-surface">
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-5 py-8 text-xs text-ink-3 sm:flex-row sm:items-center sm:justify-between sm:px-8">
             <p>
-              quitt — Autotausch zwischen Privatpersonen. Alle Werte auf dieser Seite sind
+              autotauschen — zwischen Privatpersonen, ohne Händler. Alle Werte auf dieser Seite sind
               gerechnet, nicht geboten.
             </p>
             <nav className="flex flex-wrap gap-x-5 gap-y-2">

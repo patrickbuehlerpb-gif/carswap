@@ -13,7 +13,7 @@ vi.mock("@/lib/mail", () => ({
     briefe.push(mail);
     return { delivered: true };
   },
-  siteUrl: () => "https://quitt.test",
+  siteUrl: () => "https://autotauschen.test",
   siteUrlConfigured: () => true,
 }));
 
@@ -86,7 +86,7 @@ describe("Passwort ändern", () => {
     expect(await verifyPassword("neues-langes-Passwort", row.passwordHash)).toBe(true);
     expect(await verifyPassword(PW, row.passwordHash)).toBe(false);
     expect(await db.select().from(sessions).where(eq(sessions.userId, anna))).toEqual([]);
-    expect(briefe.map((b) => b.subject)).toContain("quitt: Passwort geändert");
+    expect(briefe.map((b) => b.subject)).toContain("autotauschen: Passwort geändert");
   });
 
   it("lehnt ein zu kurzes Passwort ab", async () => {

@@ -14,7 +14,7 @@ vi.mock("@/lib/mail", () => ({
     briefe.push(m);
     return { delivered: true };
   },
-  siteUrl: () => "https://quitt.test",
+  siteUrl: () => "https://autotauschen.test",
   siteUrlConfigured: () => true,
   mailConfigured: () => true,
 }));
@@ -81,7 +81,7 @@ async function zahlung(id: string) {
 beforeEach(async () => {
   await resetDatabase();
   briefe.length = 0;
-  process.env.OPERATOR_EMAIL = "betrieb@quitt.test";
+  process.env.OPERATOR_EMAIL = "betrieb@autotauschen.test";
 });
 
 describe("Rückbuchung", () => {
@@ -104,9 +104,9 @@ describe("Rückbuchung", () => {
     const { intentId } = await abgeschlossen();
     await handleEvent(ereignis("charge.dispute.created", anfechtung(intentId)));
 
-    const anBetrieb = briefe.find((b) => b.to === "betrieb@quitt.test");
+    const anBetrieb = briefe.find((b) => b.to === "betrieb@autotauschen.test");
     expect(anBetrieb).toBeDefined();
-    expect(anBetrieb!.subject).toBe("quitt: Rückbuchung über 4000.00 CHF");
+    expect(anBetrieb!.subject).toBe("autotauschen: Rückbuchung über 4000.00 CHF");
     expect(anBetrieb!.text).toMatch(/fraudulent/);
     expect(anBetrieb!.text).toMatch(/2026-03-15/);
     expect(anBetrieb!.text).toMatch(/Plattformkonto/);
@@ -121,7 +121,7 @@ describe("Rückbuchung", () => {
       .from(users)
       .where(eq(users.id, a));
     const [brunoZeile] = await db.select({ email: users.email }).from(users).where(eq(users.id, b));
-    const anBeteiligte = briefe.filter((x) => x.subject === "quitt: Rückbuchung zu eurem Tausch");
+    const anBeteiligte = briefe.filter((x) => x.subject === "autotauschen: Rückbuchung zu eurem Tausch");
     expect(anBeteiligte.map((x) => x.to).sort()).toEqual(
       [adressen[0].email, brunoZeile.email].sort(),
     );

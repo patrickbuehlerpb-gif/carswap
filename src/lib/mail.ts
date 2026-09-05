@@ -74,7 +74,7 @@ export function siteUrl(): string {
   const explicit = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL;
   if (explicit) {
     const ohneSchraegstrich = explicit.replace(/\/+$/, "");
-    // Ein Tippfehler — «quitt.ch» statt «https://quitt.ch» — darf nicht die
+    // Ein Tippfehler — «autotauschen.app» statt «https://autotauschen.app» — darf nicht die
     // ganze Seite umwerfen. Die Adresse steckt inzwischen auch in
     // metadataBase, und ein ungültiger Wert würde dort beim Rendern werfen.
     if (istAbsolut(ohneSchraegstrich)) return ohneSchraegstrich;
@@ -82,7 +82,7 @@ export function siteUrl(): string {
       warnedAboutSiteUrl = true;
       console.error(
         `[config] SITE_URL ist keine vollständige Adresse: «${explicit}». ` +
-          "Erwartet wird etwas wie https://quitt.ch — bis dahin wird localhost verwendet.",
+          "Erwartet wird etwas wie https://autotauschen.app — bis dahin wird localhost verwendet.",
       );
     }
   }

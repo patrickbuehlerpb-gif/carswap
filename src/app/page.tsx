@@ -45,7 +45,7 @@ export default async function HomePage() {
         <div className="relative grid gap-10 p-7 sm:p-10 lg:grid-cols-[1.1fr_1fr] lg:p-12">
           <div className="flex flex-col justify-center">
             <Badge tone="marke" className="w-fit">
-              Autotausch zwischen Privatpersonen
+              Zwischen Privatpersonen, ohne Händler
             </Badge>
             <h1 className="mt-5 text-4xl display leading-[1.06] text-ink sm:text-5xl">
               Tausche dein Auto.
@@ -56,7 +56,7 @@ export default async function HomePage() {
             </h1>
             <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-ink-2">
               Verkaufen und kaufen sind zwei Geschäfte, zwei Verhandlungen, zwei Enttäuschungen.
-              Bei quitt ist es eines: dein Auto gegen ein anderes. Ist eines mehr wert, zahlt die
+              Bei autotauschen ist es eines: dein Auto gegen ein anderes. Ist eines mehr wert, zahlt die
               eine Seite der anderen die Differenz. Wir rechnen sie aus und halten das Geld, bis
               beide die Übergabe bestätigt haben.
             </p>

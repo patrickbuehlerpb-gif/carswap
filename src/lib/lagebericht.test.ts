@@ -11,7 +11,7 @@ vi.mock("@/lib/mail", () => ({
     briefe.push(m);
     return { delivered: true };
   },
-  siteUrl: () => "https://quitt.test",
+  siteUrl: () => "https://autotauschen.test",
   siteUrlConfigured: () => true,
   mailConfigured: () => true,
 }));
@@ -23,7 +23,7 @@ const TAG = 24 * 60 * 60 * 1000;
 beforeEach(async () => {
   await resetDatabase();
   briefe.length = 0;
-  process.env.OPERATOR_EMAIL = "betrieb@quitt.test";
+  process.env.OPERATOR_EMAIL = "betrieb@autotauschen.test";
 });
 
 async function tauschMitZahlung(opts: {
@@ -80,7 +80,7 @@ describe("Lagebericht", () => {
     const bericht = await erstelleLagebericht();
     expect(bericht.verschickt).toBe(true);
     expect(briefe).toHaveLength(1);
-    expect(briefe[0].to).toBe("betrieb@quitt.test");
+    expect(briefe[0].to).toBe("betrieb@autotauschen.test");
     expect(briefe[0].subject).toMatch(/1 Rückbuchung/);
     expect(briefe[0].text).toMatch(/4000\.00 CHF/);
     expect(briefe[0].text).toMatch(/Stripe-Dashboard/);
@@ -163,7 +163,7 @@ describe("Lagebericht", () => {
     expect(bericht.punkte).toHaveLength(2);
     expect(briefe).toHaveLength(1);
     // Rückbuchungen und liegendes Geld stehen vor allem anderen.
-    expect(briefe[0].subject).toBe("quitt: 4000.00 CHF liegen, 1 Vorgang/Vorgänge warten");
+    expect(briefe[0].subject).toBe("autotauschen: 4000.00 CHF liegen, 1 Vorgang/Vorgänge warten");
   });
 
   it("schickt nichts los, wenn keine Empfängeradresse gesetzt ist", async () => {

@@ -10,7 +10,7 @@ vi.mock("@/lib/mail", () => ({
     briefe.push(mail);
     return { delivered: true };
   },
-  siteUrl: () => "https://quitt.test",
+  siteUrl: () => "https://autotauschen.test",
   siteUrlConfigured: () => true,
 }));
 
@@ -47,7 +47,7 @@ describe("Treffermeldungen", () => {
     expect(anWen()).toEqual(["anna@test.test", "bruno@test.test"]);
     // Der Text nennt das fremde Auto und führt auf die Seite dazu.
     expect(briefe[0].text).toMatch(/Polestar/);
-    expect(briefe[0].text).toMatch(/https:\/\/quitt\.test\/auto\//);
+    expect(briefe[0].text).toMatch(/https:\/\/autotauschen\.test\/auto\//);
   });
 
   it("meldet denselben Treffer kein zweites Mal", async () => {

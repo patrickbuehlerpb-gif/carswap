@@ -91,7 +91,14 @@ export function passwordProblem(password: string): string | null {
   if (password.length < 10) return "Das Passwort muss mindestens 10 Zeichen haben.";
   if (password.length > 200) return "Das Passwort darf höchstens 200 Zeichen haben.";
   if (/^\s|\s$/.test(password)) return "Das Passwort darf nicht mit einem Leerzeichen beginnen oder enden.";
-  const common = ["passwort123", "12345678910", "carswap123", "qwertzuiop"];
+  const common = [
+    "passwort123",
+    "12345678910",
+    "qwertzuiop",
+    "autotauschen",
+    "autotauschen1",
+    "autotauschen123",
+  ];
   if (common.includes(password.toLowerCase())) return "Dieses Passwort ist zu leicht zu erraten.";
   return null;
 }

@@ -265,7 +265,7 @@ export async function proposeRingAction(input: {
 
   await notify(
     [eintragA.vehicle.ownerId, eintragB.vehicle.ownerId],
-    "quitt: Vorschlag für einen Ringtausch",
+    "autotauschen: Vorschlag für einen Ringtausch",
     `${me.name} schlägt einen Tausch über drei Parteien vor. Er kommt nur zustande, wenn alle ` +
       `drei zusagen.\n\n${siteUrl()}/ringe/${ringId}\n`,
   );
@@ -356,7 +356,7 @@ export async function acceptRingAction(ringId: string): Promise<RingActionResult
 
   await notify(
     andere(geladen.legs, me.id),
-    vollstaendig ? "quitt: Ringtausch steht" : "quitt: Zusage zum Ringtausch",
+    vollstaendig ? "autotauschen: Ringtausch steht" : "autotauschen: Zusage zum Ringtausch",
     vollstaendig
       ? `Alle drei haben zugesagt. Als Nächstes wird der Ausgleich hinterlegt.\n\n${siteUrl()}/ringe/${ringId}\n`
       : `${me.name} hat dem Ringtausch zugesagt.\n\n${siteUrl()}/ringe/${ringId}\n`,
@@ -385,7 +385,7 @@ export async function declineRingAction(ringId: string): Promise<RingActionResul
   await addRingSystemMessage(ringId, me.id, `${me.name} hat den Ring abgelehnt.`);
   await notify(
     andere(geladen.legs, me.id),
-    "quitt: Ringtausch abgelehnt",
+    "autotauschen: Ringtausch abgelehnt",
     `${me.name} hat den Ringtausch abgelehnt. Ohne alle drei Zusagen kommt er nicht zustande.\n\n${siteUrl()}/ringe/${ringId}\n`,
   );
 
@@ -439,7 +439,7 @@ export async function cancelRingAction(ringId: string): Promise<RingActionResult
   await addRingSystemMessage(ringId, me.id, `${me.name} hat den Ring abgebrochen.`);
   await notify(
     andere(geladen.legs, me.id),
-    "quitt: Ringtausch abgebrochen",
+    "autotauschen: Ringtausch abgebrochen",
     `${me.name} hat den Ringtausch abgebrochen. Hinterlegte Beträge werden freigegeben.\n\n${siteUrl()}/ringe/${ringId}\n`,
   );
   revalidatePath(`/ringe/${ringId}`);
@@ -483,7 +483,7 @@ export async function sendRingMessageAction(
   await db.insert(dealMessages).values({ id: newId("msg"), ringId, authorId: me.id, body });
   await notify(
     andere(geladen.legs, me.id),
-    "quitt: neue Nachricht im Ringtausch",
+    "autotauschen: neue Nachricht im Ringtausch",
     `${me.name} hat euch geschrieben.\n\n${siteUrl()}/ringe/${ringId}\n`,
   );
 
@@ -563,7 +563,7 @@ export async function startRingEscrowAction(ringId: string): Promise<RingActionR
   if (!(await payoutReady(offen.payeeId))) {
     await notify(
       [offen.payeeId],
-      "quitt: Auszahlungskonto einrichten",
+      "autotauschen: Auszahlungskonto einrichten",
       "Bei eurem Ringtausch wird als Nächstes der Ausgleich hinterlegt. Damit er bei dir " +
         `ankommt, richte bitte zuerst dein Auszahlungskonto ein.\n\n${siteUrl()}/konto\n`,
     );
@@ -651,7 +651,7 @@ export async function confirmRingHandoverAction(ringId: string): Promise<RingAct
   if (!alle) {
     await notify(
       andere(frisch.legs, me.id),
-      "quitt: Übergabe bestätigt",
+      "autotauschen: Übergabe bestätigt",
       `${me.name} hat die Übergabe bestätigt. Sobald alle drei bestätigt haben, wird der ` +
         `Ausgleich ausgezahlt und die Fahrzeuge werden umgeschrieben.\n\n${siteUrl()}/ringe/${ringId}\n`,
     );

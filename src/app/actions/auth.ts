@@ -106,7 +106,7 @@ export async function signUpAction(_prev: FormState, formData: FormData): Promis
   const token = await issueToken(id, "verify_email");
   await sendMail({
     to: parsed.data.email,
-    subject: "quitt: E-Mail-Adresse bestätigen",
+    subject: "autotauschen: E-Mail-Adresse bestätigen",
     text:
       `Hallo ${parsed.data.name}\n\n` +
       `Bestätige deine E-Mail-Adresse mit diesem Link:\n` +
@@ -238,7 +238,7 @@ export async function requestPasswordResetAction(
         after(async () => {
           await sendMail({
             to: user.email,
-            subject: "quitt: Passwort zurücksetzen",
+            subject: "autotauschen: Passwort zurücksetzen",
             text:
               `Hallo ${user.name}\n\n` +
               `Setze dein Passwort über diesen Link neu:\n` +
@@ -304,7 +304,7 @@ export async function resendVerificationAction(): Promise<FormState> {
   const token = await issueToken(user.id, "verify_email");
   await sendMail({
     to: user.email,
-    subject: "quitt: E-Mail-Adresse bestätigen",
+    subject: "autotauschen: E-Mail-Adresse bestätigen",
     text: `Bestätige deine E-Mail-Adresse:\n${siteUrl()}/konto/email-bestaetigen?token=${token}\n`,
   });
   return { notice: "Bestätigungslink verschickt." };

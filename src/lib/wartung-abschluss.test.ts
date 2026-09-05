@@ -40,7 +40,7 @@ vi.mock("@/lib/mail", () => ({
     briefe.push(m);
     return { delivered: true };
   },
-  siteUrl: () => "https://quitt.test",
+  siteUrl: () => "https://autotauschen.test",
   siteUrlConfigured: () => true,
   mailConfigured: () => true,
 }));
@@ -136,7 +136,7 @@ describe("Steckengebliebene Abschlüsse nachholen", () => {
 
     const [bruno] = await db.select().from(users).where(eq(users.id, b));
     expect(briefe.map((b) => ({ to: b.to, subject: b.subject }))).toEqual([
-      { to: bruno.email, subject: "quitt: Auszahlungskonto fehlt noch" },
+      { to: bruno.email, subject: "autotauschen: Auszahlungskonto fehlt noch" },
     ]);
   });
 

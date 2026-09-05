@@ -62,7 +62,7 @@ export default async function GaragePage({
 
       {willkommen && (
         <Card className="border-marke/40 bg-marke/20 p-5">
-          <h2 className="text-base font-semibold text-ink">Willkommen bei quitt</h2>
+          <h2 className="text-base font-semibold text-ink">Willkommen bei autotauschen</h2>
           <p className="mt-1 text-sm text-ink-2">
             Stell als Nächstes dein Auto ein. Dann suchen wir passende Tauschpartner für dich.
             Wir haben dir ausserdem eine E-Mail geschickt, um deine Adresse zu bestätigen.

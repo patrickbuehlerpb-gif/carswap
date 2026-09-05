@@ -50,7 +50,7 @@ export interface Geld {
   /** Eingezogen, aber noch nicht weitergeleitet — liegt auf dem Plattformkonto. */
   liegengebliebenMinor: number;
   liegengebliebenAnzahl: number;
-  /** Was quitt an abgeschlossenen Vorgängen verdient hat. */
+  /** Was autotauschen an abgeschlossenen Vorgängen verdient hat. */
   gebuehrenMinor: number;
   /** Offene Rückbuchungen — jede kostet die Betreiberin Geld, bis sie geklärt ist. */
   angefochtenAnzahl: number;

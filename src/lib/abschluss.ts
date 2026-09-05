@@ -268,7 +268,7 @@ export async function schliesseTauschAb(
     if (err instanceof PayoutBlockedError) {
       await benachrichtige(
         payment.payeeId,
-        "quitt: Auszahlungskonto fehlt noch",
+        "autotauschen: Auszahlungskonto fehlt noch",
         "Euer Tausch ist übergeben und der Ausgleich liegt bereit. Sobald du dein " +
           `Auszahlungskonto eingerichtet hast, wird er ausgezahlt.\n\n${siteUrl()}/konto\n`,
       );

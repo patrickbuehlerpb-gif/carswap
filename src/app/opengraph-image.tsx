@@ -13,7 +13,7 @@ import { ImageResponse } from "next/og";
  */
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-export const alt = "quitt — Autos tauschen statt verkaufen";
+export const alt = "autotauschen — dein Auto gegen ein anderes, mit Ausgleich";
 
 const CANVAS = "#f3efe6";
 const INK = "#141210";
@@ -44,8 +44,11 @@ export default function Bild() {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
           <Signet />
-          <span style={{ fontSize: 52, fontWeight: 800, color: INK, letterSpacing: -2 }}>
-            quitt
+          {/* Dieselbe Gliederung wie die Wortmarke im Seitenkopf: «auto»
+              zurückgenommen, die Betonung liegt auf dem, was man tut. */}
+          <span style={{ fontSize: 52, fontWeight: 800, letterSpacing: -2, display: "flex" }}>
+            <span style={{ color: "#8a8178" }}>auto</span>
+            <span style={{ color: INK }}>tauschen</span>
           </span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
@@ -53,8 +56,8 @@ export default function Bild() {
               ImageResponse kennt keinen Zeilenumbruch im Fliesstext und
               klebte «tauschenstatt» zusammen. */}
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <span style={ZEILE}>Autos tauschen</span>
-            <span style={ZEILE}>statt verkaufen</span>
+            <span style={ZEILE}>Dein Auto gegen</span>
+            <span style={ZEILE}>ein anderes.</span>
           </div>
           <span style={{ fontSize: 32, color: "#5c554b", lineHeight: 1.35 }}>
             Wir rechnen aus, was deines wert ist — den Rest legt ihr fest.

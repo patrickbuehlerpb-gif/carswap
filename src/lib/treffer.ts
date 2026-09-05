@@ -180,8 +180,8 @@ async function meldeFuer(person: Kandidat, bestand: ListingEntry[]): Promise<num
     to: person.email,
     subject:
       auswahl.length === 1
-        ? "quitt: jemand sucht dein Auto"
-        : `quitt: ${auswahl.length} passende Tausche für dich`,
+        ? "autotauschen: jemand sucht dein Auto"
+        : `autotauschen: ${auswahl.length} passende Tausche für dich`,
     text: text(person, auswahl),
   });
   return auswahl.length;

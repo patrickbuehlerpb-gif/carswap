@@ -479,7 +479,7 @@ export async function schliesseRingAb(geladen: RingWithLegs): Promise<RingErgebn
     if (!(await payoutReady(zahlung!.payeeId))) {
       await benachrichtigeRing(
         [zahlung!.payeeId],
-        "quitt: Auszahlungskonto fehlt noch",
+        "autotauschen: Auszahlungskonto fehlt noch",
         "Euer Ringtausch ist übergeben und der Ausgleich liegt bereit. Sobald du dein " +
           `Auszahlungskonto eingerichtet hast, wird er ausgezahlt.\n\n${siteUrl()}/konto\n`,
       );

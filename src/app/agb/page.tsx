@@ -15,9 +15,9 @@ export default function AgbPage() {
         Gewährleistung beim Tausch unter Privatpersonen?
       </Todo>
 
-      <H2>1. Was quitt ist</H2>
+      <H2>1. Was autotauschen ist</H2>
       <p>
-        Auf quitt tauschen Privatpersonen ihre Autos direkt gegeneinander. Der Vertrag kommt
+        Auf autotauschen tauschen Privatpersonen ihre Autos direkt gegeneinander. Der Vertrag kommt
         zwischen den beiden Personen zustande, nicht mit uns. Wir sind weder Vertragspartei noch
         Verkäuferin noch Vermittlerin im rechtlichen Sinn.
       </p>

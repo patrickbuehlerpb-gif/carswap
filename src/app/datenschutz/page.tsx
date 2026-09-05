@@ -41,7 +41,7 @@ export default function DatenschutzPage() {
 
       <H2>Sitzungen und Cookies</H2>
       <p>
-        Wir setzen genau ein Cookie: <code>quitt_session</code>. Darin steht eine zufällige
+        Wir setzen genau ein Cookie: <code>autotauschen_session</code>. Darin steht eine zufällige
         Zeichenkette, an der wir dich wiedererkennen. Nach 30 Tagen läuft sie ab. In der Datenbank
         liegt davon nur ein Hash. Wir verfolgen dich nicht und lassen niemanden mitmessen.
       </p>

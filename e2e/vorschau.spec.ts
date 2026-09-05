@@ -54,8 +54,8 @@ async function meta(page: import("@playwright/test").Page, feld: string): Promis
 
 test("die Startseite bringt Titel, Beschreibung und ein Bild mit", async ({ page }) => {
   await page.goto("/");
-  expect(await meta(page, "og:title")).toContain("quitt");
-  expect(await meta(page, "og:site_name")).toBe("quitt");
+  expect(await meta(page, "og:title")).toContain("autotauschen");
+  expect(await meta(page, "og:site_name")).toBe("autotauschen");
   expect(await meta(page, "og:locale")).toBe("de_CH");
   expect(await meta(page, "twitter:card")).toBe("summary_large_image");
 

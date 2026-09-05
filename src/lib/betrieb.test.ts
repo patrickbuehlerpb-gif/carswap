@@ -188,15 +188,15 @@ describe("Betriebsbild", () => {
       STRIPE_SECRET_KEY: "sk_test_attrappe",
       STRIPE_WEBHOOK_SECRET: "whsec_attrappe",
       RESEND_API_KEY: "re_attrappe",
-      MAIL_FROM: "post@quitt.test",
-      SITE_URL: "https://quitt.test",
+      MAIL_FROM: "post@autotauschen.test",
+      SITE_URL: "https://autotauschen.test",
       BLOB_READ_WRITE_TOKEN: "blob_attrappe",
       CRON_SECRET: "geheim",
-      OPERATOR_NAME: "quitt AG",
+      OPERATOR_NAME: "autotauschen AG",
       OPERATOR_LEGAL_FORM: "AG",
       OPERATOR_ADDRESS: "Bahnhofstrasse 1, 8001 Zürich",
       OPERATOR_UID: "CHE-123.456.789",
-      OPERATOR_EMAIL: "hallo@quitt.test",
+      OPERATOR_EMAIL: "hallo@autotauschen.test",
     });
     try {
       expect((await betriebsbild()).nichtEingerichtet).toEqual([]);

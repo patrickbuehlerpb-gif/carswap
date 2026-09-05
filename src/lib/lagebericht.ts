@@ -158,7 +158,7 @@ export async function erstelleLagebericht(
 
   await sendMail({
     to: empfaenger,
-    subject: `quitt: ${punkte.map((p) => p.kurz).join(", ")}`,
+    subject: `autotauschen: ${punkte.map((p) => p.kurz).join(", ")}`,
     text:
       "Guten Morgen\n\nDiese Punkte brauchen heute deine Aufmerksamkeit:\n\n" +
       punkte.map((p) => `• ${p.text}`).join("\n\n") +

@@ -225,7 +225,7 @@ export async function handleEvent(event: Stripe.Event): Promise<void> {
      *
      * Das ist der teuerste Fall im ganzen System. Stripe zieht den Betrag
      * sofort vom Plattformkonto ein — nicht vom Empfänger, dem er längst
-     * überwiesen wurde. Bis zur Entscheidung liegt quitt also in Vorleistung,
+     * überwiesen wurde. Bis zur Entscheidung liegt autotauschen also in Vorleistung,
      * und ohne Stellungnahme innerhalb der Frist ist der Fall verloren.
      * Deshalb geht hier zuerst eine Nachricht an die Betreiberin.
      */
@@ -373,7 +373,7 @@ async function flagRefundAfterCompletion(
   for (const person of empfaenger) {
     await sendMail({
       to: person.email,
-      subject: "quitt: Rückerstattung zu einem abgeschlossenen Tausch",
+      subject: "autotauschen: Rückerstattung zu einem abgeschlossenen Tausch",
       text:
         "Zu eurem Tausch wurde der Ausgleich zurückerstattet, obwohl der Vorgang bereits " +
         `abgeschlossen war. Bitte meldet euch beim Support.\n\n${adresse}\n`,
@@ -407,7 +407,7 @@ async function meldeRueckbuchung(
   if (betreiberin) {
     await sendMail({
       to: betreiberin,
-      subject: `quitt: Rückbuchung über ${betrag}`,
+      subject: `autotauschen: Rückbuchung über ${betrag}`,
       text:
         `Zu einem Vorgang wurde das Geld zurückgebucht.\n\n` +
         `Betrag:   ${betrag}\n` +
@@ -451,7 +451,7 @@ async function meldeRueckbuchung(
   for (const person of beteiligte) {
     await sendMail({
       to: person.email,
-      subject: "quitt: Rückbuchung zu eurem Tausch",
+      subject: "autotauschen: Rückbuchung zu eurem Tausch",
       text: `${hinweis}\n\n${adresse}\n`,
     });
   }

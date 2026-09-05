@@ -24,22 +24,22 @@ export async function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-surface/85 backdrop-blur-md">
-      <div className="mx-auto flex w-full max-w-7xl items-center gap-6 px-5 py-3 sm:px-8">
-        <Link href="/" className="flex items-center gap-2.5">
+      <div className="mx-auto flex w-full max-w-7xl items-center gap-3 px-5 py-3 sm:px-8 md:gap-6">
+        <Link href="/" className="flex shrink-0 items-center gap-2 sm:gap-2.5">
           <span className="text-marke">
             <Signet />
           </span>
-          <Wortmarke className="text-[21px] text-ink" />
+          <Wortmarke className="text-[18px] text-ink sm:text-[21px]" />
         </Link>
 
         <NavLinks signedIn={Boolean(user)} openDeals={openDeals} />
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
           {user ? (
             <>
               <Link
                 href="/inserat/neu"
-                className="hidden rounded-md bg-marke px-3 py-1.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi sm:block"
+                className="hidden whitespace-nowrap rounded-md bg-marke px-3 py-1.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi sm:block"
               >
                 Auto anbieten
               </Link>
@@ -47,15 +47,20 @@ export async function SiteHeader() {
             </>
           ) : (
             <>
+              {/*
+               * Auf dem Telefon steht «Anmelden» in der zweiten Zeile: neben
+               * dem zwölf Buchstaben langen Namen ist oben nur für eine
+               * Handlung Platz, und das ist die für neue Leute.
+               */}
               <Link
                 href="/konto/anmelden"
-                className="rounded-md px-3 py-1.5 text-sm text-ink-2 transition-colors hover:text-ink"
+                className="hidden whitespace-nowrap rounded-md px-3 py-1.5 text-sm text-ink-2 transition-colors hover:text-ink md:block"
               >
                 Anmelden
               </Link>
               <Link
                 href="/konto/registrieren"
-                className="rounded-md bg-marke px-3 py-1.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
+                className="whitespace-nowrap rounded-md bg-marke px-3 py-1.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi"
               >
                 Konto erstellen
               </Link>
@@ -63,24 +68,38 @@ export async function SiteHeader() {
           )}
         </div>
       </div>
-      <NavLinks signedIn={Boolean(user)} openDeals={openDeals} mobile />
+
+      <div className="flex items-stretch border-t border-line md:hidden">
+        <NavLinks signedIn={Boolean(user)} openDeals={openDeals} mobile />
+        {!user && (
+          <Link
+            href="/konto/anmelden"
+            className="flex shrink-0 items-center border-l border-line px-5 py-2 text-sm text-ink-2 transition-colors hover:text-ink"
+          >
+            Anmelden
+          </Link>
+        )}
+      </div>
     </header>
   );
 }
 
 /**
- * Wortmarke: die beiden t teilen sich einen Querbalken. Das ist ein
- * Gleichheitszeichen mitten im Namen — und dieselbe Form wie die beiden Balken
- * des Signets daneben.
+ * Wortmarke.
+ *
+ * Der Name besteht aus zwei Teilen, und die Naht dazwischen ist die ganze
+ * Gestaltung: «auto» sagt, worum es geht, «tauschen» sagt, was man tut. Das
+ * Zweite trägt die Betonung, denn tauschen kann man Autos anderswo nicht.
+ *
+ * Zwölf Buchstaben sind für eine Wortmarke viel. Der Tonwertunterschied
+ * gliedert sie in zwei lesbare Hälften, ohne dass eine zweite Farbe nötig
+ * wäre — daneben steht schon das grüne Signet, und zwei Grüntöne
+ * nebeneinander würden unruhig.
  */
 export function Wortmarke({ className = "" }: { className?: string }) {
   return (
     <span className={`display leading-none ${className}`}>
-      qui
-      <span className="relative tracking-[-0.07em]">
-        tt
-        <i className="absolute bottom-[0.395em] left-[0.045em] right-[0.04em] block h-[0.088em] rounded-[0.03em] bg-current" />
-      </span>
+      <span className="text-ink-3">auto</span>tauschen
     </span>
   );
 }

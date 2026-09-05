@@ -26,13 +26,13 @@ afterEach(() => {
 
 describe("Basisadresse", () => {
   it("nimmt eine vollständige Adresse und schneidet den Schrägstrich ab", () => {
-    process.env.SITE_URL = "https://quitt.ch/";
-    expect(siteUrl()).toBe("https://quitt.ch");
+    process.env.SITE_URL = "https://autotauschen.app/";
+    expect(siteUrl()).toBe("https://autotauschen.app");
     expect(siteUrlConfigured()).toBe(true);
   });
 
   it("weist eine Adresse ohne Schema zurück, statt sie durchzureichen", () => {
-    process.env.SITE_URL = "quitt.ch";
+    process.env.SITE_URL = "autotauschen.app";
     expect(siteUrl()).toBe("http://localhost:3000");
     expect(siteUrlConfigured()).toBe(false);
     // Und das Ergebnis lässt sich immer parsen — darauf verlässt sich
@@ -41,21 +41,21 @@ describe("Basisadresse", () => {
   });
 
   it("weist ein fremdes Schema zurück", () => {
-    process.env.SITE_URL = "ftp://quitt.ch";
+    process.env.SITE_URL = "ftp://autotauschen.app";
     expect(siteUrl()).toBe("http://localhost:3000");
     expect(siteUrlConfigured()).toBe(false);
   });
 
   it("nimmt ersatzweise die Adresse von Vercel", () => {
-    process.env.VERCEL_PROJECT_PRODUCTION_URL = "quitt.vercel.app";
-    expect(siteUrl()).toBe("https://quitt.vercel.app");
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = "autotauschen.vercel.app";
+    expect(siteUrl()).toBe("https://autotauschen.vercel.app");
     expect(siteUrlConfigured()).toBe(true);
   });
 
   it("greift auf Vercel zurück, wenn SITE_URL kaputt ist", () => {
-    process.env.SITE_URL = "quitt.ch";
-    process.env.VERCEL_PROJECT_PRODUCTION_URL = "quitt.vercel.app";
-    expect(siteUrl()).toBe("https://quitt.vercel.app");
+    process.env.SITE_URL = "autotauschen.app";
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = "autotauschen.vercel.app";
+    expect(siteUrl()).toBe("https://autotauschen.vercel.app");
   });
 
   it("gibt ohne jede Angabe eine gültige Adresse zurück", () => {

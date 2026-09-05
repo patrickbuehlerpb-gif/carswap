@@ -171,7 +171,7 @@ export async function proposeSwapAction(input: {
 
   await benachrichtige(
     targetListing.listing.ownerId,
-    "quitt: neuer Tauschvorschlag",
+    "autotauschen: neuer Tauschvorschlag",
     `${me.name} schlägt einen Tausch für deinen ${targetListing.vehicle.make} ${targetListing.vehicle.model} vor.\n\n` +
       `${siteUrl()}/deals/${dealId}\n`,
   );
@@ -249,7 +249,7 @@ export async function sendDealMessageAction(
   const otherId = deal.initiatorId === me.id ? deal.counterpartyId : deal.initiatorId;
   await benachrichtige(
     otherId,
-    "quitt: neue Nachricht zu deinem Tausch",
+    "autotauschen: neue Nachricht zu deinem Tausch",
     `${me.name} hat dir geschrieben.\n\n${siteUrl()}/deals/${dealId}\n`,
   );
 
@@ -384,7 +384,7 @@ export async function acceptDealAction(dealId: string): Promise<ActionResult> {
   const otherId = deal.initiatorId === me.id ? deal.counterpartyId : deal.initiatorId;
   await benachrichtige(
     otherId,
-    "quitt: Tausch angenommen",
+    "autotauschen: Tausch angenommen",
     `${me.name} hat euren Tausch angenommen. Als Nächstes wird der Ausgleich hinterlegt.\n\n${siteUrl()}/deals/${dealId}\n`,
   );
 
@@ -533,7 +533,7 @@ export async function startEscrowAction(dealId: string): Promise<ActionResult> {
   if (!(await payoutReady(parties.payeeId))) {
     await benachrichtige(
       parties.payeeId,
-      "quitt: Auszahlungskonto einrichten",
+      "autotauschen: Auszahlungskonto einrichten",
       "Bei eurem Tausch wird als Nächstes der Ausgleich hinterlegt. Damit er bei dir ankommt, " +
         `richte bitte zuerst dein Auszahlungskonto ein.\n\n${siteUrl()}/konto\n`,
     );
@@ -604,7 +604,7 @@ export async function confirmHandoverAction(dealId: string): Promise<ActionResul
     const otherId = iAmInitiator ? deal.counterpartyId : deal.initiatorId;
     await benachrichtige(
       otherId,
-      "quitt: Übergabe bestätigt",
+      "autotauschen: Übergabe bestätigt",
       `${me.name} hat die Übergabe bestätigt. Sobald du das ebenfalls tust, wird der Ausgleich ausgezahlt.\n\n${siteUrl()}/deals/${dealId}\n`,
     );
     revalidatePath(`/deals/${dealId}`);

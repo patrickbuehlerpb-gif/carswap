@@ -201,7 +201,7 @@ export async function changePasswordAction(
 
   await sendMail({
     to: me.email,
-    subject: "quitt: Passwort geändert",
+    subject: "autotauschen: Passwort geändert",
     text:
       `Hallo ${me.name}\n\n` +
       "Das Passwort deines Kontos wurde soeben geändert, und alle anderen Geräte " +
@@ -256,10 +256,10 @@ export async function requestEmailChangeAction(
   const token = await issueToken(me.id, "change_email");
   await sendMail({
     to: neueAdresse,
-    subject: "quitt: neue E-Mail-Adresse bestätigen",
+    subject: "autotauschen: neue E-Mail-Adresse bestätigen",
     text:
       `Hallo ${me.name}\n\n` +
-      "Diese Adresse soll künftig zu deinem quitt-Konto gehören. Bestätige sie hier:\n" +
+      "Diese Adresse soll künftig zu deinem autotauschen-Konto gehören. Bestätige sie hier:\n" +
       `${siteUrl()}/konto/email-aendern?token=${token}\n\n` +
       "Der Link ist 24 Stunden gültig. Bis dahin bleibt deine bisherige Adresse in Kraft.\n",
   });
@@ -268,7 +268,7 @@ export async function requestEmailChangeAction(
   // ein unbemerkter Wechsel noch auffallen kann.
   await sendMail({
     to: me.email,
-    subject: "quitt: Wechsel der E-Mail-Adresse angefragt",
+    subject: "autotauschen: Wechsel der E-Mail-Adresse angefragt",
     text:
       `Hallo ${me.name}\n\n` +
       `Für dein Konto wurde ${neueAdresse} als neue Adresse angefragt. Solange der ` +
@@ -355,7 +355,7 @@ export async function confirmEmailChange(token: string): Promise<
 
   await sendMail({
     to: konto.email,
-    subject: "quitt: E-Mail-Adresse geändert",
+    subject: "autotauschen: E-Mail-Adresse geändert",
     text:
       `Hallo ${konto.name}\n\n` +
       `Dein Konto läuft jetzt auf ${konto.pendingEmail}. An diese bisherige Adresse ` +

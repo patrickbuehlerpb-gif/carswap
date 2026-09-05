@@ -69,7 +69,7 @@ export async function generateMetadata({
       description: beschreibung,
       images: foto
         ? [{ url: foto.url, width: foto.width, height: foto.height, alt: titel }]
-        : [{ url: "/opengraph-image", width: 1200, height: 630, alt: "quitt" }],
+        : [{ url: "/opengraph-image", width: 1200, height: 630, alt: "autotauschen" }],
     },
   };
 }

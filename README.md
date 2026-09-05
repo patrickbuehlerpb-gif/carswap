@@ -1,4 +1,4 @@
-# quitt
+# autotauschen
 
 Eine Tauschbörse für Autos zwischen Privatpersonen. Verkaufen und danach kaufen
 sind zwei Geschäfte, zwei Verhandlungen und zweimal Händlermarge. Hier wird
@@ -150,6 +150,13 @@ wenn sie nüchtern gesetzt ist.
   Standardvorlage kommt so aus Breite und Gewicht statt aus einer zweiten
   Schrift. IBM Plex Mono trägt jede Zahl (`.tabular`, `.betrag`): gleich breite
   Ziffern springen beim Aktualisieren nicht.
+- **Wortmarke.** Der Name besteht aus zwei Teilen, und die Naht dazwischen ist
+  die ganze Gestaltung: «auto» steht im hellen Ton und sagt, worum es geht,
+  «tauschen» trägt die Betonung und sagt, was man tut. Eine zweite Farbe wäre
+  falsch — daneben steht schon das grüne Signet. Zwölf Buchstaben sind für eine
+  Wortmarke viel: im Kopfbereich steht sie auf dem Telefon eine Spur kleiner,
+  und «Anmelden» rückt dort in die zweite Zeile, damit oben Platz für die
+  Handlung bleibt, die neue Leute brauchen.
 - **Signet.** Zwei Zeilen, gleich breit. Oben ein Fahrzeug, unten das andere —
   kürzer — plus der bernsteinfarbene Block, die Zuzahlung. Zusammen ergeben sie
   dieselbe Länge; das Zeichen ist die Aussage des Produkts. Es steckt in
@@ -387,7 +394,7 @@ Foto des Autos.
 
 Das Ganze hängt an `metadataBase` und damit an `SITE_URL` — ein Chatprogramm
 bekommt nur den Link als Text und kann eine relative Adresse nicht auflösen.
-Deshalb prüft `siteUrl()` den Wert jetzt: «quitt.ch» ohne Schema ist keine
+Deshalb prüft `siteUrl()` den Wert jetzt: «autotauschen.app» ohne Schema ist keine
 Adresse, sondern ein Tippfehler, der sonst beim Rendern von `metadataBase`
 jede Seite umgeworfen hätte. Ein solcher Wert wird verworfen und beim Namen
 genannt, und `npm run preflight` meldet die Basisadresse dann als fehlend.
@@ -410,6 +417,13 @@ Zwei Befunde kamen dabei heraus und sind behoben:
   Seite mit der Tastatur bedient, stand danach wieder am Seitenanfang. Statt zu
   sperren zeigt der Schalter jetzt `aria-busy` und verwirft einen zweiten Klick
   selbst.
+
+Auf 390 px prüft derselbe Lauf zusätzlich, dass keine Seite seitwärts läuft
+(`scrollWidth` gegen `clientWidth`), abgemeldet wie angemeldet. Das ist kein
+Schönheitsfehler: was rechts hinausragt, ist oft gerade der Knopf mit der
+wichtigsten Handlung. Aufgefallen ist es bei der Umbenennung — der zwölf
+Buchstaben lange Name sprengte den Kopfbereich, «Konto erstellen» brach um und
+stand halb ausserhalb des Bildes. Die Prüfung hält das jetzt fest.
 
 Was axe nicht sieht, prüft derselbe Lauf von Hand: Sprunglink, Benutzermenü mit
 Enter und Escape, Schalter mit der Leertaste, Aufklapper mit Enter — und dass
@@ -506,7 +520,7 @@ eingerichtet sind.
 
 Eine Kartenrückbuchung ist der teuerste Fall im ganzen System: Stripe zieht
 den Betrag sofort vom **Plattformkonto** ein — nicht vom Empfänger, dem er
-längst überwiesen wurde. Bis zur Entscheidung liegt quitt in Vorleistung, und
+längst überwiesen wurde. Bis zur Entscheidung liegt autotauschen in Vorleistung, und
 ohne fristgerechte Stellungnahme ist der Fall verloren.
 
 `charge.dispute.created` und `charge.dispute.closed` werden deshalb verarbeitet.
@@ -565,9 +579,24 @@ Migration wird die ungepoolte Verbindung bevorzugt (`DATABASE_URL_UNPOOLED`
 beziehungsweise `POSTGRES_URL_NON_POOLING`), weil DDL im Transaction-Mode
 eines Poolers unzuverlässig ist.
 
+### Domain
+
+Die Anwendung läuft unter **autotauschen.app**. Das ist keine Kosmetik, sondern
+eine Einstellung: `.app` steht auf der HSTS-Preload-Liste, die Browser fest
+eingebaut haben. Ein Aufruf über `http://` wird deshalb gar nicht erst
+gesendet, sondern im Browser auf `https://` umgeschrieben — es gibt keinen
+Klartext-Rückfall, auf den man versehentlich zurückfallen könnte. Für eine
+Seite, über die Geld läuft, ist das der richtige Vorgabewert.
+
+`SITE_URL` muss darum `https://autotauschen.app` lauten (mit Schema, ohne
+Schrägstrich am Ende) — die Prüfung in `lib/mail.ts` weist alles andere ab.
+`autotauschen.ch` kommt später dazu; sie wird dann als Weiterleitung auf die
+`.app`-Adresse eingerichtet, nicht als zweite eigenständige Seite, damit
+Mail-Links, Stripe-Rücksprünge und Vorschaubilder nur eine Herkunft haben.
+
 Nach dem ersten Deployment:
 
-1. In Stripe einen Webhook auf `https://<domain>/api/stripe/webhook`
+1. In Stripe einen Webhook auf `https://autotauschen.app/api/stripe/webhook`
    einrichten (Ereignisse: `checkout.session.completed`,
    `checkout.session.expired`, `payment_intent.canceled`,
    `payment_intent.payment_failed`, `charge.refunded`, `account.updated`) und
@@ -648,12 +677,20 @@ Der Lauf macht vier Dinge und ist beliebig oft wiederholbar:
 - **Impressum, Datenschutz und AGB** müssen juristisch geprüft werden.
   Insbesondere ist zu klären, ob die Treuhandfunktion unter das
   Geldwäschereigesetz fällt — die Konstruktion über Stripe Connect ist darauf
-  ausgelegt, dass nie quitt selbst Gelder Dritter hält. Die Firmenangaben
+  ausgelegt, dass nie autotauschen selbst Gelder Dritter hält. Die Firmenangaben
   kommen aus `OPERATOR_NAME`, `OPERATOR_ADDRESS`, `OPERATOR_EMAIL` und
   `OPERATOR_LEGAL_FORM` und `OPERATOR_UID`, optional dazu `OPERATOR_REGISTER`
   und `OPERATOR_PHONE`. Fehlt eines davon, benennt die Seite es einzeln —
   statt eine vollständige Rechtsseite vorzutäuschen. `/api/health` meldet den
   Zustand als `impressum`.
+- **Name und Marke.** `autotauschen.app` ist gekauft, `autotauschen.ch` folgt
+  und wird dann als Weiterleitung eingerichtet. Der Name sagt, was das Produkt
+  tut — das ist sein Vorzug und zugleich seine markenrechtliche Schwäche:
+  beschreibende Zeichen sind als Wortmarke schwer zu schützen. Realistisch ist
+  eine Wort-Bild-Marke aus Signet und Schriftzug. Vor dem Livegang gehört eine
+  Recherche in Swissreg für die Klassen 35 (Vermittlung) und 36 (Zahlungen)
+  gemacht — nicht um selbst einzutragen, sondern um sicher zu sein, dass der
+  Name niemandem gehört.
 - **Identitätsprüfung** der Nutzer sowie Abfrage von Fahrzeugausweis und
   Pfandrecht. Stripe Identity wäre die naheliegende Anbindung, weil Stripe
   ohnehin schon eingebunden ist. Das Feld `identityVerified` ist vorbereitet,
@@ -686,7 +723,7 @@ Der Lauf macht vier Dinge und ist beliebig oft wiederholbar:
 | Variable | Wofür | Ohne sie |
 | --- | --- | --- |
 | `DATABASE_URL` / `POSTGRES_URL` | Datenbank | Anwendung startet, jede Abfrage scheitert |
-| `SITE_URL` | Basis für Mail-Links und Stripe-Rücksprung | fällt auf `localhost` zurück, Fehler im Log |
+| `SITE_URL` | Basis für Mail-Links und Stripe-Rücksprung (Produktion: `https://autotauschen.app`) | fällt auf `localhost` zurück, Fehler im Log |
 | `STRIPE_SECRET_KEY` | Zahlungen | Tausche mit Wertdifferenz nicht möglich |
 | `STRIPE_WEBHOOK_SECRET` | Webhook-Signatur | Webhook antwortet mit 503 |
 | `RESEND_API_KEY` + `MAIL_FROM` | Mailversand | keine Bestätigungs- und Reset-Mails, und die Pflicht zur bestätigten Adresse entfällt |

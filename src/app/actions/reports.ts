@@ -73,7 +73,7 @@ export async function reportListingAction(
   if (empfaenger) {
     await sendMail({
       to: empfaenger,
-      subject: `quitt: Meldung zu einem Inserat (${parsed.data.reason})`,
+      subject: `autotauschen: Meldung zu einem Inserat (${parsed.data.reason})`,
       text:
         `Gemeldet von ${me.name} (${me.email})\n` +
         `Fahrzeug: ${ziel.vehicle.make} ${ziel.vehicle.model}\n` +
