@@ -38,7 +38,11 @@ export async function submitReviewAction(
 
   const parsed = reviewSchema.safeParse({ stars, body });
   if (!parsed.success) {
-    return { error: "Bitte eine Bewertung zwischen 1 und 5 Sternen abgeben." };
+    return {
+      // Die eigentliche Meldung zeigen: Sonst las jemand, der 1200 Zeichen
+      // geschrieben hat, eine Beschwerde über die Sterne — und der Text war weg.
+      error: parsed.error.issues[0]?.message ?? "Bitte eine Bewertung mit 1 bis 5 Sternen abgeben.",
+    };
   }
 
   const [deal] = await db.select().from(deals).where(eq(deals.id, dealId)).limit(1);
@@ -111,7 +115,11 @@ export async function submitRingReviewAction(
 
   const parsed = reviewSchema.safeParse({ stars, body });
   if (!parsed.success) {
-    return { error: "Bitte eine Bewertung zwischen 1 und 5 Sternen abgeben." };
+    return {
+      // Die eigentliche Meldung zeigen: Sonst las jemand, der 1200 Zeichen
+      // geschrieben hat, eine Beschwerde über die Sterne — und der Text war weg.
+      error: parsed.error.issues[0]?.message ?? "Bitte eine Bewertung mit 1 bis 5 Sternen abgeben.",
+    };
   }
 
   const [ring] = await db.select().from(ringSwaps).where(eq(ringSwaps.id, ringId)).limit(1);

@@ -76,6 +76,20 @@ gerade gesperrt und wer stillgelegt ist, mit einem Knopf zum Aufheben. Beim
 Stilllegen werden die Inserate nur pausiert, nicht gesperrt — sonst käme die
 Person nach der Aufhebung nie wieder an sie heran.
 
+Beide Eingriffe ziehen ausserdem die offenen Vorschläge zurück, Zweiertausch
+wie Ring. Ohne das war die Stilllegung nur halb: Die Gegenseite konnte einen
+schon gestellten Vorschlag weiterhin annehmen — geprüft wird dort, wer klickt,
+nicht wer vorgeschlagen hat —, einzahlen, die Übergabe bestätigen, und am Ende
+gingen Auto und Geld an genau das Konto, das gerade stillgelegt worden war.
+
+Ob ein Fahrzeug verbindlich gebunden ist, beantwortet `lib/bindung.ts` an
+einer Stelle für alle. Drei Prüfungen — Inserat bearbeiten, Fahrzeug
+archivieren, Inserat sperren — fragten das vorher nur für Zweiertausche ab. Ein
+Auto in einem Ring mit hinterlegtem Geld galt ihnen als frei: Der Halter konnte
+Kilometerstand und Mängel ändern, das Auto archivieren (der Empfänger hatte
+bezahlt und sah es danach in keiner Garage) oder die Betreiberin sperrte ein
+Inserat, das der Ring gleich darauf weitergab.
+
 ### Bewertungen
 
 Nach einem abgeschlossenen Tausch bewertet jede Seite die andere einmal — ein

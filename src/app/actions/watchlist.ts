@@ -13,11 +13,24 @@ export async function toggleWatchAction(
   if (!me) return { error: "Bitte zuerst anmelden." };
 
   const [exists] = await db
-    .select({ id: listings.id })
+    .select({ id: listings.id, vehicleId: listings.vehicleId })
     .from(listings)
     .where(eq(listings.id, listingId))
     .limit(1);
   if (!exists) return { error: "Inserat nicht gefunden." };
+
+  /*
+   * Neu zu laden sind alle drei Seiten, auf denen der Zustand steht: die
+   * Garage mit der Merkliste, der Marktplatz mit dem Herz auf jeder Karte und
+   * die Fahrzeugseite mit dem Knopf. Vorher galt nur die Garage — wer aus dem
+   * Marktplatz heraus merkte und zurückging, sah dort weiterhin ein leeres
+   * Herz und hielt den Klick für verloren.
+   */
+  const neuLaden = () => {
+    revalidatePath("/garage");
+    revalidatePath("/markt");
+    revalidatePath(`/auto/${exists.vehicleId}`);
+  };
 
   const existing = await db
     .delete(watchlist)
@@ -25,11 +38,11 @@ export async function toggleWatchAction(
     .returning({ listingId: watchlist.listingId });
 
   if (existing.length) {
-    revalidatePath("/garage");
+    neuLaden();
     return { active: false };
   }
 
   await db.insert(watchlist).values({ userId: me.id, listingId }).onConflictDoNothing();
-  revalidatePath("/garage");
+  neuLaden();
   return { active: true };
 }

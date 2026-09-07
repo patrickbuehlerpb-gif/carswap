@@ -451,6 +451,46 @@ describe("Zustandswächter", () => {
     expect((await dealRow(dealId)).status).toBe("angenommen");
   });
 
+  it("lässt ein stillgelegtes Konto nicht weiterschreiben", async () => {
+    // «beleidigend» ist ein Meldegrund, und das Stilllegen ist die Antwort
+    // darauf — sie muss auch die Nachrichten erfassen.
+    const { a, dealId } = await aufbau(0);
+    await db.update(users).set({ suspendedAt: new Date() }).where(eq(users.id, a));
+    als(a);
+    const res = await sendDealMessageAction(dealId, "Und ausserdem …");
+    expect(res.error).toMatch(/stillgelegt/i);
+  });
+
+  it("veröffentlicht ein pausiertes Inserat beim Abbruch nicht wieder", async () => {
+    const { a, b, va, dealId } = await aufbau(0);
+    als(a);
+    await setListingStatusAction(va, "pausiert");
+    als(b);
+    await acceptDealAction(dealId);
+
+    // Der Abbruch gibt die Fahrzeuge frei — aber was bewusst pausiert war,
+    // bleibt es. Sonst steht das Auto plötzlich wieder im Markt.
+    await cancelDealAction(dealId);
+    const [inserat] = await db.select().from(listings).where(eq(listings.vehicleId, va));
+    expect(inserat.status).toBe("pausiert");
+  });
+
+  it("gibt beim Abbruch auch eine ältere, noch gültige Reservierung frei", async () => {
+    const { a, b, dealId } = await aufbau(4_000);
+    als(b);
+    await acceptDealAction(dealId);
+    const alt = await hinterlegeZahlung(dealId, a, b, 400_000, "autorisiert");
+    // Ein zweiter, abgebrochener Anlauf — die neueste Zeile ist die tote.
+    await hinterlegeZahlung(dealId, a, b, 400_000, "storniert");
+
+    als(a);
+    await cancelDealAction(dealId);
+    const [zeile] = await db.select().from(payments).where(eq(payments.id, alt));
+    // Ohne die Korrektur bliebe sie auf «autorisiert» stehen, und der Betrag
+    // wäre auf der Karte des Zahlenden weiter blockiert.
+    expect(zeile.status).toBe("storniert");
+  });
+
   it("lässt einen abgeschlossenen Tausch nicht mehr abbrechen", async () => {
     const { a, b, dealId } = await aufbau(0);
     als(b);

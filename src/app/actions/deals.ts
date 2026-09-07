@@ -11,11 +11,12 @@ import {
   deals,
   listings,
   payments,
+  users,
   vehicles,
   type DealRow,
 } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
-import { suspendedNotice } from "@/lib/auth/guards";
+import { braucheBestaetigteMail, suspendedNotice } from "@/lib/auth/guards";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
 import {
   createEscrowCheckout,
@@ -25,7 +26,7 @@ import {
   releaseAuthorization,
   stripeConfigured,
 } from "@/lib/payments";
-import { mailConfigured, siteUrl } from "@/lib/mail";
+import { siteUrl } from "@/lib/mail";
 import { addSystemMessage, benachrichtige, schliesseTauschAb } from "@/lib/abschluss";
 
 export interface ActionResult {
@@ -36,24 +37,6 @@ export interface ActionResult {
 }
 
 const OPEN: DealRow["status"][] = ["vorschlag", "verhandlung"];
-
-/**
- * Verbindliche Schritte setzen eine bestätigte E-Mail-Adresse voraus — sonst
- * steht die Gegenseite am Ende mit einer Adresse da, die nie jemand erreicht
- * hat. Die Oberfläche kündigt genau das an.
- *
- * Kann diese Installation gar keine Mails verschicken, wäre die Bestätigung
- * unmöglich und die Regel würde jeden aussperren. Dann greift sie nicht — der
- * Zustand steht in /api/health und im README.
- */
-function braucheBestaetigteMail(me: { emailVerified?: boolean }): string | null {
-  if (!mailConfigured()) return null;
-  if (me.emailVerified) return null;
-  return (
-    "Bitte bestätige zuerst deine E-Mail-Adresse — den Link findest du in deinem Postfach, " +
-    "erneut senden kannst du ihn unter «Konto»."
-  );
-}
 
 /** Der Tausch hat den Zustand gewechselt, während die Aktion lief. */
 class DealConflict extends Error {}
@@ -115,10 +98,19 @@ export async function proposeSwapAction(input: {
   if (!parsed.success) return { error: "Die Angaben zum Tausch sind unvollständig." };
 
   // Beide Fahrzeuge frisch aus der Datenbank — der Client liefert nur die IDs.
+  // Archivierte Fahrzeuge kommen nicht in Frage: Sie tauchen in keiner Garage
+  // mehr auf, und wer eines bekäme, sähe es nie wieder. Der Ring prüft das an
+  // derselben Stelle; hier fehlte es.
   const [mine] = await db
     .select()
     .from(vehicles)
-    .where(and(eq(vehicles.id, parsed.data.fromVehicleId), eq(vehicles.ownerId, me.id)))
+    .where(
+      and(
+        eq(vehicles.id, parsed.data.fromVehicleId),
+        eq(vehicles.ownerId, me.id),
+        isNull(vehicles.archivedAt),
+      ),
+    )
     .limit(1);
   if (!mine) return { error: "Dieses Fahrzeug gehört nicht zu deinem Konto." };
 
@@ -126,7 +118,14 @@ export async function proposeSwapAction(input: {
     .select({ listing: listings, vehicle: vehicles })
     .from(listings)
     .innerJoin(vehicles, eq(vehicles.id, listings.vehicleId))
-    .where(and(eq(listings.vehicleId, parsed.data.toVehicleId), eq(listings.status, "aktiv")))
+    .where(
+      and(
+        eq(listings.vehicleId, parsed.data.toVehicleId),
+        eq(listings.status, "aktiv"),
+        isNull(listings.blockedAt),
+        isNull(vehicles.archivedAt),
+      ),
+    )
     .limit(1);
   if (!targetListing) return { error: "Dieses Inserat ist nicht mehr verfügbar." };
   if (targetListing.listing.ownerId === me.id) {
@@ -189,6 +188,14 @@ export async function sendDealMessageAction(
   offerCash?: number,
 ): Promise<ActionResult> {
   const me = await requireUser();
+  /*
+   * Auch hier: «beleidigend» ist einer der Meldegründe, und das Stilllegen ist
+   * die Antwort darauf. Ohne diesen Wächter schrieb ein stillgelegtes Konto
+   * munter weiter — jede andere handelnde Aktion in dieser Datei prüft es.
+   */
+  const stillgelegt = suspendedNotice(me);
+  if (stillgelegt) return { error: stillgelegt };
+
   const deal = await loadDeal(dealId, me.id);
   if (!deal) return { error: "Tausch nicht gefunden." };
   if (!OPEN.includes(deal.status) && deal.status !== "angenommen" && deal.status !== "treuhand") {
@@ -351,17 +358,27 @@ export async function acceptDealAction(dealId: string): Promise<ActionResult> {
         { vehicleId: deal.toVehicleId, dealId },
       ]);
 
-      // Beide Inserate aus dem Markt nehmen, solange der Tausch läuft
+      /*
+       * Aus dem Markt nehmen, was darin steht — und nur das.
+       *
+       * «in verhandlung» heisst deshalb genau: war aktiv, ist jetzt gebunden.
+       * Vorher wurden auch pausierte und schon getauschte Inserate in diesen
+       * Zustand geholt, und der Abbruch setzte danach alles auf «aktiv»: Ein
+       * bewusst pausiertes Auto stand plötzlich wieder im Markt. Wer nicht im
+       * Markt steht, bleibt jetzt, wo er ist — heraus kommt er ohnehin nicht,
+       * weil `setListingStatusAction` ein gebundenes Fahrzeug abweist.
+       *
+       * Ein gesperrtes Inserat bleibt gesperrt. Heute führt kein Weg hierher,
+       * weil ein Vorschlag ein aktives Inserat verlangt — die Bedingung hält
+       * das auch dann, wenn sich das einmal ändert.
+       */
       await tx
         .update(listings)
         .set({ status: "in verhandlung", updatedAt: new Date() })
         .where(
           and(
             inArray(listings.vehicleId, [deal.fromVehicleId, deal.toVehicleId]),
-            inArray(listings.status, ["aktiv", "pausiert", "getauscht"]),
-            // Ein gesperrtes Inserat bleibt gesperrt. Heute führt kein Weg
-            // hierher, weil ein Vorschlag ein aktives Inserat verlangt — die
-            // Bedingung hält das auch dann, wenn sich das einmal ändert.
+            eq(listings.status, "aktiv"),
             isNull(listings.blockedAt),
           ),
         );
@@ -443,6 +460,12 @@ export async function cancelDealAction(dealId: string): Promise<ActionResult> {
         );
       }
       await tx.delete(dealVehicleLocks).where(eq(dealVehicleLocks.dealId, dealId));
+      /*
+       * Zurück in den Markt — aber nur, was auch dorthin gehört. In
+       * «in verhandlung» steht nur, was vorher aktiv war; ein gesperrtes
+       * Inserat und das einer stillgelegten oder gelöschten Person bleiben
+       * trotzdem draussen.
+       */
       await tx
         .update(listings)
         .set({ status: "aktiv", updatedAt: new Date() })
@@ -450,6 +473,14 @@ export async function cancelDealAction(dealId: string): Promise<ActionResult> {
           and(
             inArray(listings.vehicleId, [deal.fromVehicleId, deal.toVehicleId]),
             eq(listings.status, "in verhandlung"),
+            isNull(listings.blockedAt),
+            inArray(
+              listings.ownerId,
+              tx
+                .select({ id: users.id })
+                .from(users)
+                .where(and(isNull(users.suspendedAt), isNull(users.deletedAt))),
+            ),
           ),
         );
     });
@@ -461,14 +492,18 @@ export async function cancelDealAction(dealId: string): Promise<ActionResult> {
   revalidatePath(`/deals/${dealId}`);
   revalidatePath("/markt");
 
-  const [payment] = await db
-    .select()
-    .from(payments)
-    .where(eq(payments.dealId, dealId))
-    .orderBy(desc(payments.createdAt))
-    .limit(1);
+  /*
+   * Alle Zahlungen des Tauschs, nicht nur die jüngste: Nach einem
+   * abgebrochenen zweiten Anlauf ist die neueste Zeile die stornierte, und die
+   * gültige Reservierung liegt auf der älteren. Wer nur die neueste freigibt,
+   * lässt den Betrag auf der Karte des Zahlenden stehen, bis der nächtliche
+   * Lauf ihn findet.
+   */
+  const offeneZahlungen = (
+    await db.select().from(payments).where(eq(payments.dealId, dealId))
+  ).filter((z) => z.status === "autorisiert" || z.status === "eingezogen");
 
-  if (payment && stripeConfigured()) {
+  for (const payment of stripeConfigured() ? offeneZahlungen : []) {
     try {
       await releaseAuthorization(payment);
     } catch (err) {
@@ -531,12 +566,25 @@ export async function startEscrowAction(dealId: string): Promise<ActionResult> {
   // Die Gegenseite muss das Geld auch empfangen können. Wird das erst beim
   // Einzug geprüft, liegt der Betrag hinterher auf dem Plattformkonto fest.
   if (!(await payoutReady(parties.payeeId))) {
-    await benachrichtige(
-      parties.payeeId,
-      "autotauschen: Auszahlungskonto einrichten",
-      "Bei eurem Tausch wird als Nächstes der Ausgleich hinterlegt. Damit er bei dir ankommt, " +
-        `richte bitte zuerst dein Auszahlungskonto ein.\n\n${siteUrl()}/konto\n`,
+    /*
+     * Höchstens eine Erinnerung am Tag. Die Fehlermeldung lädt zum erneuten
+     * Klicken ein («sobald das steht, kannst du einzahlen»), und jeder Klick
+     * verschickte bisher eine weitere identische Mail — zwanzig Klicks,
+     * zwanzig Mails, zwanzig Abfragen bei Stripe.
+     */
+    const erinnerung = await checkRateLimit(
+      `kontoerinnerung:${parties.payeeId}:${dealId}`,
+      1,
+      24 * 60 * 60,
     );
+    if (erinnerung.ok) {
+      await benachrichtige(
+        parties.payeeId,
+        "autotauschen: Auszahlungskonto einrichten",
+        "Bei eurem Tausch wird als Nächstes der Ausgleich hinterlegt. Damit er bei dir ankommt, " +
+          `richte bitte zuerst dein Auszahlungskonto ein.\n\n${siteUrl()}/konto\n`,
+      );
+    }
     return {
       error:
         "Die Gegenseite hat noch kein Auszahlungskonto. Wir haben ihr eben geschrieben. " +
@@ -601,12 +649,17 @@ export async function confirmHandoverAction(dealId: string): Promise<ActionResul
   if (!fresh) return { error: "Tausch nicht gefunden." };
 
   if (!fresh.initiatorConfirmed || !fresh.counterpartyConfirmed) {
-    const otherId = iAmInitiator ? deal.counterpartyId : deal.initiatorId;
-    await benachrichtige(
-      otherId,
-      "autotauschen: Übergabe bestätigt",
-      `${me.name} hat die Übergabe bestätigt. Sobald du das ebenfalls tust, wird der Ausgleich ausgezahlt.\n\n${siteUrl()}/deals/${dealId}\n`,
-    );
+    // Nur wenn diese Bestätigung gerade wirklich neu war. Sonst schickte jeder
+    // erneute Klick — und jedes Neuladen — der Gegenseite dieselbe Nachricht
+    // noch einmal.
+    if (confirmed.length) {
+      const otherId = iAmInitiator ? deal.counterpartyId : deal.initiatorId;
+      await benachrichtige(
+        otherId,
+        "autotauschen: Übergabe bestätigt",
+        `${me.name} hat die Übergabe bestätigt. Sobald du das ebenfalls tust, wird der Ausgleich ausgezahlt.\n\n${siteUrl()}/deals/${dealId}\n`,
+      );
+    }
     revalidatePath(`/deals/${dealId}`);
     return { ok: true };
   }

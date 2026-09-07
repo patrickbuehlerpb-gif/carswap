@@ -1,15 +1,22 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, ne, or } from "drizzle-orm";
+import { and, eq, inArray, ne, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
-import { deals, listings, vehicles } from "@/lib/db/schema";
+import {
+  deals,
+  listings,
+  ringLegs,
+  ringSwaps,
+  vehicles,
+} from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { suspendedNotice } from "@/lib/auth/guards";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
 import { listingSchema, type ListingInput } from "@/lib/validation";
 import { deleteBlobs } from "@/lib/blob";
+import { istGebunden } from "@/lib/bindung";
 
 export interface SaveResult {
   ok?: boolean;
@@ -58,35 +65,22 @@ function wishRow(input: ListingInput) {
   };
 }
 
-/** Steckt das Fahrzeug in einem verbindlich zugesagten Tausch? */
-async function inVerbindlichemTausch(vehicleId: string): Promise<boolean> {
-  const rows = await db
-    .select({ id: deals.id })
-    .from(deals)
-    .where(
-      and(
-        or(eq(deals.fromVehicleId, vehicleId), eq(deals.toVehicleId, vehicleId)),
-        or(
-          eq(deals.status, "angenommen"),
-          eq(deals.status, "treuhand"),
-          eq(deals.status, "abwicklung"),
-        ),
-      ),
-    )
-    .limit(1);
-  return rows.length > 0;
-}
-
 export async function createListingAction(raw: unknown): Promise<SaveResult> {
   const me = await requireUser();
   const stillgelegt = suspendedNotice(me);
   if (stillgelegt) return { error: stillgelegt };
 
-  const limit = await checkRateLimit(`listing:${me.id}`, 10, 24 * 60 * 60);
-  if (!limit.ok) return { error: "Zu viele Inserate in kurzer Zeit. Bitte morgen weitermachen." };
-
+  /*
+   * Erst prüfen, dann zählen. Andersherum kostete jede abgewiesene Eingabe
+   * einen Platz des Tageskontingents: Wer sich zehnmal im Datum vertippt,
+   * durfte danach 24 Stunden lang kein Inserat mehr anlegen, obwohl nie eines
+   * entstanden ist.
+   */
   const parsed = listingSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Eingaben unvollständig." };
+
+  const limit = await checkRateLimit(`listing:${me.id}`, 10, 24 * 60 * 60);
+  if (!limit.ok) return { error: "Zu viele Inserate in kurzer Zeit. Bitte morgen weitermachen." };
 
   const vehicleId = newId("veh");
   await db.transaction(async (tx) => {
@@ -119,7 +113,7 @@ export async function updateListingAction(vehicleId: string, raw: unknown): Prom
 
   // Sobald zugesagt ist, sind die Fahrzeugdaten Vertragsgrundlage — die
   // Gegenseite hat auf genau diesen Stand hin zugesagt.
-  if (await inVerbindlichemTausch(vehicleId)) {
+  if (await istGebunden(vehicleId)) {
     return {
       error:
         "Zu diesem Auto läuft ein zugesagter Tausch. Die Angaben kannst du erst wieder ändern, " +
@@ -175,7 +169,7 @@ export async function setListingStatusAction(
   }
   const stillgelegt = suspendedNotice(me);
   if (stillgelegt) return { error: stillgelegt };
-  if (await inVerbindlichemTausch(vehicleId)) {
+  if (await istGebunden(vehicleId)) {
     return {
       error:
         "Zu diesem Fahrzeug läuft ein verbindlich zugesagter Tausch. Das Inserat lässt sich " +
@@ -230,6 +224,7 @@ export async function setListingStatusAction(
 export async function archiveVehicleAction(vehicleId: string): Promise<SaveResult> {
   const me = await requireUser();
 
+  // Offene Zweiertausche …
   const open = await db
     .select({ id: deals.id })
     .from(deals)
@@ -248,6 +243,30 @@ export async function archiveVehicleAction(vehicleId: string): Promise<SaveResul
     .limit(1);
   if (open.length) {
     return { error: "Zu diesem Fahrzeug läuft noch ein Tausch. Bitte diesen zuerst abschliessen." };
+  }
+
+  /*
+   * … und Ringe. Sie fehlten hier: Ein Auto in einem Ring mit hinterlegtem
+   * Geld liess sich archivieren, und der Abschluss übergab es trotzdem — der
+   * Empfänger hatte bezahlt und sah das Auto danach in keiner Garage, weil
+   * archivierte Fahrzeuge dort nicht auftauchen. Die Zusage weist archivierte
+   * Fahrzeuge ausdrücklich ab; hier muss dieselbe Regel gelten.
+   */
+  const imRing = await db
+    .select({ id: ringSwaps.id })
+    .from(ringLegs)
+    .innerJoin(ringSwaps, eq(ringSwaps.id, ringLegs.ringId))
+    .where(
+      and(
+        eq(ringLegs.vehicleId, vehicleId),
+        inArray(ringSwaps.status, ["vorschlag", "angenommen", "treuhand", "abwicklung"]),
+      ),
+    )
+    .limit(1);
+  if (imRing.length) {
+    return {
+      error: "Zu diesem Fahrzeug läuft noch ein Ringtausch. Bitte diesen zuerst abschliessen.",
+    };
   }
 
   const rows = await db

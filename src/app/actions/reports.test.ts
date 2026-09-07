@@ -112,6 +112,31 @@ describe("Sperren und stilllegen", () => {
     expect(res.error).toMatch(/zugesagter Tausch/);
   });
 
+  it("zieht beim Stilllegen die offenen Vorschläge zurück", async () => {
+    // Sonst blieb die Stilllegung halb: Die Gegenseite konnte einen schon
+    // gestellten Vorschlag weiterhin annehmen — geprüft wird dort, wer klickt,
+    // nicht wer vorgeschlagen hat — und am Ende gingen Auto und Geld an genau
+    // das Konto, das gerade stillgelegt wurde.
+    const { besitzer, admin, meldungId } = await gemeldet();
+    const gegenseite = await createUser("Carla");
+    const meins = await createVehicle(besitzer);
+    const ihres = await createVehicle(gegenseite);
+    als(besitzer);
+    const vorschlag = await proposeSwapAction({
+      fromVehicleId: meins,
+      toVehicleId: ihres,
+      cashDelta: 0,
+      message: "Tauschen wir?",
+    });
+    expect(vorschlag.error).toBeUndefined();
+
+    als(admin);
+    expect((await suspendOwnerAction(meldungId, "Betrug")).error).toBeUndefined();
+
+    const [deal] = await db.select().from(deals).where(eq(deals.id, vorschlag.dealId!));
+    expect(deal.status).toBe("storniert");
+  });
+
   it("legt das Konto still: anmelden ja, handeln nein", async () => {
     const { besitzer, admin, vehicleId, meldungId } = await gemeldet();
     als(admin);

@@ -5,8 +5,17 @@ import { revalidatePath } from "next/cache";
 import { and, eq, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { istGebunden } from "@/lib/bindung";
 import { newId } from "@/lib/db/ids";
-import { deals, listings, reports, users, vehicles } from "@/lib/db/schema";
+import {
+  deals,
+  listings,
+  reports,
+  ringLegs,
+  ringSwaps,
+  users,
+  vehicles,
+} from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
 import { sendMail, siteUrl } from "@/lib/mail";
@@ -112,17 +121,15 @@ export async function blockListingAction(
     .limit(1);
   if (!meldung) return { error: "Meldung nicht gefunden." };
 
-  const gebunden = await db
-    .select({ id: deals.id })
-    .from(deals)
-    .where(
-      and(
-        or(eq(deals.fromVehicleId, meldung.vehicleId), eq(deals.toVehicleId, meldung.vehicleId)),
-        inArray(deals.status, ["angenommen", "treuhand", "abwicklung"]),
-      ),
-    )
-    .limit(1);
-  if (gebunden.length) {
+  /*
+   * Die Sperrtabelle statt der Tauschtabelle: Sie kennt beide Arten. Vorher
+   * sah diese Prüfung nur Zweiertausche — ein Auto in einem Ring mit
+   * hinterlegtem Geld galt als frei, und das Inserat liess sich sperren.
+   * Der Ring lief trotzdem durch, und das gesperrte Inserat wanderte zum
+   * neuen Halter, der es nie wieder aktivieren könnte.
+   */
+  const gebunden = await istGebunden(meldung.vehicleId);
+  if (gebunden) {
     return {
       error:
         "Zu diesem Auto läuft ein zugesagter Tausch. Den müsst ihr zuerst klären: ihn hier " +
@@ -150,6 +157,27 @@ export async function blockListingAction(
           inArray(deals.status, ["vorschlag", "verhandlung"]),
         ),
       );
+    // Und die Ringvorschläge ebenso: Die Zusage prüft die Sperre des Inserats
+    // nicht noch einmal, sonst wäre das gesperrte Auto über den Umweg Ring
+    // weiterhin tauschbar.
+    const ringe = await tx
+      .select({ ringId: ringLegs.ringId })
+      .from(ringLegs)
+      .where(eq(ringLegs.vehicleId, meldung.vehicleId));
+    if (ringe.length) {
+      await tx
+        .update(ringSwaps)
+        .set({ status: "storniert", updatedAt: new Date() })
+        .where(
+          and(
+            inArray(
+              ringSwaps.id,
+              ringe.map((r) => r.ringId),
+            ),
+            eq(ringSwaps.status, "vorschlag"),
+          ),
+        );
+    }
     await tx.update(reports).set({ status: "geprüft" }).where(eq(reports.id, reportId));
   });
 
@@ -196,6 +224,41 @@ export async function suspendOwnerAction(
       .update(listings)
       .set({ status: "pausiert", updatedAt: new Date() })
       .where(and(eq(listings.ownerId, meldung.ownerId), eq(listings.status, "aktiv")));
+
+    /*
+     * Und die offenen Vorschläge dieser Person zurückziehen — beide Arten.
+     * Ohne das war die Stilllegung nur halb: Die Gegenseite konnte einen schon
+     * gestellten Vorschlag weiterhin annehmen (geprüft wird dort, wer klickt,
+     * nicht wer vorgeschlagen hat), einzahlen, bestätigen — und am Ende gingen
+     * Auto und Geld an genau das Konto, das gerade stillgelegt wurde.
+     */
+    await tx
+      .update(deals)
+      .set({ status: "storniert", updatedAt: new Date() })
+      .where(
+        and(
+          or(eq(deals.initiatorId, meldung.ownerId), eq(deals.counterpartyId, meldung.ownerId)),
+          inArray(deals.status, ["vorschlag", "verhandlung"]),
+        ),
+      );
+    const ringeDerPerson = await tx
+      .select({ ringId: ringLegs.ringId })
+      .from(ringLegs)
+      .where(eq(ringLegs.userId, meldung.ownerId));
+    if (ringeDerPerson.length) {
+      await tx
+        .update(ringSwaps)
+        .set({ status: "storniert", updatedAt: new Date() })
+        .where(
+          and(
+            inArray(
+              ringSwaps.id,
+              ringeDerPerson.map((r) => r.ringId),
+            ),
+            eq(ringSwaps.status, "vorschlag"),
+          ),
+        );
+    }
     await tx.update(reports).set({ status: "geprüft" }).where(eq(reports.id, reportId));
   });
 

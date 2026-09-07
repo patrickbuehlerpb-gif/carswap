@@ -18,7 +18,7 @@ import {
   type RingSwapRow,
 } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
-import { suspendedNotice } from "@/lib/auth/guards";
+import { braucheBestaetigteMail, suspendedNotice } from "@/lib/auth/guards";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
 import { toVehicle } from "@/lib/queries";
 import { ringCashSplit } from "@/lib/matching";
@@ -41,7 +41,7 @@ import {
   stripeConfigured,
   zahlungBrauchbar,
 } from "@/lib/payments";
-import { mailConfigured, sendMail, siteUrl } from "@/lib/mail";
+import { sendMail, siteUrl } from "@/lib/mail";
 
 export interface RingActionResult {
   ok?: boolean;
@@ -53,15 +53,6 @@ export interface RingActionResult {
 
 /** Der Ring hat den Zustand gewechselt, während die Aktion lief. */
 class RingConflict extends Error {}
-
-function braucheBestaetigteMail(me: { emailVerified?: boolean }): string | null {
-  if (!mailConfigured()) return null;
-  if (me.emailVerified) return null;
-  return (
-    "Bitte bestätige zuerst deine E-Mail-Adresse — den Link findest du in deinem Postfach, " +
-    "erneut senden kannst du ihn unter «Konto»."
-  );
-}
 
 const GEBUNDEN: RingSwapRow["status"][] = ["angenommen", "treuhand", "abwicklung"];
 
