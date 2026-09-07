@@ -53,6 +53,27 @@ export default async function HomePage() {
     ? Math.round((pool.filter((l) => l.vehicle.fuel === "elektro").length / pool.length) * 100)
     : 0;
 
+  /*
+   * Ab wann eine Bestandszahl für die Seite spricht statt gegen sie. Unterhalb
+   * dieser Grenze sagt «Inserate 3» einer Besucherin nur, dass sie zu früh
+   * dran ist — die ehrliche Auskunft über den Bestand steht ohnehin auf dem
+   * Marktplatz, wo sie hingehört und wo sie handlungsleitend ist.
+   */
+  const GENUG_FUER_ZAHLEN = 12;
+
+  const kennzahlen =
+    inserate >= GENUG_FUER_ZAHLEN
+      ? [
+          { label: "Inserate", wert: String(inserate), zahl: true },
+          { label: "davon E-Auto", wert: `${evShare} %`, zahl: true },
+          { label: "Provision", wert: "0 %", zahl: true },
+        ]
+      : [
+          { label: "Provision", wert: "0 %", zahl: true },
+          { label: "Wertrechner", wert: "ohne Konto", zahl: false },
+          { label: "Ausgleich", wert: "liegt bis zur Übergabe bei uns", zahl: false },
+        ];
+
   return (
     <div className="space-y-20">
       {/* ---------------- Hero ---------------- */}
@@ -94,19 +115,24 @@ export default async function HomePage() {
                 Was ist mein Auto wert?
               </Link>
             </div>
+            {/*
+              Zahlen tragen erst, wenn es welche gibt. Standen hier «Inserate 0»
+              und «davon E-Auto 0 %», ging die einzige Zahl, die ein Argument
+              ist, zwischen zwei Nullen unter, die «wir haben nichts» heissen —
+              drei Nullen nebeneinander, der schlechteste erste Eindruck, den
+              die Seite machen kann. Unterhalb einer Handvoll Inserate stehen
+              deshalb Aussagen statt Messwerte: Jede ist am Tag eins wahr und
+              hängt nicht davon ab, ob sonst schon jemand da ist.
+            */}
             <dl className="mt-9 grid max-w-md grid-cols-3 gap-6 border-t border-line pt-6">
-              <div>
-                <dt className="text-[11px] uppercase tracking-wider text-ink-3">Inserate</dt>
-                <dd className="mt-1 text-2xl betrag text-ink">{inserate}</dd>
-              </div>
-              <div>
-                <dt className="text-[11px] uppercase tracking-wider text-ink-3">davon E-Auto</dt>
-                <dd className="mt-1 text-2xl betrag text-ink">{evShare} %</dd>
-              </div>
-              <div>
-                <dt className="text-[11px] uppercase tracking-wider text-ink-3">Provision</dt>
-                <dd className="mt-1 text-2xl betrag text-ink">0 %</dd>
-              </div>
+              {kennzahlen.map((k) => (
+                <div key={k.label}>
+                  <dt className="text-[11px] uppercase tracking-wider text-ink-3">{k.label}</dt>
+                  <dd className={`mt-1 text-ink ${k.zahl ? "text-2xl betrag" : "mt-1.5 text-[15px] font-semibold leading-snug"}`}>
+                    {k.wert}
+                  </dd>
+                </div>
+              ))}
             </dl>
           </div>
 

@@ -457,6 +457,37 @@ bedeuten. Die Anzahl ist dieselbe Aussage ohne den Zufall. Dass die
 beschränkte Ringsuche dasselbe liefert wie eine unbeschränkte, prüft
 `src/lib/matching.test.ts` direkt gegeneinander.
 
+## Was wir uns bei AutoScout24 abschauen — und was nicht
+
+Deren Startseite führt mit «Suche in 179'244 Fahrzeugen», einem Trefferzähler
+am Filterknopf, den letzten Suchen, bezahlten Händlerplätzen und Empfehlungen
+aus dem Suchverlauf. Das ist gut gemacht — für deren Problem. Ihr Problem ist,
+einen überwältigenden Bestand beherrschbar zu machen. Unseres ist das
+Gegenteil.
+
+Übernommen ist deshalb nur, was auch bei leerem Markt trägt. Der lebende
+Trefferzähler gibt es auf dem Marktplatz längst («N Inserate», «M beidseitig
+passend»). Und die Einsicht, dass Zahlen Vertrauen schaffen — aber nur, wenn
+man welche hat: Im Aufmacher standen «Inserate 0», «davon E-Auto 0 %» und
+«Provision 0 %» nebeneinander. Ausgerechnet die einzige Zahl, die ein
+Argument ist, ging zwischen zwei Nullen unter, die «wir haben nichts»
+bedeuten. Unterhalb von zwölf Inseraten stehen dort jetzt Aussagen statt
+Messwerte — Provision, Wertrechner ohne Konto, Ausgleich liegt bis zur
+Übergabe bei uns. Jede ist am Tag eins wahr und hängt nicht davon ab, ob
+sonst schon jemand da ist. Die ehrliche Auskunft über den Bestand steht
+weiterhin auf dem Marktplatz, wo sie handlungsleitend ist.
+
+Bewusst nicht übernommen:
+
+- **Bezahlte Händlerplätze** («TopCars»). Der ganze Satz über dem Aufmacher
+  heisst «zwischen Privatpersonen, ohne Händler».
+- **Empfehlungen aus dem Suchverlauf.** Das bräuchte ein Suchprotokoll je
+  Person. In der Datenschutzerklärung steht wörtlich «Wir verfolgen dich nicht
+  und lassen niemanden mitmessen» — ein Karussell ist kein Grund, ein
+  Versprechen zu brechen.
+- **Die grosse Bestandszahl.** Dieselbe Form ohne die Substanz ist keine
+  Übernahme, sondern eine Behauptung.
+
 ## Der erste Tag
 
 Am Anfang ist der Marktplatz leer. Das ist kein Randfall, sondern der Zustand,
