@@ -60,6 +60,44 @@ beforeEach(async () => {
   await resetDatabase();
 });
 
+describe("checkout.session.completed", () => {
+  it("belebt eine stornierte Zahlung nicht wieder", async () => {
+    const { dealId, paymentId, intentId } = await aufbau("angenommen");
+    await db.update(payments).set({ status: "storniert" }).where(eq(payments.id, paymentId));
+
+    // Spät zugestellt oder erneut versucht: Die Zahlung ist inzwischen tot,
+    // und der Tausch darf nicht in die Treuhandphase rutschen.
+    await handleEvent(
+      ereignis("checkout.session.completed", {
+        id: "cs_1",
+        payment_intent: intentId,
+        metadata: { carswap_payment_id: paymentId, carswap_deal_id: dealId },
+      }),
+    );
+
+    expect((await paymentRow(paymentId)).status).toBe("storniert");
+    expect((await dealRow(dealId)).status).toBe("angenommen");
+  });
+
+  it("storniert keine Autorisierung, während der Tausch abgewickelt wird", async () => {
+    const { dealId, paymentId, intentId } = await aufbau("abwicklung");
+    await db.update(payments).set({ status: "erstellt" }).where(eq(payments.id, paymentId));
+
+    // Ein erneut zugestelltes Ereignis darf dem laufenden Abschluss nicht das
+    // Geld unter den Händen wegnehmen.
+    await handleEvent(
+      ereignis("checkout.session.completed", {
+        id: "cs_2",
+        payment_intent: intentId,
+        metadata: { carswap_payment_id: paymentId, carswap_deal_id: dealId },
+      }),
+    );
+
+    expect((await paymentRow(paymentId)).status).toBe("autorisiert");
+    expect((await dealRow(dealId)).status).toBe("abwicklung");
+  });
+});
+
 describe("payment_intent.canceled", () => {
   it("nimmt den Tausch aus der Treuhandphase zurück und löscht die Bestätigungen", async () => {
     const { dealId, paymentId, intentId } = await aufbau();
@@ -162,5 +200,49 @@ describe("charge.refunded", () => {
       .from(dealMessages)
       .where(eq(dealMessages.dealId, dealId));
     expect(nachrichten.some((m) => m.body.includes("Support"))).toBe(true);
+  });
+
+  it("schlägt bei einer Erstattung nach einem Abbruch keinen Alarm", async () => {
+    // Genau der erwartete Ablauf: Abbrechen gibt die Reservierung frei, Stripe
+    // meldet die Erstattung. Dafür beide Seiten an den Support zu schicken,
+    // wäre eine erfundene Katastrophe.
+    const { dealId, paymentId, intentId } = await aufbau("storniert");
+    await handleEvent(
+      ereignis("charge.refunded", {
+        payment_intent: intentId,
+        amount: 412_000,
+        amount_refunded: 412_000,
+      }),
+    );
+
+    expect((await paymentRow(paymentId)).status).toBe("erstattet");
+    const nachrichten = await db
+      .select()
+      .from(dealMessages)
+      .where(eq(dealMessages.dealId, dealId));
+    expect(nachrichten.some((m) => m.body.includes("Support"))).toBe(false);
+  });
+
+  it("überschreibt eine bereits ausgezahlte Zahlung nicht mit «erstattet»", async () => {
+    // Sonst stünde in der Zeile nichts mehr davon, dass das Geld beim
+    // Empfänger angekommen war — und beim Abgleich des Plattformkontos wäre
+    // eine Erstattung davor von einer danach nicht zu unterscheiden.
+    const { paymentId, intentId } = await aufbau("abgeschlossen");
+    await db
+      .update(payments)
+      .set({ status: "ausgezahlt", stripeTransferId: "tr_1" })
+      .where(eq(payments.id, paymentId));
+
+    await handleEvent(
+      ereignis("charge.refunded", {
+        payment_intent: intentId,
+        amount: 412_000,
+        amount_refunded: 412_000,
+      }),
+    );
+
+    const zeile = await paymentRow(paymentId);
+    expect(zeile.status).toBe("ausgezahlt");
+    expect(zeile.lastError).toContain("Erstattung");
   });
 });

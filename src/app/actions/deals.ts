@@ -657,6 +657,15 @@ async function settleDeal(deal: DealRow, actorId: string): Promise<ActionResult>
           "Der Ausgleich ist ausgezahlt, aber das Umschreiben der Autos hat nicht geklappt. " +
           "Bestätige gleich noch einmal. Hilft das nicht, meldet sich der Support.",
       };
+    case "geld-fehlt-mitten-im-abschluss":
+      // Der Tausch steckt in der Abwicklung und die Zahlung taugt nicht mehr.
+      // Das kommt nicht von selbst in Ordnung; der Wartungslauf meldet es
+      // als festgefahren, und hier bekommt die Person eine ehrliche Auskunft.
+      return {
+        error:
+          "Bei diesem Tausch stimmt etwas mit der hinterlegten Zahlung nicht, während er schon " +
+          "abgewickelt wird. Wir sehen uns das an und melden uns — bitte zahl nichts erneut ein.",
+      };
   }
 }
 

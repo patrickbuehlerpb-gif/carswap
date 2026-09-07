@@ -1,6 +1,6 @@
 import "server-only";
 import Stripe from "stripe";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "./db";
 import { newId } from "./db/ids";
 import { payments, users, type DealRow, type PaymentRow } from "./db/schema";
@@ -24,6 +24,12 @@ import { siteUrl } from "./mail";
  * das Geld bliebe reserviert liegen.
  */
 export const CURRENCY = "chf";
+
+/**
+ * Datenbankzugriff — entweder die Verbindung selbst oder eine laufende
+ * Transaktion. Wer innerhalb einer Transaktion liest, muss sie durchreichen.
+ */
+export type Ausfuehrer = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /** Autorisierungen verfallen bei Stripe nach sieben Tagen. */
 export const AUTHORIZATION_DAYS = 7;
@@ -73,6 +79,36 @@ export function authorizationExpiresAt(payment: Pick<PaymentRow, "authorizedAt">
   return new Date(payment.authorizedAt.getTime() + AUTHORIZATION_DAYS * 24 * 60 * 60 * 1000);
 }
 
+/**
+ * Taugt diese Zahlung noch dazu, einen Vorgang abzuschliessen?
+ *
+ * Die Regel stand in vier Fassungen im Code — im Ring zweimal, beim
+ * Zweiertausch einmal mit umgedrehtem Vorzeichen, und in der Ringsuche noch
+ * einmal andersherum. Jede Änderung daran hätte an allen vier Stellen
+ * nachgezogen werden müssen; ein Vergessen heisst entweder, tote Reservierungen
+ * abzuwickeln, oder lebende zurückzuweisen. Deshalb nur noch hier.
+ *
+ * Der Rückbuchungsteil ist neu: Ist ein Betrag angefochten, hat Stripe ihn
+ * bereits vom Plattformkonto abgezogen. Wer ihn trotzdem einzieht und
+ * weiterleitet, bezahlt die Gegenseite aus eigener Tasche. Eine gewonnene
+ * Anfechtung («won») zählt nicht mehr — dort ist das Geld zurück.
+ */
+export function zahlungBrauchbar(
+  payment: Pick<
+    PaymentRow,
+    "status" | "authorizedAt" | "disputedAt" | "disputeStatus"
+  > | null
+  | undefined,
+): boolean {
+  if (!payment) return false;
+  if (payment.disputedAt && payment.disputeStatus !== "won") return false;
+  if (payment.status === "eingezogen" || payment.status === "ausgezahlt") return true;
+  if (payment.status !== "autorisiert") return false;
+  // Eine verfallene Reservierung zählt nicht, auch wenn das Ereignis von
+  // Stripe noch nicht angekommen ist.
+  return (authorizationExpiresAt(payment)?.getTime() ?? Infinity) >= Date.now();
+}
+
 let cached: Stripe | null = null;
 
 export function stripeConfigured(): boolean {
@@ -113,20 +149,43 @@ export async function ensureConnectAccount(userId: string, email: string): Promi
   if (!user) throw new Error("Konto nicht gefunden.");
   if (user.stripeAccountId) return user.stripeAccountId;
 
-  const account = await stripe().accounts.create({
-    type: "express",
-    country: "CH",
-    email,
-    business_type: "individual",
-    capabilities: { transfers: { requested: true } },
-    metadata: { carswap_user_id: userId },
-  });
+  /*
+   * Zwei gleichzeitige Klicks legten hier zwei Express-Konten an: Beide lasen
+   * `stripeAccountId = null`, beide riefen Stripe, und der zweite Schreibvorgang
+   * überschrieb den ersten. Die Person schloss dann womöglich die Einrichtung
+   * für das Konto ab, auf das die Zeile nicht mehr zeigt — und «Auszahlungen
+   * freigeschaltet» wurde nie wahr.
+   *
+   * Der Idempotenzschlüssel sorgt dafür, dass Stripe beim zweiten Aufruf
+   * dasselbe Konto zurückgibt; die Bedingung im UPDATE dafür, dass eine
+   * bereits eingetragene Kennung nicht überschrieben wird.
+   */
+  const account = await stripe().accounts.create(
+    {
+      type: "express",
+      country: "CH",
+      email,
+      business_type: "individual",
+      capabilities: { transfers: { requested: true } },
+      metadata: { carswap_user_id: userId },
+    },
+    { idempotencyKey: `connect:${userId}` },
+  );
 
-  await db
+  const gesetzt = await db
     .update(users)
     .set({ stripeAccountId: account.id, updatedAt: new Date() })
-    .where(eq(users.id, userId));
-  return account.id;
+    .where(and(eq(users.id, userId), isNull(users.stripeAccountId)))
+    .returning({ id: users.stripeAccountId });
+  if (gesetzt.length) return account.id;
+
+  // Jemand war schneller — dessen Kennung gilt.
+  const [aktuell] = await db
+    .select({ stripeAccountId: users.stripeAccountId })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return aktuell?.stripeAccountId ?? account.id;
 }
 
 export async function connectOnboardingUrl(accountId: string): Promise<string> {
@@ -196,6 +255,18 @@ export async function createEscrowCheckout(
       if (session.status === "open" && session.url) {
         return { url: session.url, paymentId: row.id };
       }
+      /*
+       * «complete» heisst bezahlt — der Webhook ist nur noch nicht da. Diese
+       * Session wie eine abgelaufene zu entwerten und eine zweite zu öffnen,
+       * war der kürzeste Weg zu einer doppelten Belastung: Der Webhook setzt
+       * die erste Zeile danach wieder auf «autorisiert», und die zweite
+       * Zahlung liegt zusätzlich auf der Karte.
+       */
+      if (session.status === "complete") {
+        throw new Error(
+          "Deine Zahlung wird gerade verarbeitet. Lade die Seite in ein paar Sekunden neu.",
+        );
+      }
       await markPayment(row.id, "storniert", "Checkout-Session nicht mehr offen");
     }
   }
@@ -234,7 +305,14 @@ export async function createEscrowCheckout(
       metadata: { carswap_deal_id: deal.id, carswap_payment_id: paymentId },
       success_url: `${siteUrl()}/deals/${deal.id}?treuhand=ok`,
       cancel_url: `${siteUrl()}/deals/${deal.id}?treuhand=abgebrochen`,
-      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+      /*
+       * Eine Stunde, nicht dreissig Minuten: Stripe verlangt mindestens
+       * dreissig Minuten in der Zukunft, und `Math.floor` plus die Laufzeit
+       * der Anfrage nagen genau an dieser Grenze — der Aufruf kann mit
+       * «Invalid timestamp» scheitern, und dann lässt sich überhaupt nichts
+       * hinterlegen. Eine Stunde ist auch für den Zahlenden angenehmer.
+       */
+      expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
     },
     // Idempotenz: ein erneuter Klick erzeugt keine zweite Session
     { idempotencyKey: `escrow:${deal.id}:${deal.cashDelta}:${attempt}` },
@@ -287,6 +365,15 @@ export async function captureAndPayout(payment: PaymentRow): Promise<PaymentRow>
     // darf nichts stillschweigend durchgehen, sonst wechselt das Auto den
     // Besitzer, ohne dass Geld geflossen ist.
     throw new PaymentStateError(payment.status);
+  }
+  /*
+   * Eine offene Rückbuchung hat Stripe längst vom Plattformkonto abgezogen.
+   * Wer sie hier trotzdem einzieht und weiterleitet, bezahlt die Gegenseite
+   * aus eigener Tasche — und hat das Geld zweimal verloren. Bisher wurde
+   * `disputedAt` nur gemeldet und nirgends geprüft.
+   */
+  if (payment.disputedAt && payment.disputeStatus !== "won") {
+    throw new PaymentStateError(`angefochten (${payment.disputeStatus ?? "offen"})`);
   }
   if (!payment.stripePaymentIntentId) {
     throw new Error("Zu dieser Zahlung ist keine Stripe-Transaktion hinterlegt.");
@@ -392,7 +479,15 @@ export async function markPayment(
     .set({ status, lastError, updatedAt: new Date(), ...extra })
     .where(eq(payments.id, id))
     .returning();
-  return rows[0];
+  /*
+   * Ohne diese Prüfung gab die Funktion `undefined` zurück, obwohl der Typ
+   * eine Zeile verspricht — und der Webhook schob den Tausch danach trotzdem
+   * in die Treuhandphase, ohne dass irgendwo eine hinterlegte Zahlung stand.
+   * Lieber laut scheitern: Stripe stellt das Ereignis dann erneut zu.
+   */
+  const row = rows[0];
+  if (!row) throw new Error(`Zahlung ${id} nicht gefunden.`);
+  return row;
 }
 
 /* ------------------------------------------------------------------ */
@@ -476,7 +571,14 @@ export async function createRingCheckout(
       metadata: { carswap_ring_id: ringId, carswap_payment_id: paymentId },
       success_url: `${siteUrl()}/ringe/${ringId}?treuhand=ok`,
       cancel_url: `${siteUrl()}/ringe/${ringId}?treuhand=abgebrochen`,
-      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+      /*
+       * Eine Stunde, nicht dreissig Minuten: Stripe verlangt mindestens
+       * dreissig Minuten in der Zukunft, und `Math.floor` plus die Laufzeit
+       * der Anfrage nagen genau an dieser Grenze — der Aufruf kann mit
+       * «Invalid timestamp» scheitern, und dann lässt sich überhaupt nichts
+       * hinterlegen. Eine Stunde ist auch für den Zahlenden angenehmer.
+       */
+      expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
     },
     {
       idempotencyKey: `ring:${ringId}:${transfer.payerId}:${transfer.payeeId}:${transfer.amount}:${attempt}`,
@@ -519,8 +621,18 @@ export async function createRingCheckout(
  * Versuche zum selben Paar bleiben in der Tabelle stehen — für die Abwicklung
  * zählt nur der jüngste.
  */
-export async function currentRingPayments(ringId: string): Promise<PaymentRow[]> {
-  const rows = await db
+export async function currentRingPayments(
+  ringId: string,
+  /*
+   * Wer in einer Transaktion steht, muss hier dieselbe übergeben. Sonst liefe
+   * die Abfrage über eine zweite Verbindung aus dem Pool — sie sähe zwar
+   * dieselben Daten, aber eine offene Transaktion, die auf eine zweite
+   * Verbindung wartet, ist genau das Muster, das bei ausgelastetem Pool
+   * blockiert.
+   */
+  ausfuehrer: Ausfuehrer = db,
+): Promise<PaymentRow[]> {
+  const rows = await ausfuehrer
     .select()
     .from(payments)
     .where(eq(payments.ringId, ringId))

@@ -103,6 +103,33 @@ describe("captureAndPayout", () => {
     void b;
   });
 
+  it("zahlt eine angefochtene Zahlung nicht aus", async () => {
+    const { payment } = await aufbau("autorisiert");
+    await db
+      .update(payments)
+      .set({ disputedAt: new Date(), disputeStatus: "needs_response", disputeAmountMinor: 400_000 })
+      .where(eq(payments.id, payment.id));
+    const [angefochten] = await db.select().from(payments).where(eq(payments.id, payment.id));
+
+    // Stripe hat den Betrag längst vom Plattformkonto abgezogen. Wer ihn
+    // trotzdem weiterleitet, bezahlt den Empfänger aus eigener Tasche.
+    await expect(captureAndPayout(angefochten)).rejects.toBeInstanceOf(PaymentStateError);
+    expect(stripeCalls.capture).toHaveLength(0);
+    expect(stripeCalls.transfer).toHaveLength(0);
+  });
+
+  it("zahlt wieder aus, wenn die Anfechtung gewonnen ist", async () => {
+    const { payment } = await aufbau("autorisiert");
+    await db
+      .update(payments)
+      .set({ disputedAt: new Date(), disputeStatus: "won" })
+      .where(eq(payments.id, payment.id));
+    const [gewonnen] = await db.select().from(payments).where(eq(payments.id, payment.id));
+
+    const result = await captureAndPayout(gewonnen);
+    expect(result.status).toBe("ausgezahlt");
+  });
+
   it("wirft bei einer stornierten Zahlung, statt still zurückzukehren", async () => {
     const { payment } = await aufbau("storniert");
     await expect(captureAndPayout(payment)).rejects.toBeInstanceOf(PaymentStateError);

@@ -99,10 +99,38 @@ export async function handleEvent(event: Stripe.Event): Promise<void> {
           ? session.payment_intent
           : session.payment_intent?.id;
 
-      await markPayment(paymentId, "autorisiert", null, {
+      /*
+       * Nur aus «erstellt». Vorher schrieb diese Stelle den Status
+       * bedingungslos — ein spät oder erneut zugestelltes Ereignis konnte
+       * damit eine längst stornierte oder erstattete Zahlung wieder auf
+       * «autorisiert» heben, und der Abschluss hätte versucht, Geld
+       * einzuziehen, das es nicht mehr gibt. Alle anderen Ereignisse in
+       * dieser Datei schreiben längst so.
+       */
+      const gesetzt = await markPaymentIfIn(paymentId, ["erstellt"], "autorisiert", null, {
         stripePaymentIntentId: intentId ?? null,
         authorizedAt: new Date(),
       });
+      if (!gesetzt) {
+        const [stand] = await db
+          .select({ status: payments.status })
+          .from(payments)
+          .where(eq(payments.id, paymentId))
+          .limit(1);
+        if (!stand) {
+          // Die Zahlung gibt es nicht: laut scheitern, damit Stripe es erneut
+          // zustellt, statt den Vorgang ohne hinterlegtes Geld weiterzuschieben.
+          throw new Error(`Zahlung ${paymentId} zu dieser Session nicht gefunden.`);
+        }
+        if (stand.status !== "autorisiert") {
+          // Erneut zugestellt, aber die Zahlung ist inzwischen storniert,
+          // erstattet oder schon abgewickelt. Nichts anfassen.
+          console.warn(
+            `Session-Ereignis zu Zahlung ${paymentId} ignoriert — Status ist «${stand.status}».`,
+          );
+          break;
+        }
+      }
 
       // Der Betrag ist reserviert — der Vorgang geht in die Treuhandphase.
       // Nur aus «angenommen»: wurde zwischenzeitlich abgebrochen, darf die
@@ -118,8 +146,20 @@ export async function handleEvent(event: Stripe.Event): Promise<void> {
           .from(ringSwaps)
           .where(eq(ringSwaps.id, ringId))
           .limit(1);
-        passend = ring?.status === "angenommen" || ring?.status === "treuhand";
-        if (passend) await advanceRingToEscrow(ringId);
+        /*
+         * «abwicklung» und «abgeschlossen» zählen mit, obwohl dort nichts
+         * mehr vorzurücken ist: Ein erneut zugestelltes Ereignis würde sonst
+         * unten die Autorisierung stornieren — mitten in der Abwicklung, die
+         * genau dieses Geld gerade einzieht.
+         */
+        passend =
+          ring?.status === "angenommen" ||
+          ring?.status === "treuhand" ||
+          ring?.status === "abwicklung" ||
+          ring?.status === "abgeschlossen";
+        if (ring?.status === "angenommen" || ring?.status === "treuhand") {
+          await advanceRingToEscrow(ringId);
+        }
       } else {
         const moved = await db
           .update(deals)
@@ -131,7 +171,19 @@ export async function handleEvent(event: Stripe.Event): Promise<void> {
             ),
           )
           .returning({ id: deals.id });
-        passend = moved.length > 0;
+        if (moved.length > 0) {
+          passend = true;
+        } else {
+          // Wie beim Ring: Ein Tausch, der schon abgewickelt wird oder fertig
+          // ist, ist kein verwaister Vorgang. Seine Autorisierung zu
+          // stornieren hiesse, dem laufenden Abschluss das Geld wegzunehmen.
+          const [stand] = await db
+            .select({ status: deals.status })
+            .from(deals)
+            .where(eq(deals.id, dealId!))
+            .limit(1);
+          passend = stand?.status === "abwicklung" || stand?.status === "abgeschlossen";
+        }
       }
 
       if (!passend && intentId) {
@@ -206,15 +258,35 @@ export async function handleEvent(event: Stripe.Event): Promise<void> {
         await markPayment(rows[0].id, rows[0].status, `Teilerstattung über ${charge.amount_refunded}`);
         break;
       }
-      await markPayment(rows[0].id, "erstattet");
+      /*
+       * Nach der Auszahlung nicht überschreiben: Sonst stünde in der Zeile
+       * «erstattet» und nichts mehr davon, dass der Betrag vorher beim
+       * Empfänger angekommen ist — und beim Abgleich des Plattformkontos wäre
+       * eine Erstattung vor der Auszahlung von einer danach nicht mehr zu
+       * unterscheiden. Dasselbe Argument steht im Schema bei den
+       * Rückbuchungsspalten.
+       */
+      const umgestellt = await markPaymentIfIn(
+        rows[0].id,
+        ["erstellt", "autorisiert", "eingezogen", "fehlgeschlagen", "storniert"],
+        "erstattet",
+      );
+      if (!umgestellt) {
+        await markPayment(
+          rows[0].id,
+          rows[0].status,
+          `Erstattung über ${charge.amount_refunded} nach Status ${rows[0].status}`,
+        );
+      }
+
       const grund = "Der hinterlegte Ausgleich wurde erstattet.";
       const zurueck = rows[0].dealId
         ? await reopenEscrow(rows[0].dealId, grund)
         : await reopenRingEscrow(rows[0].ringId!, grund);
-      if (!zurueck) {
-        // Der Vorgang ist nicht mehr in der Treuhandphase — bei einem bereits
-        // abgeschlossenen Tausch ist das Geld zurück, die Fahrzeuge aber
-        // umgeschrieben. Das braucht einen Menschen.
+      if (!zurueck && !(await warAbgebrochen(rows[0].dealId, rows[0].ringId))) {
+        // Der Vorgang ist nicht mehr in der Treuhandphase und wurde auch nicht
+        // abgebrochen — bei einem bereits abgeschlossenen Tausch ist das Geld
+        // zurück, die Fahrzeuge aber umgeschrieben. Das braucht einen Menschen.
         await flagRefundAfterCompletion(rows[0].dealId, rows[0].ringId, rows[0].id);
       }
       break;
@@ -325,6 +397,34 @@ async function reopenEscrow(dealId: string, reason: string): Promise<boolean> {
  * bereits umgeschrieben. Beide Seiten werden informiert, der Vorgang bleibt im
  * Verlauf sichtbar und im Log als Warnung stehen.
  */
+/**
+ * War der Vorgang abgebrochen?
+ *
+ * Eine Erstattung nach einem Abbruch ist der erwartete Ablauf: `cancelDeal`
+ * gibt die Reservierung frei, Stripe meldet die Erstattung, und alles ist in
+ * Ordnung. Ohne diese Prüfung bekamen beide Seiten dafür eine Mail mit
+ * «meldet euch beim Support» — für einen ganz normalen Abbruch.
+ */
+async function warAbgebrochen(dealId: string | null, ringId: string | null): Promise<boolean> {
+  if (dealId) {
+    const [deal] = await db
+      .select({ status: deals.status })
+      .from(deals)
+      .where(eq(deals.id, dealId))
+      .limit(1);
+    return deal?.status === "storniert" || deal?.status === "abgelehnt";
+  }
+  if (ringId) {
+    const [ring] = await db
+      .select({ status: ringSwaps.status })
+      .from(ringSwaps)
+      .where(eq(ringSwaps.id, ringId))
+      .limit(1);
+    return ring?.status === "storniert" || ring?.status === "abgelehnt";
+  }
+  return false;
+}
+
 async function flagRefundAfterCompletion(
   dealId: string | null,
   ringId: string | null,

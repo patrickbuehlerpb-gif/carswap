@@ -527,7 +527,9 @@ Der Ablauf ist "separate charges and transfers":
 4. Bricht jemand vorher ab, wird die Autorisierung freigegeben bzw. erstattet.
 
 Die Kartengebühr trägt der Zahlende: `platformFee()` rechnet den Betrag hoch,
-sodass beim Empfänger genau der vereinbarte Ausgleich ankommt. Die Sätze lassen
+sodass beim Empfänger genau der vereinbarte Ausgleich ankommt. Was durch das
+Aufrunden übrig bleibt, sind Rappen — die AGB sagen das jetzt auch so, statt
+«deckt genau die Kartengebühr». Die Sätze lassen
 sich über `PLATFORM_FEE_PERCENT` (Vorgabe 2.9) und `PLATFORM_FEE_FIXED_MINOR`
 (Vorgabe 30 Rappen) anpassen — Karten von ausserhalb Europas kosten Stripe mehr,
 die Differenz bliebe sonst an der Plattform hängen.
@@ -544,6 +546,47 @@ eingerichtet sind.
 
 > Kartenautorisierungen verfallen nach sieben Tagen. Wird die Übergabe bis
 > dahin nicht von beiden Seiten bestätigt, muss neu eingezahlt werden.
+
+### Was am Geldweg schiefgehen kann
+
+Eine Durchsicht der vier Dateien, die Geld bewegen, brachte eine Reihe von
+Fällen zutage, die alle dasselbe Muster haben: Sie treten nur bei
+Gleichzeitigkeit, verspäteten Ereignissen oder abgebrochenen Läufen auf — und
+gerade dann geht es um echte Franken. Was daraus geworden ist:
+
+- **Bezahlt ist nicht abgelaufen.** Wer nach dem Bezahlen die Seite neu lud,
+  bevor der Webhook da war, bekam eine zweite Checkout-Session: Die erste
+  Session stand auf `complete`, und der Code behandelte alles, was nicht
+  `open` war, als tot. Der Webhook hob die entwertete Zeile danach wieder auf
+  «autorisiert» — zwei Reservierungen für einen Tausch. Jetzt wird
+  `complete` erkannt und die Person gebeten, kurz zu warten.
+- **Angefochtenes Geld wird nicht ausgezahlt.** `disputedAt` wurde gemeldet,
+  aber von keinem Abschluss gelesen. Bei einer offenen Rückbuchung hat Stripe
+  den Betrag längst vom Plattformkonto geholt; wer ihn trotzdem weiterleitet,
+  zahlt den Empfänger aus eigener Tasche. Die Regel steht jetzt in
+  `zahlungBrauchbar()` — der einzigen Stelle, an der «taugt diese Zahlung
+  noch?» beantwortet wird. Vorher stand sie in vier Fassungen im Code, zwei
+  davon mit umgedrehtem Vorzeichen.
+- **Ein spätes Ereignis storniert nichts mehr, was gerade abgewickelt wird.**
+  Der Webhook hielt jeden Vorgang, der nicht in «angenommen» oder «treuhand»
+  stand, für verwaist und gab die Autorisierung frei — auch mitten im
+  Abschluss, der genau dieses Geld einzieht.
+- **Der Ring wird beim Zählen des Topfes gesperrt.** Kommen die letzten beiden
+  Einzahlungen gleichzeitig an, sah vorher keine der beiden die andere; der
+  Ring blieb in «angenommen» stehen, mit vollständig reserviertem Geld, das
+  niemand mehr fand.
+- **Ein abgeschlossener Zweiertausch storniert auch Ringvorschläge** zu
+  denselben Autos. Vorher blieb ein Ring stehen, in dem ein soeben getauschtes
+  Auto steckte — er hätte sich zusagen, bezahlen und bestätigen lassen, und
+  erst der Halterwechsel wäre gescheitert, mit dem Geld längst beim Empfänger.
+- **Ein Tausch, der in der Abwicklung ohne gültige Zahlung dasteht, meldet
+  sich.** Vorher fiel dieser Zustand durch jedes Raster: Zurücksetzen verlangt
+  «treuhand», und der Wartungslauf zählte ihn als «nichts zu tun».
+- **Eine Erstattung nach einem Abbruch ist kein Notfall.** Beide Seiten bekamen
+  dafür eine Mail mit «meldet euch beim Support» — für den ganz normalen
+  Ablauf nach dem Abbrechen.
+- **Zwei Klicks legen kein zweites Stripe-Konto an**, und eine Erstattung nach
+  der Auszahlung überschreibt den Auszahlungsstand nicht mehr.
 
 ### Rückbuchungen
 

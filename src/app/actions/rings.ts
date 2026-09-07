@@ -39,7 +39,7 @@ import {
   currentRingPayments,
   payoutReady,
   stripeConfigured,
-  authorizationExpiresAt,
+  zahlungBrauchbar,
 } from "@/lib/payments";
 import { mailConfigured, sendMail, siteUrl } from "@/lib/mail";
 
@@ -542,10 +542,7 @@ export async function startRingEscrowAction(ringId: string): Promise<RingActionR
   const vorhanden = await currentRingPayments(ringId);
   const offen = meine.find((t) => {
     const zahlung = vorhanden.find((p) => p.payerId === t.payerId && p.payeeId === t.payeeId);
-    if (!zahlung) return true;
-    if (zahlung.status === "eingezogen" || zahlung.status === "ausgezahlt") return false;
-    if (zahlung.status !== "autorisiert") return true;
-    return (authorizationExpiresAt(zahlung)?.getTime() ?? Infinity) < Date.now();
+    return !zahlungBrauchbar(zahlung);
   });
   if (!offen) {
     return { error: "Deine Einzahlungen liegen bereits vor. Es fehlt noch jemand anderes." };

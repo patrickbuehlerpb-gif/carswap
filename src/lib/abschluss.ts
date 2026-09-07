@@ -9,16 +9,19 @@ import {
   deals,
   listings,
   payments,
+  ringLegs,
+  ringSwaps,
   users,
   vehicles,
   type DealRow,
 } from "./db/schema";
 import { sendMail, siteUrl } from "./mail";
+import { addRingSystemMessage } from "./rings-db";
 import {
-  authorizationExpiresAt,
   captureAndPayout,
   paymentParties,
   stripeConfigured,
+  zahlungBrauchbar,
   PaymentStateError,
   PayoutBlockedError,
 } from "./payments";
@@ -82,6 +85,7 @@ export async function releaseSettlement(dealId: string): Promise<void> {
 /** Schliesst den Tausch ab: Halterwechsel, Inserate, Zähler, Sperren lösen. */
 export async function completeDeal(deal: DealRow): Promise<void> {
   const dropped: { id: string; initiatorId: string }[] = [];
+  const verworfeneRinge: { id: string; initiatorId: string }[] = [];
 
   await db.transaction(async (tx) => {
     const done = await tx
@@ -137,6 +141,35 @@ export async function completeDeal(deal: DealRow): Promise<void> {
       .returning({ id: deals.id, initiatorId: deals.initiatorId });
     dropped.push(...others);
 
+    /*
+     * …und offene Ringvorschläge zu denselben Fahrzeugen ebenso. Ohne das
+     * blieb ein Ring stehen, in dem ein soeben getauschtes Auto steckt: Die
+     * Zusage prüft die Halterschaft nicht erneut, also hätten alle drei
+     * zugesagt, eingezahlt und bestätigt — und der Abschluss wäre erst beim
+     * Halterwechsel gescheitert, mit dem Geld längst bei den Empfängern.
+     * `completeRing` macht das für die Gegenrichtung seit jeher.
+     */
+    const betroffeneRinge = await tx
+      .selectDistinct({ ringId: ringLegs.ringId })
+      .from(ringLegs)
+      .where(inArray(ringLegs.vehicleId, [deal.fromVehicleId, deal.toVehicleId]));
+    if (betroffeneRinge.length) {
+      const ringe = await tx
+        .update(ringSwaps)
+        .set({ status: "storniert", updatedAt: new Date() })
+        .where(
+          and(
+            inArray(
+              ringSwaps.id,
+              betroffeneRinge.map((r) => r.ringId),
+            ),
+            eq(ringSwaps.status, "vorschlag"),
+          ),
+        )
+        .returning({ id: ringSwaps.id, initiatorId: ringSwaps.initiatorId });
+      verworfeneRinge.push(...ringe);
+    }
+
     await tx.delete(dealVehicleLocks).where(eq(dealVehicleLocks.dealId, deal.id));
 
     for (const userId of [deal.initiatorId, deal.counterpartyId]) {
@@ -154,7 +187,15 @@ export async function completeDeal(deal: DealRow): Promise<void> {
       "Eines der beiden Fahrzeuge wurde inzwischen anders getauscht — dieser Vorschlag ist hinfällig.",
     );
   }
+  for (const ring of verworfeneRinge) {
+    await addRingSystemMessage(
+      ring.id,
+      ring.initiatorId,
+      "Eines der Fahrzeuge in diesem Ring wurde inzwischen anders getauscht — der Vorschlag ist hinfällig.",
+    );
+  }
   if (dropped.length) revalidatePath("/deals");
+  if (verworfeneRinge.length) revalidatePath("/ringe");
 }
 
 /**
@@ -172,6 +213,8 @@ export type AbschlussErgebnis =
   | { art: "zahlungen-aus" }
   /** Reservierung verfallen oder storniert: zurück in die Zusage. */
   | { art: "zahlung-ungueltig"; zurueckgesetzt: boolean }
+  /** Der Tausch steht schon in der Abwicklung und trotzdem fehlt Geld. */
+  | { art: "geld-fehlt-mitten-im-abschluss" }
   | { art: "kein-auszahlungskonto"; payeeId: string }
   | { art: "zahlung-nicht-abwickelbar"; grund: string }
   | { art: "auszahlung-gescheitert" }
@@ -203,25 +246,23 @@ export async function schliesseTauschAb(
     return { art: "fertig" };
   }
 
-  const [payment] = await db
+  /*
+   * Alle Zahlungen zu diesem Tausch, nicht nur die jüngste. Es kann mehrere
+   * Zeilen geben — ein abgebrochener erster Anlauf, danach ein zweiter —, und
+   * die neueste ist dann ausgerechnet die stornierte. Wer nur sie ansieht,
+   * setzt den Tausch zurück und verlangt eine zweite Zahlung, während die
+   * erste noch gültig reserviert ist.
+   */
+  const alle = await db
     .select()
     .from(payments)
     .where(eq(payments.dealId, deal.id))
-    .orderBy(desc(payments.createdAt))
-    .limit(1);
+    .orderBy(desc(payments.createdAt));
 
   // Eine Reservierung, die älter als die Stripe-Frist ist, gilt als verfallen —
   // auch wenn das Stornierungsereignis noch nicht angekommen ist.
-  const abgelaufen =
-    payment?.status === "autorisiert" &&
-    (authorizationExpiresAt(payment)?.getTime() ?? Infinity) < Date.now();
-
-  const usable =
-    payment &&
-    !abgelaufen &&
-    (payment.status === "autorisiert" ||
-      payment.status === "eingezogen" ||
-      payment.status === "ausgezahlt");
+  const payment = alle.find(zahlungBrauchbar) ?? alle[0];
+  const usable = zahlungBrauchbar(payment);
 
   if (!usable) {
     // Reservierung verfallen, storniert oder gar nie bezahlt: zurück in die
@@ -239,8 +280,23 @@ export async function schliesseTauschAb(
       .where(and(eq(deals.id, deal.id), eq(deals.status, "treuhand")))
       .returning({ id: deals.id });
     if (!zurueck.length) {
-      // Die Gegenseite war schneller — der Tausch wird gerade abgewickelt
-      // oder wurde abgebrochen. Dann ist hier nichts zu melden.
+      /*
+       * Entweder war die Gegenseite schneller oder der Tausch wurde
+       * abgebrochen — dann ist hier nichts zu melden. Steht er aber schon in
+       * der Abwicklung, fehlt Geld mitten im Abschluss: Der Zustand kommt
+       * nicht von selbst zurecht (das Zurücksetzen verlangt «treuhand»), und
+       * ohne eigene Meldung tauchte er in keiner Auswertung auf. Der Ring
+       * kennt denselben Fall längst.
+       */
+      const [stand] = await db
+        .select({ status: deals.status })
+        .from(deals)
+        .where(eq(deals.id, deal.id))
+        .limit(1);
+      if (stand?.status === "abwicklung") {
+        console.error(`Tausch ${deal.id} ist in Abwicklung, aber die Zahlung ist nicht gültig.`);
+        return { art: "geld-fehlt-mitten-im-abschluss" };
+      }
       return { art: "zahlung-ungueltig", zurueckgesetzt: false };
     }
     await addSystemMessage(

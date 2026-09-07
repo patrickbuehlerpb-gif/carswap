@@ -19,13 +19,14 @@ import { revalidatePath } from "next/cache";
 import { sendMail, siteUrl } from "./mail";
 import { ringTransfers, type RingTransfer } from "./rings";
 import {
-  authorizationExpiresAt,
   captureAndPayout,
+  type Ausfuehrer,
   currentRingPayments,
   markPayment,
   payoutReady,
   releaseAuthorization,
   stripeConfigured,
+  zahlungBrauchbar,
   PaymentStateError,
   PayoutBlockedError,
 } from "./payments";
@@ -78,19 +79,17 @@ export async function addRingSystemMessage(
  * der Ring in die Treuhandphase — sonst stünde ein Teil des Topfes offen, und
  * die Übergabe liesse sich mit fehlendem Geld bestätigen.
  */
-export async function allDepositsReserved(legs: RingLegRow[]): Promise<boolean> {
+export async function allDepositsReserved(
+  legs: RingLegRow[],
+  ausfuehrer?: Ausfuehrer,
+): Promise<boolean> {
   const noetig = transfersFor(legs);
   if (!noetig.length) return true;
 
-  const vorhanden = await currentRingPayments(legs[0].ringId);
+  const vorhanden = await currentRingPayments(legs[0].ringId, ausfuehrer);
   return noetig.every((t) => {
     const zahlung = vorhanden.find((p) => p.payerId === t.payerId && p.payeeId === t.payeeId);
-    if (!zahlung) return false;
-    if (zahlung.status === "eingezogen" || zahlung.status === "ausgezahlt") return true;
-    if (zahlung.status !== "autorisiert") return false;
-    // Eine verfallene Reservierung zählt nicht, auch wenn das Ereignis von
-    // Stripe noch nicht angekommen ist.
-    return (authorizationExpiresAt(zahlung)?.getTime() ?? Infinity) >= Date.now();
+    return zahlungBrauchbar(zahlung);
   });
 }
 
@@ -101,17 +100,39 @@ export async function allDepositsReserved(legs: RingLegRow[]): Promise<boolean> 
  * damit ein zweites Ereignis nicht als Fehlschlag gilt.
  */
 export async function advanceRingToEscrow(ringId: string): Promise<boolean> {
-  const geladen = await loadRing(ringId);
-  if (!geladen) return false;
-  if (geladen.ring.status !== "angenommen" && geladen.ring.status !== "treuhand") return false;
-  if (!(await allDepositsReserved(geladen.legs))) return geladen.ring.status === "treuhand";
+  /*
+   * Der Ring wird gesperrt, bevor der Topf gezählt wird — wie bei der Zusage
+   * und aus demselben Grund: Kommen die letzten beiden Einzahlungen
+   * gleichzeitig an, sieht unter READ COMMITTED keine der beiden die noch
+   * offene Zeile der anderen. Beide zählten einen unvollständigen Topf, keine
+   * rückte den Ring vor, und er bliebe in «angenommen» stehen — mit
+   * vollständig reserviertem Geld, das nach sieben Tagen verfällt. Der
+   * Wartungslauf sucht dort nicht, weil er nur Ringe in «treuhand» und
+   * «abwicklung» kennt.
+   */
+  return await db.transaction(async (tx) => {
+    const [gesperrt] = await tx
+      .select({ status: ringSwaps.status })
+      .from(ringSwaps)
+      .where(eq(ringSwaps.id, ringId))
+      .for("update");
+    if (!gesperrt) return false;
+    if (gesperrt.status !== "angenommen" && gesperrt.status !== "treuhand") return false;
 
-  const moved = await db
-    .update(ringSwaps)
-    .set({ status: "treuhand", escrowAt: new Date(), updatedAt: new Date() })
-    .where(and(eq(ringSwaps.id, ringId), inArray(ringSwaps.status, ["angenommen", "treuhand"])))
-    .returning({ id: ringSwaps.id });
-  return moved.length > 0;
+    const legs = await tx
+      .select()
+      .from(ringLegs)
+      .where(eq(ringLegs.ringId, ringId))
+      .orderBy(asc(ringLegs.position));
+    if (!(await allDepositsReserved(legs, tx))) return gesperrt.status === "treuhand";
+
+    const moved = await tx
+      .update(ringSwaps)
+      .set({ status: "treuhand", escrowAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(ringSwaps.id, ringId), inArray(ringSwaps.status, ["angenommen", "treuhand"])))
+      .returning({ id: ringSwaps.id });
+    return moved.length > 0;
+  });
 }
 
 /**
@@ -444,12 +465,7 @@ export async function schliesseRingAb(geladen: RingWithLegs): Promise<RingErgebn
     vorhanden.find((p) => p.payerId === t.payerId && p.payeeId === t.payeeId),
   );
 
-  const brauchbar = zahlungen.every((zahlung) => {
-    if (!zahlung) return false;
-    if (zahlung.status === "eingezogen" || zahlung.status === "ausgezahlt") return true;
-    if (zahlung.status !== "autorisiert") return false;
-    return (authorizationExpiresAt(zahlung)?.getTime() ?? Infinity) >= Date.now();
-  });
+  const brauchbar = zahlungen.every(zahlungBrauchbar);
 
   if (!brauchbar) {
     // Mindestens ein Betrag fehlt oder ist verfallen: zurück in die Zusage,

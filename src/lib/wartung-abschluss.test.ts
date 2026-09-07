@@ -198,6 +198,74 @@ describe("Steckengebliebene Abschlüsse nachholen", () => {
     expect(await halter(va)).toBe(a);
   });
 
+  it("nimmt die ältere, noch gültige Zahlung statt der jüngsten stornierten", async () => {
+    // So sieht es nach einem abgebrochenen zweiten Anlauf aus: Die neueste
+    // Zeile ist tot, das Geld liegt auf der ersten. Wer nur die neueste
+    // ansieht, setzt den Tausch zurück und verlangt ein zweites Mal Geld.
+    const { dealId, payId, va, b } = await steckengeblieben();
+    await db.insert(payments).values({
+      id: newId("pay"),
+      dealId,
+      payerId: (await db.select().from(deals).where(eq(deals.id, dealId)))[0].initiatorId,
+      payeeId: b,
+      amountMinor: 400_000,
+      feeMinor: 0,
+      status: "storniert",
+      createdAt: new Date(Date.now() + 1000),
+    });
+
+    const lauf = await holeAbschluesseNach();
+    expect(lauf).toMatchObject({ geprueft: 1, abgeschlossen: 1, festgefahren: 0 });
+    expect(await halter(va)).toBe(b);
+    const [alt] = await db.select().from(payments).where(eq(payments.id, payId));
+    expect(alt.status).toBe("ausgezahlt");
+  });
+
+  it("meldet einen Tausch, der mitten in der Abwicklung ohne gültiges Geld dasteht", async () => {
+    const { dealId, payId } = await steckengeblieben();
+    // Der Abschluss wurde übernommen und ist dann abgestürzt; danach verfiel
+    // die Reservierung. Zurücksetzen geht nicht mehr — das verlangt
+    // «treuhand» —, also muss es wenigstens auffallen.
+    await db.update(deals).set({ status: "abwicklung" }).where(eq(deals.id, dealId));
+    await db.update(payments).set({ status: "storniert" }).where(eq(payments.id, payId));
+
+    const lauf = await holeAbschluesseNach();
+    expect(lauf).toMatchObject({ geprueft: 1, abgeschlossen: 0, festgefahren: 1 });
+  });
+
+  it("storniert offene Ringvorschläge zu den getauschten Autos", async () => {
+    const { dealId, va, b } = await steckengeblieben();
+    const [deal] = await db.select().from(deals).where(eq(deals.id, dealId));
+
+    // Ein Ringvorschlag, in dem eines der beiden Autos steckt. Bliebe er
+    // stehen, könnten drei Leute ihn zusagen und einzahlen — für ein Auto,
+    // das längst jemand anderem gehört.
+    const dritte = await createUser("Clara");
+    const ringId = newId("ring");
+    await db.insert(ringSwaps).values({ id: ringId, initiatorId: deal.initiatorId, status: "vorschlag" });
+    const beine: [string, string][] = [
+      [deal.initiatorId, va],
+      [b, await createVehicle(b)],
+      [dritte, await createVehicle(dritte)],
+    ];
+    for (const [i, [userId, vehicleId]] of beine.entries()) {
+      await db.insert(ringLegs).values({
+        id: newId("leg"),
+        ringId,
+        position: i,
+        userId,
+        vehicleId,
+        receiverId: beine[(i + 1) % 3][0],
+        cash: 0,
+      });
+    }
+
+    await holeAbschluesseNach();
+
+    const [ring] = await db.select().from(ringSwaps).where(eq(ringSwaps.id, ringId));
+    expect(ring.status).toBe("storniert");
+  });
+
   it("kommt ohne offene Abschlüsse zurecht", async () => {
     expect(await holeAbschluesseNach()).toEqual({
       geprueft: 0,
