@@ -3,7 +3,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { sql as raw } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { stripeConfigured } from "@/lib/payments";
-import { siteUrlConfigured } from "@/lib/mail";
+import { siteUrl, siteUrlAusgewichen, siteUrlConfigured } from "@/lib/mail";
 import { missingOperatorFields } from "@/lib/operator";
 import { erlaubterFotoHost } from "@/lib/validation";
 import { haengendeGelder, mailFehler, offeneRueckbuchungen } from "@/lib/wartung";
@@ -57,7 +57,36 @@ export async function GET(request: Request) {
     : "nicht konfiguriert";
   checks.mailversand =
     process.env.RESEND_API_KEY && process.env.MAIL_FROM ? "konfiguriert" : "nicht konfiguriert";
-  checks.basisadresse = siteUrlConfigured() ? "konfiguriert" : "nicht konfiguriert";
+  /*
+   * Nicht nur ob, sondern welche: Ohne gesetzte SITE_URL weicht die Anwendung
+   * auf die vom Anbieter vergebene Adresse aus. Links funktionieren dann zwar,
+   * tragen aber den falschen Hostnamen — in jeder E-Mail, in der Sitemap, in
+   * den Rücksprungadressen von Stripe und in jeder Linkvorschau.
+   */
+  checks.basisadresse = !siteUrlConfigured()
+    ? "nicht konfiguriert"
+    : siteUrlAusgewichen()
+      ? `ersatzweise ${siteUrl()} — SITE_URL ist nicht gesetzt`
+      : `konfiguriert (${siteUrl()})`;
+
+  /*
+   * Und noch einmal von aussen gegengeprüft: Wird die Seite unter einem
+   * anderen Hostnamen ausgeliefert als dem, den sie selbst in Links schreibt,
+   * stimmt eines von beiden nicht. Vorschau-Deployments laufen naturgemäss
+   * unter einer eigenen Adresse — dort sagt das nichts.
+   */
+  const angefragt = request.headers.get("host")?.toLowerCase();
+  if (angefragt && process.env.VERCEL_ENV === "production") {
+    let eigener = "";
+    try {
+      eigener = new URL(siteUrl()).host.toLowerCase();
+    } catch {
+      eigener = "";
+    }
+    if (eigener && angefragt !== eigener) {
+      checks.basisadresse += ` — ausgeliefert unter ${angefragt}`;
+    }
+  }
   const fehlendeAngaben = missingOperatorFields();
   checks.impressum = fehlendeAngaben.length
     ? `unvollständig (${fehlendeAngaben.join(", ")})`

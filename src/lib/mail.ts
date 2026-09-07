@@ -193,6 +193,24 @@ export function siteUrlConfigured(): boolean {
   return Boolean(process.env.VERCEL_PROJECT_PRODUCTION_URL);
 }
 
+/**
+ * Ist die Basisadresse ausdrücklich gesetzt — oder kommt sie bloss aus dem
+ * Notnagel?
+ *
+ * `VERCEL_PROJECT_PRODUCTION_URL` ist die vom Anbieter vergebene Adresse, also
+ * etwas wie `projekt-xyz.vercel.app`. Sie verhindert, dass Links auf localhost
+ * zeigen, ist aber nicht die Adresse, unter der die Seite auftreten soll.
+ * Solange sie greift, tragen jede E-Mail, jede Rücksprungadresse von Stripe,
+ * die Sitemap und die Vorschaubilder den falschen Hostnamen — und die
+ * Betriebsprüfung meldete trotzdem «konfiguriert». Diese Unterscheidung macht
+ * den Unterschied sichtbar, bevor die erste Bestätigungsmail hinausgeht.
+ */
+export function siteUrlAusgewichen(): boolean {
+  const explicit = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL;
+  if (explicit && istAbsolut(explicit.replace(/\/+$/, ""))) return false;
+  return Boolean(process.env.VERCEL_PROJECT_PRODUCTION_URL);
+}
+
 function istAbsolut(wert: string): boolean {
   try {
     const url = new URL(wert);

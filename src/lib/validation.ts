@@ -63,35 +63,24 @@ export function erlaubterFotoHost(): string | null {
   return store ? `${store.toLowerCase()}.public.blob.vercel-storage.com` : null;
 }
 
-/** Erlaubt ausschliesslich https-Adressen aus dem eigenen Vercel-Blob-Speicher. */
+/**
+ * Sieht die Adresse überhaupt nach einem Foto aus unserem Speicher aus?
+ *
+ * Bewusst nur die Form: https und ein Hostname des Blob-Dienstes. Ob die
+ * Adresse wirklich in *unserem* Speicher liegt, beantwortet
+ * `fremdeFotoAdressen` in `lib/fotos.ts` — das braucht eine Rückfrage beim
+ * Speicher und hat deshalb in einem Schema nichts zu suchen, das synchron
+ * prüfen muss.
+ *
+ * Wer eine weitere Stelle baut, an der Fotoadressen hereinkommen: Diese
+ * Prüfung allein genügt nicht. Ohne die Herkunftsprüfung liesse sich über ein
+ * Inserat ein beliebiges fremdes Bild einhängen.
+ */
 export function isBlobUrl(value: string): boolean {
   try {
     const url = new URL(value);
     if (url.protocol !== "https:") return false;
     const host = url.hostname.toLowerCase();
-
-    // Fremde Vercel-Blob-Speicher gehören nicht dazu: über ein Inserat liesse
-    // sich sonst auf beliebige andere Konten verweisen.
-    const eigener = erlaubterFotoHost();
-    if (eigener) {
-      if (host === eigener) return true;
-      /*
-       * Knapp daneben: die Adresse kommt aus dem richtigen Dienst, nur aus
-       * einem anderen Speicher. Das ist im Betrieb fast immer eine falsch
-       * abgeleitete Kennung und nicht der Versuch, ein fremdes Bild
-       * einzuhängen — der Person auf der Seite ist damit aber nicht zu helfen,
-       * die liest nur «lade es über diese Seite hoch». Deshalb steht der
-       * Grund im Protokoll, mit dem Namen der Variablen, die ihn behebt.
-       */
-      if (host.endsWith(".public.blob.vercel-storage.com")) {
-        console.error(
-          `[fotos] Adresse aus fremdem Speicher abgewiesen: ${host} statt ${eigener}. ` +
-            "Stimmt der erwartete Hostname nicht, lässt er sich mit BLOB_PUBLIC_HOST setzen.",
-        );
-      }
-      return false;
-    }
-
     return (
       host.endsWith(".public.blob.vercel-storage.com") ||
       host === "public.blob.vercel-storage.com"

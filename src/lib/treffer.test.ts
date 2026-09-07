@@ -12,6 +12,7 @@ vi.mock("@/lib/mail", () => ({
   },
   siteUrl: () => "https://autotauschen.test",
   siteUrlConfigured: () => true,
+  siteUrlAusgewichen: () => false,
 }));
 
 const { verschickeTreffermeldungen } = await import("@/lib/treffer");

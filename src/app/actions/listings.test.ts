@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { listings, vehicles } from "@/lib/db/schema";
@@ -16,6 +16,18 @@ import { MIN_FOTOS } from "@/lib/validation";
 // Die Kennung im Token bestimmt den erlaubten Fotohost — genau wie im Betrieb.
 const TOKEN = "vercel_blob_rw_pruefspeicher_ABCDEFGHIJKLMNOP";
 const HOST = "https://pruefspeicher.public.blob.vercel-storage.com";
+
+/*
+ * Der Speicher wird nachgebaut, nicht angesprochen: Adressen unseres Hosts
+ * gehen ohne Rückfrage durch, für alle anderen fragt die Anwendung nach — und
+ * eine echte Anfrage mit einem erfundenen Token hätte in einem Testlauf nichts
+ * verloren.
+ */
+vi.mock("@vercel/blob", () => ({
+  head: async (url: string) => {
+    throw new Error(`Vercel Blob: The requested blob does not exist (${url})`);
+  },
+}));
 
 let vorher: string | undefined;
 
@@ -150,5 +162,52 @@ describe("Ohne eingerichteten Fotospeicher", () => {
 
     const res = await createListingAction({ ...eingabe(0) });
     expect(res.error).toBeUndefined();
+  });
+});
+
+describe("Herkunft der Fotos beim Anlegen", () => {
+  it("nimmt kein Bild an, das nicht aus unserem Speicher kommt", async () => {
+    const ich = await createUser("Anna");
+    als(ich);
+
+    // Formal einwandfrei — https, richtiger Dienst —, aber ein fremder
+    // Speicher. Ohne diese Prüfung hinge das Bild eines anderen Kontos im
+    // Inserat, und die Kosten dafür trüge jemand anderes.
+    const eingabeMitFremdem = {
+      ...eingabe(MIN_FOTOS),
+      photos: [
+        ...fotos(2),
+        {
+          url: "https://jemandanders.public.blob.vercel-storage.com/geklaut.webp",
+          width: 1600,
+          height: 900,
+        },
+      ],
+    };
+
+    const res = await createListingAction(eingabeMitFremdem);
+    expect(res.error).toMatch(/nicht aus dem Upload dieser Seite/);
+    expect(await db.select().from(listings)).toHaveLength(0);
+    expect(await db.select().from(vehicles)).toHaveLength(0);
+  });
+
+  it("lässt es beim Bearbeiten ebenso wenig durch", async () => {
+    const ich = await createUser("Anna");
+    als(ich);
+    const angelegt = await createListingAction(eingabe(MIN_FOTOS));
+    expect(angelegt.error).toBeUndefined();
+
+    const res = await updateListingAction(angelegt.vehicleId!, {
+      ...eingabe(MIN_FOTOS),
+      photos: [
+        ...fotos(2),
+        { url: "https://jemandanders.public.blob.vercel-storage.com/x.webp", width: 100, height: 100 },
+      ],
+    });
+    expect(res.error).toMatch(/nicht aus dem Upload dieser Seite/);
+
+    // Die alten Bilder stehen unverändert.
+    const [fahrzeug] = await db.select().from(vehicles).where(eq(vehicles.id, angelegt.vehicleId!));
+    expect(fahrzeug.photos?.every((p) => p.url.startsWith(HOST))).toBe(true);
   });
 });

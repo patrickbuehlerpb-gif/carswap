@@ -161,13 +161,25 @@ ohne diese Einstellung läge jedes Hochkantfoto nachher auf der Seite.
 Hochgeladen wird direkt vom Browser in den Vercel-Blob-Speicher; die Anwendung
 stellt dafür nur ein kurzlebiges Token aus. Beim Speichern des Inserats werden
 ausschliesslich Adressen aus dem **eigenen** Speicher angenommen — sonst liesse
-sich über ein Inserat auf ein beliebiges fremdes Bild verweisen. Der erwartete
-Hostname wird aus der Store-Kennung im `BLOB_READ_WRITE_TOKEN` abgeleitet und
-steht in `/api/health` unter `fotospeicher`; passt er nicht zum echten
-Speicher, lässt er sich mit `BLOB_PUBLIC_HOST` direkt setzen. Eine abgewiesene
-Adresse aus dem richtigen Dienst schreibt den Grund samt beider Hostnamen ins
-Protokoll — auf der Seite steht nur «lade es über diese Seite hoch», und damit
-wäre der Fehler sonst nicht zu finden.
+sich über ein Inserat auf ein beliebiges fremdes Bild verweisen, auf Kosten
+und im Namen eines anderen Kontos.
+
+Wem eine Adresse gehört, wird dabei nicht mehr geraten. Der schnelle Weg ist
+weiterhin der Vergleich mit dem Hostnamen, der sich aus der Store-Kennung im
+`BLOB_READ_WRITE_TOKEN` ableiten lässt — er kostet nichts und trifft im
+Normalfall zu. Stimmt er nicht, wird die Adresse nicht abgewiesen, sondern der
+Speicher selbst gefragt (`head` mit unserem Token beantwortet nur, was in
+unserem Speicher liegt). Das ist wichtig, weil die Ableitung eine Vermutung
+über ein fremdes Format ist und seit der Fotopflicht auf dem kritischen Weg
+liegt: Läge sie daneben, entstünde sonst überhaupt kein Inserat mehr — mit
+«lade es über diese Seite hoch» als einziger Auskunft, also mit dem Verdacht
+bei der falschen Person. Der Fall steht im Protokoll, samt der Zeile
+`BLOB_PUBLIC_HOST=…`, die die Rückfrage wieder überflüssig macht.
+
+Die Formprüfung im Schema (`isBlobUrl`) beantwortet nur, ob etwas überhaupt
+wie eine Fotoadresse aussieht. Wer eine weitere Stelle baut, an der
+Fotoadressen hereinkommen, braucht zusätzlich `fremdeFotoAdressen` aus
+`lib/fotos.ts` — sonst fehlt die Herkunftsprüfung.
 
 Angezeigt werden die Fotos über `next/image`, das je Bildschirmbreite eine
 passende Fassung in AVIF oder WebP ausliefert (`remotePatterns` in
@@ -802,6 +814,28 @@ src/
 scripts/               Migration, Seed, Demo-Daten
 drizzle/               Erzeugte SQL-Migrationen
 ```
+
+## Die eigene Adresse
+
+`SITE_URL` ist keine Kür. Ohne sie weicht die Anwendung auf
+`VERCEL_PROJECT_PRODUCTION_URL` aus — die vom Anbieter vergebene Adresse, also
+etwas wie `projekt-xyz.vercel.app`. Die Seite ist dann erreichbar und wirkt
+eingerichtet, aber jede Bestätigungsmail, jede Rücksprungadresse von Stripe,
+jede Zeile der Sitemap, `robots.txt` und jede Linkvorschau tragen den falschen
+Hostnamen. Zwei Adressen liefern dieselbe Seite aus, und die, unter der die
+Marke auftreten soll, ist nicht die, die in der Post steht.
+
+Das ist genau die Sorte Fehler, die niemandem auffällt, weil nichts kaputt
+aussieht. Deshalb wird der Notnagel jetzt überall als Lücke geführt, nicht als
+Einrichtung:
+
+- `/api/health` schreibt unter `basisadresse` entweder
+  `konfiguriert (https://…)` oder `ersatzweise https://… — SITE_URL ist nicht
+  gesetzt`, und hängt in Produktion den tatsächlich angefragten Hostnamen an,
+  wenn er ein anderer ist.
+- `/admin/betrieb` führt es unter den fehlenden Einrichtungen auf.
+- `npm run preflight` hat dafür eine eigene Zeile — die allgemeine Prüfung
+  darüber war ja grün.
 
 ## Deployment
 

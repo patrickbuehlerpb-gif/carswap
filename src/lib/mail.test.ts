@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { siteUrl, siteUrlConfigured } from "@/lib/mail";
+import { siteUrl, siteUrlConfigured, siteUrlAusgewichen } from "@/lib/mail";
 
 /**
  * Die Basisadresse steckt in Mail-Links, in den Rücksprungadressen von Stripe
@@ -46,10 +46,28 @@ describe("Basisadresse", () => {
     expect(siteUrlConfigured()).toBe(false);
   });
 
-  it("nimmt ersatzweise die Adresse von Vercel", () => {
+  it("nimmt ersatzweise die Adresse von Vercel — und sagt, dass es der Notnagel ist", () => {
     process.env.VERCEL_PROJECT_PRODUCTION_URL = "autotauschen.vercel.app";
     expect(siteUrl()).toBe("https://autotauschen.vercel.app");
+    // Erreichbar ist die Seite damit. «Eingerichtet» ist sie nicht: Jede
+    // E-Mail, die Sitemap und jede Linkvorschau trügen den Hostnamen des
+    // Anbieters statt der eigenen Domain — und die Betriebsprüfung meldete
+    // trotzdem «konfiguriert».
     expect(siteUrlConfigured()).toBe(true);
+    expect(siteUrlAusgewichen()).toBe(true);
+  });
+
+  it("gilt als eingerichtet, sobald SITE_URL steht", () => {
+    process.env.SITE_URL = "https://autotauschen.app";
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = "autotauschen.vercel.app";
+    expect(siteUrl()).toBe("https://autotauschen.app");
+    expect(siteUrlAusgewichen()).toBe(false);
+  });
+
+  it("zählt eine kaputte SITE_URL als ausgewichen, nicht als eingerichtet", () => {
+    process.env.SITE_URL = "autotauschen.app";
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = "autotauschen.vercel.app";
+    expect(siteUrlAusgewichen()).toBe(true);
   });
 
   it("greift auf Vercel zurück, wenn SITE_URL kaputt ist", () => {
@@ -61,6 +79,7 @@ describe("Basisadresse", () => {
   it("gibt ohne jede Angabe eine gültige Adresse zurück", () => {
     expect(siteUrl()).toBe("http://localhost:3000");
     expect(siteUrlConfigured()).toBe(false);
+    expect(siteUrlAusgewichen()).toBe(false);
     expect(() => new URL(siteUrl())).not.toThrow();
   });
 });

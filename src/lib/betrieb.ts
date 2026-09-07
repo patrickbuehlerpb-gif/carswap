@@ -12,7 +12,7 @@ import {
   type RingStatusDb,
 } from "./db/schema";
 import { missingOperatorFields } from "./operator";
-import { siteUrlConfigured } from "./mail";
+import { siteUrl, siteUrlAusgewichen, siteUrlConfigured } from "./mail";
 import { stripeConfigured } from "./payments";
 
 /**
@@ -236,6 +236,11 @@ function fehlendeEinrichtung(): string[] {
     fehlt.push("Mailversand (RESEND_API_KEY, MAIL_FROM)");
   }
   if (!siteUrlConfigured()) fehlt.push("Basisadresse (SITE_URL)");
+  // Der Notnagel zählt als Lücke: Die Seite ist erreichbar, aber jede E-Mail
+  // und jede Linkvorschau trägt die Adresse des Anbieters statt der eigenen.
+  else if (siteUrlAusgewichen()) {
+    fehlt.push(`Basisadresse: SITE_URL fehlt, Links tragen ersatzweise ${siteUrl()}`);
+  }
   if (!process.env.BLOB_READ_WRITE_TOKEN) fehlt.push("Fotospeicher (BLOB_READ_WRITE_TOKEN)");
   if (!process.env.CRON_SECRET && !process.env.HEALTH_TOKEN) {
     fehlt.push("Hintergrundläufe (CRON_SECRET)");

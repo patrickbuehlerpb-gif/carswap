@@ -156,40 +156,38 @@ describe("Erlaubter Fotohost", () => {
   });
 
   it("leitet den Hostnamen aus der Kennung im Token ab", async () => {
-    const { erlaubterFotoHost, isBlobUrl } = await import("@/lib/validation");
+    const { erlaubterFotoHost } = await import("@/lib/validation");
     delete process.env.BLOB_PUBLIC_HOST;
     process.env.BLOB_READ_WRITE_TOKEN = "vercel_blob_rw_AbC123xYz_geheimesTeilDasNichtZaehlt";
 
     expect(erlaubterFotoHost()).toBe("abc123xyz.public.blob.vercel-storage.com");
-    expect(isBlobUrl("https://abc123xyz.public.blob.vercel-storage.com/auto-1.webp")).toBe(true);
-    // Richtiger Dienst, fremder Speicher — darüber liesse sich ein beliebiges
-    // fremdes Bild in ein Inserat hängen.
-    expect(isBlobUrl("https://fremder.public.blob.vercel-storage.com/auto-1.webp")).toBe(false);
-    expect(isBlobUrl("http://abc123xyz.public.blob.vercel-storage.com/auto-1.webp")).toBe(false);
-    expect(isBlobUrl("https://beispiel.ch/auto-1.webp")).toBe(false);
   });
 
   it("lässt sich mit BLOB_PUBLIC_HOST übersteuern", async () => {
-    const { erlaubterFotoHost, isBlobUrl } = await import("@/lib/validation");
+    const { erlaubterFotoHost } = await import("@/lib/validation");
     process.env.BLOB_READ_WRITE_TOKEN = "vercel_blob_rw_AbC123xYz_geheim";
     // Der Ausweg, wenn die Ableitung nicht zum echten Speicher passt.
     process.env.BLOB_PUBLIC_HOST = "Anderer.public.blob.vercel-storage.com";
 
     expect(erlaubterFotoHost()).toBe("anderer.public.blob.vercel-storage.com");
-    expect(isBlobUrl("https://anderer.public.blob.vercel-storage.com/a.webp")).toBe(true);
-    expect(isBlobUrl("https://abc123xyz.public.blob.vercel-storage.com/a.webp")).toBe(false);
   });
 
-  it("bleibt ohne Token grob, statt alles abzuweisen", async () => {
-    const { erlaubterFotoHost, isBlobUrl } = await import("@/lib/validation");
+  it("nennt ohne Token keinen Hostnamen", async () => {
+    const { erlaubterFotoHost } = await import("@/lib/validation");
     delete process.env.BLOB_READ_WRITE_TOKEN;
     delete process.env.BLOB_PUBLIC_HOST;
 
-    // Ohne eingerichteten Speicher gibt es keinen eigenen Hostnamen, gegen den
-    // sich prüfen liesse. Eine harte Ablehnung wäre hier keine Sicherheit,
-    // sondern nur eine Sperre für die Entwicklung.
     expect(erlaubterFotoHost()).toBeNull();
+  });
+
+  it("prüft im Schema nur die Form, nicht die Herkunft", async () => {
+    const { isBlobUrl } = await import("@/lib/validation");
+    // Die Herkunft beantwortet `fremdeFotoAdressen` mit einer Rückfrage beim
+    // Speicher — hier geht es nur darum, was überhaupt wie eine Fotoadresse
+    // aussieht.
     expect(isBlobUrl("https://irgendwas.public.blob.vercel-storage.com/a.webp")).toBe(true);
+    expect(isBlobUrl("http://irgendwas.public.blob.vercel-storage.com/a.webp")).toBe(false);
     expect(isBlobUrl("https://beispiel.ch/a.webp")).toBe(false);
+    expect(isBlobUrl("gar-keine-adresse")).toBe(false);
   });
 });

@@ -15,6 +15,7 @@ import { requireUser } from "@/lib/auth/session";
 import { suspendedNotice } from "@/lib/auth/guards";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
 import { fotoHinweis, listingSchema, type ListingInput } from "@/lib/validation";
+import { fremdeFotoAdressen } from "@/lib/fotos";
 import { deleteBlobs } from "@/lib/blob";
 import { istGebunden } from "@/lib/bindung";
 
@@ -74,6 +75,10 @@ function fotopflichtGilt(): boolean {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }
 
+const FREMDE_FOTOS =
+  "Mindestens ein Foto stammt nicht aus dem Upload dieser Seite. Bitte lade die Bilder " +
+  "über das Formular hoch.";
+
 export async function createListingAction(raw: unknown): Promise<SaveResult> {
   const me = await requireUser();
   const stillgelegt = suspendedNotice(me);
@@ -90,6 +95,9 @@ export async function createListingAction(raw: unknown): Promise<SaveResult> {
 
   const fotos = fotoHinweis(parsed.data.photos.length, fotopflichtGilt());
   if (fotos) return { error: fotos };
+
+  const fremd = await fremdeFotoAdressen(parsed.data.photos.map((p) => p.url));
+  if (fremd.length) return { error: FREMDE_FOTOS };
 
   const limit = await checkRateLimit(`listing:${me.id}`, 10, 24 * 60 * 60);
   if (!limit.ok) return { error: "Zu viele Inserate in kurzer Zeit. Bitte morgen weitermachen." };
@@ -143,6 +151,9 @@ export async function updateListingAction(vehicleId: string, raw: unknown): Prom
    */
   const fotos = fotoHinweis(parsed.data.photos.length, fotopflichtGilt());
   if (fotos) return { error: fotos };
+
+  const fremd = await fremdeFotoAdressen(parsed.data.photos.map((p) => p.url));
+  if (fremd.length) return { error: FREMDE_FOTOS };
 
   // Kilometerstand darf nicht zurücklaufen — das wäre entweder ein Tippfehler
   // oder ein Manipulationsversuch.

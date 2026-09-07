@@ -105,9 +105,28 @@ async function main() {
     folge: "Links in E-Mails und die Rücksprungadressen von Stripe zeigen auf localhost.",
     hinweis: "SITE_URL setzen.",
   });
+  /*
+   * Der Notnagel ist keine Einrichtung. Greift er, ist die Seite erreichbar
+   * und alles sieht in Ordnung aus — nur trägt jede E-Mail, jede Sitemap-Zeile
+   * und jede Linkvorschau die Adresse des Anbieters statt der eigenen Domain.
+   * Genau deshalb steht das hier eigens: Die Prüfung darüber war schon grün.
+   */
+  pruefe(
+    !gesetzt("VERCEL_PROJECT_PRODUCTION_URL") || gesetzt("SITE_URL", "NEXT_PUBLIC_SITE_URL"),
+    "Basisadresse ist die eigene",
+    {
+      grad: "fehler",
+      folge:
+        `Ohne SITE_URL tragen alle Links ${process.env.VERCEL_PROJECT_PRODUCTION_URL ?? "die Anbieteradresse"} ` +
+        "statt der eigenen Domain — in E-Mails, in der Sitemap und in jeder Linkvorschau.",
+      hinweis: "SITE_URL=https://autotauschen.app setzen.",
+    },
+  );
   pruefe(gesetzt("BLOB_READ_WRITE_TOKEN"), "Fotospeicher", {
-    grad: "warnung",
-    folge: "Inserate lassen sich anlegen, aber ohne Fotos.",
+    grad: "fehler",
+    folge:
+      "Ohne Speicher lässt sich kein Foto hochladen — und damit greift auch die Pflicht zu " +
+      "drei Bildern nicht: Inserate entstehen dann ganz ohne Bild.",
     hinweis: "Vercel Blob verbinden (BLOB_READ_WRITE_TOKEN).",
   });
 

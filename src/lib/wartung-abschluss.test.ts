@@ -42,6 +42,7 @@ vi.mock("@/lib/mail", () => ({
   },
   siteUrl: () => "https://autotauschen.test",
   siteUrlConfigured: () => true,
+  siteUrlAusgewichen: () => false,
   mailConfigured: () => true,
 }));
 
