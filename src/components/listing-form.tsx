@@ -15,7 +15,16 @@ import { chf, km, label } from "@/lib/format";
 import type { Body, Condition, Fuel, ServiceHistory, Vehicle, VehiclePhoto } from "@/lib/types";
 import { MAKE_NAMES, modelsFor } from "@/lib/data/catalog";
 import { featuresFor, normalizeFeatures } from "@/lib/data/features";
-import { BODIES, CONDITIONS, DRIVETRAINS, FUELS, SERVICE_HISTORIES } from "@/lib/validation";
+import {
+  BODIES,
+  CONDITIONS,
+  DRIVETRAINS,
+  fotoHinweis,
+  FUELS,
+  MAX_FOTOS,
+  MIN_FOTOS,
+  SERVICE_HISTORIES,
+} from "@/lib/validation";
 import { hasValuationInput, valuate, valueHistory } from "@/lib/valuation";
 
 export interface ListingFormValues {
@@ -194,8 +203,8 @@ export function ListingForm({
       setUploadError("Fotouploads sind auf dieser Installation nicht eingerichtet.");
       return;
     }
-    if (v.photos.length + files.length > 10) {
-      setUploadError("Höchstens zehn Fotos pro Inserat.");
+    if (v.photos.length + files.length > MAX_FOTOS) {
+      setUploadError(`Höchstens ${MAX_FOTOS} Fotos pro Inserat.`);
       return;
     }
 
@@ -238,8 +247,19 @@ export function ListingForm({
     }
   }
 
+  /*
+   * Derselbe Satz, den auch die Aktion zurückgäbe. Er steht deshalb schon am
+   * Feld und nicht erst nach dem Absenden — wer zehn Angaben ausgefüllt hat,
+   * soll nicht am Ende erfahren, dass ihm Bilder fehlen.
+   */
+  const fotoFehlt = fotoHinweis(v.photos.length, uploadsEnabled);
+
   function submit() {
     setError(null);
+    if (fotoFehlt) {
+      setError(fotoFehlt);
+      return;
+    }
     const payload = {
       ...v,
       notes: v.notes || undefined,
@@ -568,9 +588,11 @@ export function ListingForm({
         <Card className="p-5 sm:p-6">
           <h2 className="text-base font-semibold text-ink">Fotos</h2>
           <p className="mt-1 text-sm text-ink-3">
-            Bis zu zehn Bilder. Wir verkleinern sie schon im Browser — das spart dir Wartezeit
-            beim Hochladen und allen anderen Datenvolumen beim Ansehen. Ohne Fotos zeigen wir
-            eine schematische Darstellung.
+            {uploadsEnabled
+              ? `Mindestens ${MIN_FOTOS}, höchstens ${MAX_FOTOS} Bilder. Zeig das Auto von aussen, von innen und alles, was dazugehört — wer tauschen soll, muss sehen, worauf er sich einlässt.`
+              : `Bis zu ${MAX_FOTOS} Bilder.`}{" "}
+            Wir verkleinern sie schon im Browser — das spart dir Wartezeit beim Hochladen und
+            allen anderen Datenvolumen beim Ansehen.
           </p>
 
           <div className="mt-4 flex flex-wrap gap-3">
@@ -613,6 +635,15 @@ export function ListingForm({
             </label>
           </div>
           {uploadError && <p className="mt-2 text-sm text-bad">{uploadError}</p>}
+          {fotoFehlt ? (
+            <p className="mt-3 text-sm text-warn">{fotoFehlt}</p>
+          ) : (
+            uploadsEnabled && (
+              <p className="mt-3 text-sm text-good">
+                {v.photos.length} Fotos — das reicht.
+              </p>
+            )
+          )}
           {!uploadsEnabled && (
             <p className="mt-2 text-xs text-ink-3">
               Fotospeicher ist nicht konfiguriert (BLOB_READ_WRITE_TOKEN fehlt).
@@ -818,7 +849,7 @@ export function ListingForm({
           )}
           <button
             onClick={submit}
-            disabled={pending || !v.model.trim()}
+            disabled={pending || !v.model.trim() || Boolean(fotoFehlt)}
             className="w-full rounded-lg bg-marke py-2.5 text-sm font-semibold text-onmarke transition-colors hover:bg-marke-hi disabled:opacity-50"
           >
             {pending
@@ -828,7 +859,13 @@ export function ListingForm({
                 : "Änderungen speichern"}
           </button>
           <p className="mt-2 text-center text-[11px] text-ink-3">
-            Du kannst alles später jederzeit anpassen.
+            {/*
+              Kurz statt wortgleich: der ausführliche Satz steht schon beim
+              Feld, hier soll nur stehen, warum der Knopf grau ist.
+            */}
+            {fotoFehlt
+              ? `Mindestens ${MIN_FOTOS} Fotos nötig.`
+              : "Du kannst alles später jederzeit anpassen."}
           </p>
           <Link
             href="/garage"

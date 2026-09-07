@@ -130,6 +130,21 @@ dieselben Stationen wie ein Zweiertausch, mit drei Unterschieden:
 
 ### Fotos
 
+**Mindestens drei pro Inserat, höchstens zehn.** Ein Auto ohne Bild ist kein
+Angebot, sondern eine Behauptung — es geht um mehrere zehntausend Franken
+Gegenwert, und wer nur die Front zeigt, verschweigt drei Seiten. Die Grenze
+steht als `MIN_FOTOS` in `lib/validation.ts` und wird an drei Stellen
+gelesen: im Formular (Hinweis am Feld, gesperrter Knopf), beim Anlegen und
+beim Bearbeiten — sonst liesse sich ein Inserat mit drei Bildern
+veröffentlichen und die Bilder gleich danach wieder entfernen.
+
+Eine Ausnahme, und zwar eine sichtbare: Ohne eingerichteten Fotospeicher
+(`BLOB_READ_WRITE_TOKEN`) ist der Uploadknopf tot. Die Pflicht gilt dort
+nicht, weil sonst überhaupt kein Inserat mehr entstünde — für den Betrieb ist
+der Speicher Voraussetzung, in der Entwicklung und im Testlauf nicht. Vor
+diesem Datum angelegte Inserate mit weniger als drei Bildern bleiben stehen;
+beim nächsten Bearbeiten sind die fehlenden nachzuliefern.
+
 Ein heutiges Telefon liefert 4000×3000 Pixel und mehrere Megabyte. Angezeigt
 wird ein Inserat nie breiter als ein Bildschirm — deshalb verkleinert
 `lib/bilder.ts` jedes Foto **im Browser**, bevor es hochgeht: längste Kante
@@ -147,7 +162,8 @@ Angezeigt werden die Fotos über `next/image`, das je Bildschirmbreite eine
 passende Fassung in AVIF oder WebP ausliefert (`remotePatterns` in
 `next.config.ts`). Auf der Fahrzeugseite steht eine Galerie; ohne Fotos bleibt
 die generierte Silhouette — ein ehrlicher Platzhalter statt einer Behauptung
-über das Fahrzeug.
+über das Fahrzeug. Die Silhouette ist damit kein Normalfall mehr, sondern
+zeigt Altbestand und Inserate aus dem Seed.
 
 ## Erscheinungsbild
 

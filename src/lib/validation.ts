@@ -78,6 +78,43 @@ export function isBlobUrl(value: string): boolean {
   }
 }
 
+/**
+ * Wie viele Fotos ein Inserat mindestens braucht.
+ *
+ * Ein Auto ohne Bild ist kein Angebot, sondern eine Behauptung: Der Gegenwert
+ * eines Tauschs sind mehrere zehntausend Franken, und wer nur eine
+ * Frontansicht zeigt, verbirgt drei Seiten. Drei Bilder sind die Grenze, ab
+ * der man ein Auto einschätzen kann — aussen, innen, und was sonst noch
+ * dazugehört.
+ *
+ * Die Zahl steht hier, nicht im Formular und nicht in der Aktion: Text,
+ * Prüfung und Fehlermeldung müssen dieselbe nennen.
+ */
+export const MIN_FOTOS = 3;
+export const MAX_FOTOS = 10;
+
+/**
+ * Fehlt noch etwas an den Fotos? Gibt den Satz zurück, der weiterhilft, sonst
+ * null. Formular und Aktion rufen dieselbe Funktion — die Person soll beim
+ * Absenden nicht etwas anderes lesen als vorher am Feld.
+ *
+ * `pflicht` beantwortet «kann hier überhaupt jemand ein Foto hochladen?». Auf
+ * einer Installation ohne Fotospeicher (kein `BLOB_READ_WRITE_TOKEN`) ist der
+ * Knopf tot; die Pflicht hiesse dort, dass gar kein Inserat mehr entsteht.
+ * Für den Betrieb ist der Speicher ohnehin Voraussetzung, in der Entwicklung
+ * und im Testlauf nicht.
+ */
+export function fotoHinweis(anzahl: number, pflicht: boolean): string | null {
+  if (!pflicht || anzahl >= MIN_FOTOS) return null;
+  if (anzahl === 0) {
+    return `Bitte lade mindestens ${MIN_FOTOS} Fotos hoch — ohne Bilder lässt sich ein Auto nicht einschätzen.`;
+  }
+  const fehlen = MIN_FOTOS - anzahl;
+  return fehlen === 1
+    ? `Noch ein Foto: ein Inserat braucht mindestens ${MIN_FOTOS}.`
+    : `Noch ${fehlen} Fotos: ein Inserat braucht mindestens ${MIN_FOTOS}.`;
+}
+
 export const vehicleSchema = z.object({
   make: z.string().trim().min(1, "Bitte die Marke angeben.").max(40),
   model: z.string().trim().min(1, "Bitte das Modell angeben.").max(60),
@@ -123,7 +160,7 @@ export const vehicleSchema = z.object({
         height: z.coerce.number().int().min(1).max(20_000),
       }),
     )
-    .max(10)
+    .max(MAX_FOTOS)
     .default([]),
 });
 
