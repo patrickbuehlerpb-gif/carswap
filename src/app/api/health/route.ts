@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { stripeConfigured } from "@/lib/payments";
 import { siteUrlConfigured } from "@/lib/mail";
 import { missingOperatorFields } from "@/lib/operator";
+import { erlaubterFotoHost } from "@/lib/validation";
 import { haengendeGelder, mailFehler, offeneRueckbuchungen } from "@/lib/wartung";
 
 export const dynamic = "force-dynamic";
@@ -47,7 +48,13 @@ export async function GET(request: Request) {
 
   checks.zahlungen = stripeConfigured() ? "konfiguriert" : "nicht konfiguriert";
   checks.webhook = process.env.STRIPE_WEBHOOK_SECRET ? "konfiguriert" : "nicht konfiguriert";
-  checks.fotospeicher = process.env.BLOB_READ_WRITE_TOKEN ? "konfiguriert" : "nicht konfiguriert";
+  // Mit dem erwarteten Hostnamen: Er wird aus der Store-Kennung im Token
+  // abgeleitet, und wenn diese Ableitung danebenliegt, wird jedes hochgeladene
+  // Foto beim Speichern abgewiesen. Hier steht die Zeichenkette, gegen die
+  // geprüft wird — abgleichen mit einer echten Fotoadresse genügt dann.
+  checks.fotospeicher = process.env.BLOB_READ_WRITE_TOKEN
+    ? `konfiguriert (erwartet ${erlaubterFotoHost() ?? "unbekannt"})`
+    : "nicht konfiguriert";
   checks.mailversand =
     process.env.RESEND_API_KEY && process.env.MAIL_FROM ? "konfiguriert" : "nicht konfiguriert";
   checks.basisadresse = siteUrlConfigured() ? "konfiguriert" : "nicht konfiguriert";

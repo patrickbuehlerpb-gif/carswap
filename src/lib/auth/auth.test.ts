@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { rateLimits, users } from "@/lib/db/schema";
@@ -129,5 +129,67 @@ describe("Passwörter", () => {
     // deleteAccountAction setzt genau diesen Wert
     expect(await verifyPassword("irgendwas", "geloescht")).toBe(false);
     void users;
+  });
+});
+
+/**
+ * Der Fotospeicher steht hinter einem Hostnamen, der aus der Store-Kennung im
+ * Token abgeleitet wird. Liegt diese Ableitung daneben, wird jedes
+ * hochgeladene Foto beim Speichern abgewiesen — und seit ein Inserat drei
+ * Fotos braucht, entsteht dann gar kein Inserat mehr. Deshalb festgehalten.
+ */
+describe("Erlaubter Fotohost", () => {
+  const vorher = {
+    token: process.env.BLOB_READ_WRITE_TOKEN,
+    host: process.env.BLOB_PUBLIC_HOST,
+  };
+
+  afterEach(async () => {
+    // `process.env.X = undefined` schriebe die Zeichenkette "undefined" hinein.
+    for (const [name, wert] of [
+      ["BLOB_READ_WRITE_TOKEN", vorher.token],
+      ["BLOB_PUBLIC_HOST", vorher.host],
+    ] as const) {
+      if (wert === undefined) delete process.env[name];
+      else process.env[name] = wert;
+    }
+  });
+
+  it("leitet den Hostnamen aus der Kennung im Token ab", async () => {
+    const { erlaubterFotoHost, isBlobUrl } = await import("@/lib/validation");
+    delete process.env.BLOB_PUBLIC_HOST;
+    process.env.BLOB_READ_WRITE_TOKEN = "vercel_blob_rw_AbC123xYz_geheimesTeilDasNichtZaehlt";
+
+    expect(erlaubterFotoHost()).toBe("abc123xyz.public.blob.vercel-storage.com");
+    expect(isBlobUrl("https://abc123xyz.public.blob.vercel-storage.com/auto-1.webp")).toBe(true);
+    // Richtiger Dienst, fremder Speicher — darüber liesse sich ein beliebiges
+    // fremdes Bild in ein Inserat hängen.
+    expect(isBlobUrl("https://fremder.public.blob.vercel-storage.com/auto-1.webp")).toBe(false);
+    expect(isBlobUrl("http://abc123xyz.public.blob.vercel-storage.com/auto-1.webp")).toBe(false);
+    expect(isBlobUrl("https://beispiel.ch/auto-1.webp")).toBe(false);
+  });
+
+  it("lässt sich mit BLOB_PUBLIC_HOST übersteuern", async () => {
+    const { erlaubterFotoHost, isBlobUrl } = await import("@/lib/validation");
+    process.env.BLOB_READ_WRITE_TOKEN = "vercel_blob_rw_AbC123xYz_geheim";
+    // Der Ausweg, wenn die Ableitung nicht zum echten Speicher passt.
+    process.env.BLOB_PUBLIC_HOST = "Anderer.public.blob.vercel-storage.com";
+
+    expect(erlaubterFotoHost()).toBe("anderer.public.blob.vercel-storage.com");
+    expect(isBlobUrl("https://anderer.public.blob.vercel-storage.com/a.webp")).toBe(true);
+    expect(isBlobUrl("https://abc123xyz.public.blob.vercel-storage.com/a.webp")).toBe(false);
+  });
+
+  it("bleibt ohne Token grob, statt alles abzuweisen", async () => {
+    const { erlaubterFotoHost, isBlobUrl } = await import("@/lib/validation");
+    delete process.env.BLOB_READ_WRITE_TOKEN;
+    delete process.env.BLOB_PUBLIC_HOST;
+
+    // Ohne eingerichteten Speicher gibt es keinen eigenen Hostnamen, gegen den
+    // sich prüfen liesse. Eine harte Ablehnung wäre hier keine Sicherheit,
+    // sondern nur eine Sperre für die Entwicklung.
+    expect(erlaubterFotoHost()).toBeNull();
+    expect(isBlobUrl("https://irgendwas.public.blob.vercel-storage.com/a.webp")).toBe(true);
+    expect(isBlobUrl("https://beispiel.ch/a.webp")).toBe(false);
   });
 });

@@ -43,14 +43,19 @@ const dateSchema = z
   .optional()
   .or(z.literal(""));
 
-/** Erlaubt ausschliesslich https-Adressen aus dem Vercel-Blob-Speicher. */
 /**
  * Der eigene Blob-Speicher. Der Hostname steckt in der Store-ID des Tokens;
  * er lässt sich mit BLOB_PUBLIC_HOST auch direkt setzen. Im Browser ist keine
  * der beiden Variablen sichtbar — dort bleibt die Prüfung grob, verbindlich
  * ist ohnehin die serverseitige beim Speichern.
+ *
+ * Wird ausgegeben, damit die Betriebsprüfung ihn zeigen kann: Stimmt der
+ * abgeleitete Hostname nicht mit dem überein, den der Speicher wirklich
+ * benutzt, wird jedes Foto beim Speichern abgewiesen — und seit ein Inserat
+ * drei Fotos braucht, entstünde dann überhaupt kein Inserat mehr. Der Fehler
+ * soll ablesbar sein, bevor jemand darüber stolpert.
  */
-function eigenerBlobHost(): string | null {
+export function erlaubterFotoHost(): string | null {
   const explicit = process.env.BLOB_PUBLIC_HOST?.trim();
   if (explicit) return explicit.toLowerCase();
   const token = process.env.BLOB_READ_WRITE_TOKEN;
@@ -58,6 +63,7 @@ function eigenerBlobHost(): string | null {
   return store ? `${store.toLowerCase()}.public.blob.vercel-storage.com` : null;
 }
 
+/** Erlaubt ausschliesslich https-Adressen aus dem eigenen Vercel-Blob-Speicher. */
 export function isBlobUrl(value: string): boolean {
   try {
     const url = new URL(value);
@@ -66,8 +72,25 @@ export function isBlobUrl(value: string): boolean {
 
     // Fremde Vercel-Blob-Speicher gehören nicht dazu: über ein Inserat liesse
     // sich sonst auf beliebige andere Konten verweisen.
-    const eigener = eigenerBlobHost();
-    if (eigener) return host === eigener;
+    const eigener = erlaubterFotoHost();
+    if (eigener) {
+      if (host === eigener) return true;
+      /*
+       * Knapp daneben: die Adresse kommt aus dem richtigen Dienst, nur aus
+       * einem anderen Speicher. Das ist im Betrieb fast immer eine falsch
+       * abgeleitete Kennung und nicht der Versuch, ein fremdes Bild
+       * einzuhängen — der Person auf der Seite ist damit aber nicht zu helfen,
+       * die liest nur «lade es über diese Seite hoch». Deshalb steht der
+       * Grund im Protokoll, mit dem Namen der Variablen, die ihn behebt.
+       */
+      if (host.endsWith(".public.blob.vercel-storage.com")) {
+        console.error(
+          `[fotos] Adresse aus fremdem Speicher abgewiesen: ${host} statt ${eigener}. ` +
+            "Stimmt der erwartete Hostname nicht, lässt er sich mit BLOB_PUBLIC_HOST setzen.",
+        );
+      }
+      return false;
+    }
 
     return (
       host.endsWith(".public.blob.vercel-storage.com") ||

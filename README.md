@@ -158,6 +158,17 @@ iPhones speichern hochkant aufgenommene Bilder quer und legen die Drehung nur
 in die EXIF-Daten. Beim Zeichnen auf eine Leinwand geht die Angabe verloren —
 ohne diese Einstellung läge jedes Hochkantfoto nachher auf der Seite.
 
+Hochgeladen wird direkt vom Browser in den Vercel-Blob-Speicher; die Anwendung
+stellt dafür nur ein kurzlebiges Token aus. Beim Speichern des Inserats werden
+ausschliesslich Adressen aus dem **eigenen** Speicher angenommen — sonst liesse
+sich über ein Inserat auf ein beliebiges fremdes Bild verweisen. Der erwartete
+Hostname wird aus der Store-Kennung im `BLOB_READ_WRITE_TOKEN` abgeleitet und
+steht in `/api/health` unter `fotospeicher`; passt er nicht zum echten
+Speicher, lässt er sich mit `BLOB_PUBLIC_HOST` direkt setzen. Eine abgewiesene
+Adresse aus dem richtigen Dienst schreibt den Grund samt beider Hostnamen ins
+Protokoll — auf der Seite steht nur «lade es über diese Seite hoch», und damit
+wäre der Fehler sonst nicht zu finden.
+
 Angezeigt werden die Fotos über `next/image`, das je Bildschirmbreite eine
 passende Fassung in AVIF oder WebP ausliefert (`remotePatterns` in
 `next.config.ts`). Auf der Fahrzeugseite steht eine Galerie; ohne Fotos bleibt
