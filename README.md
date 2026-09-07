@@ -345,6 +345,26 @@ createdb carswap
 export DATABASE_URL=postgresql://localhost:5432/carswap
 ```
 
+**Eine einmal ausgelieferte Migration wird nie mehr neu erzeugt.** Der
+Migrator entscheidet am Zeitstempel im Journal, ob eine Datei noch aussteht —
+nicht an ihrem Inhalt. Wer `drizzle-kit generate` für eine bestehende Nummer
+noch einmal laufen lässt, bekommt einen neuen Zeitstempel, und jede Datenbank,
+die die alte Fassung schon hatte, führt die neue ein zweites Mal aus. Genau
+das ist mit `0012_mailfehler` passiert: die Produktionsdatenbank hatte die
+Tabelle bereits, der zweite Anlauf brach mit `42P07` ab, und acht Deploys
+hintereinander sind daran gescheitert, ohne dass es jemandem auffiel.
+
+Was stattdessen gilt: Änderungen kommen als **neue** Migration. Muss eine
+schon gelaufene doch angefasst werden, dann nur so, dass sie ein zweites Mal
+folgenlos durchläuft — `IF NOT EXISTS` auf Tabelle, Spalte und Index, und der
+Zielzustand muss von beiden Ausgangslagen aus derselbe sein. `0012` zeigt, wie
+das aussieht.
+
+Prüfen lässt sich das ohne Produktionszugang: eine Wegwerfdatenbank anlegen,
+einmal vollständig migrieren, den alten Zustand von Hand wiederherstellen
+(Spalte löschen, Journaleinträge ab dem fraglichen Zeitstempel entfernen) und
+erneut migrieren. Beide Wege müssen bei derselben Form landen.
+
 ## Fahrzeugkatalog
 
 `src/lib/data/catalog.ts` enthält 66 Marken mit 671 Modellen für den Schweizer
