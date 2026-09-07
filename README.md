@@ -309,7 +309,7 @@ der Lauf womöglich alten Code und meldet ein falsches Grün. Wer seit dem
 letzten Bauen nichts geändert hat, spart die halbe Minute mit
 `npm run e2e:schnell`.
 
-Geprüft wird gegen den Produktions-Build, nicht gegen `next dev`: Middleware,
+Geprüft wird gegen den Produktions-Build, nicht gegen `next dev`: Proxy,
 Sicherheitsrichtlinie und Serverkomponenten verhalten sich dort anders. Chromium
 wird nicht heruntergeladen, wenn `PLAYWRIGHT_BROWSERS_PATH` schon eines
 bereitstellt.
@@ -478,7 +478,8 @@ der Fokus dabei jeweils dort bleibt, wo er hingehört. Die Farbpalette prüft
 Ein paar Entscheidungen, die nicht offensichtlich sind:
 
 - **Die Content-Security-Policy arbeitet mit einer Nonce je Antwort.** Sie
-  wird in der Middleware gesetzt (`src/lib/security-headers.ts`); Next.js liest
+  wird in `src/proxy.ts` gesetzt (Regeln in `src/lib/security-headers.ts`);
+  Next.js liest
   sie aus der CSP der Anfrage und hängt sie an seine eigenen Skript-Tags.
   `strict-dynamic` erlaubt den so freigegebenen Skripten, die Chunks des
   Routers nachzuladen. Für Stile bleibt `'unsafe-inline'`: React setzt
@@ -548,8 +549,11 @@ Ein paar Entscheidungen, die nicht offensichtlich sind:
   prüft auch bei unbekannter Adresse einen Hash, damit die Antwortzeit nichts
   verrät.
 - **Sicherheits-Header** in `next.config.ts` (nosniff, Referrer-Policy,
-  X-Frame-Options, Permissions-Policy, HSTS); die CSP kommt aus der Middleware,
-  weil sie je Antwort eine frische Nonce braucht.
+  X-Frame-Options, Permissions-Policy, HSTS); die CSP kommt aus `src/proxy.ts`,
+  weil sie je Antwort eine frische Nonce braucht. Die Datei hiess
+  `middleware.ts`; in dieser Next-Fassung ist der Name abgekündigt und die
+  alte Schreibweise fällt beim nächsten Hauptsprung weg — mitsamt der CSP und
+  der gleitenden Cookie-Verlängerung, still und ohne Fehler.
 
 ## Zahlungen
 
@@ -650,6 +654,75 @@ Fälle stehen in `/admin/betrieb` und unter `rueckbuchungen` in `/api/health`.
 Ohne gesetzte `OPERATOR_EMAIL` schreibt das Log einen Fehler — dann erfährt
 niemand davon.
 
+## Was die Oberfläche behauptet
+
+Der Code ist einmal vollständig durchgesehen worden — Geldweg, Zugang und
+Konto, Handelsschicht, zuletzt die Seiten und Komponenten. Der letzte
+Durchgang hatte ein eigenes Muster: nicht falsch gerechnet, sondern falsch
+gesagt. Eine Seite, die etwas behauptet, das nicht stimmt, ist bei einem
+Tausch unter Privatpersonen kein Schönheitsfehler — jemand handelt danach.
+
+- **«Der Betrag ist hinterlegt» kam aus der Adresse, nicht aus der Zahlung.**
+  Nach dem Checkout leitet Stripe auf `?treuhand=ok` zurück, und die Seite
+  sagte daraufhin, das Geld liege bei uns. Die Adresse lässt sich eintippen,
+  und selbst nach einer echten Zahlung ist die Rückleitung meist vor unserem
+  Webhook da. Die Gegenseite hätte darauf ihr Auto übergeben. Jetzt
+  entscheidet der Zustand der Zahlung; solange er offen ist, steht da, dass
+  wir noch auf die Bank warten.
+- **«Der Betrag ist reserviert» galt, sobald es überhaupt eine Zahlungszeile
+  gab** — auch bei «erstellt» (Checkout geöffnet, nie bezahlt), «storniert»,
+  «erstattet» oder nach einer Rückbuchung. Massgeblich ist jetzt
+  `zahlungBrauchbar()`, dieselbe Regel, nach der auch ausgezahlt wird.
+- **Welche Zahlungszeile für einen Tausch gilt, steht an einer Stelle.**
+  `currentDealPayment()` neben `currentRingPayments()`: nicht die jüngste,
+  sondern die brauchbare. Nach einem abgebrochenen zweiten Anlauf ist die
+  neueste die stornierte — die Seite hätte reserviertes Geld für verschwunden
+  gehalten, während der Abschluss damit rechnet.
+- **«31 vergleichbare Inserate» war eine Formel.** Die Zahl kam aus Alter und
+  Markenverbreitung, nicht aus einer gezählten Zeile in `listings`. Am
+  Starttag mit vier Autos im Markt hätte sie eine Marktbreite belegt, die es
+  nicht gibt. Die Zuverlässigkeit bleibt, der Beleg ist weg — und daneben
+  steht jetzt, dass es eine rechnerische Schätzung ist.
+- **«Beidseitig» galt auch ohne Wunsch.** Eine leere Wunschliste besteht jede
+  Prüfung, weil sie keine stellt; formal passte damit jedes Auto zu jedem, und
+  daneben stand «X sucht ausdrücklich ein Fahrzeug wie deines». Der
+  Mailversand kannte die Regel bereits und schickte für solche Treffer
+  bewusst nichts — jetzt steht sie als `wunschIstEcht()` im Matching, wo
+  Oberfläche und Mail dieselbe lesen.
+- **Die erklärte Geldgrenze gilt für alle drei.** Wer schreibt, höchstens
+  tausend Franken zuzahlen zu wollen, wurde im Zweiertausch daran gemessen —
+  aber nur als Gegenseite. Die eigene Grenze stand nur in der Wunschliste und
+  wurde beim Suchen nie gelesen, die Ringsuche las gar keine. Jetzt prüfen
+  beide Seiten mit derselben Funktion, und ein Ring, der schon auf dem Papier
+  an einer erklärten Grenze scheitert, verdrängt keinen möglichen mehr aus den
+  sechs besten.
+- **Gesperrtes ist weg, Pausiertes sagt es.** Ein von der Betreiberin nach
+  einer bestätigten Meldung gesperrtes Inserat blieb unter einer in der
+  Sitemap indexierten Adresse vollständig lesbar und bot «Tausch vorschlagen»
+  an — der Knopf führte auf eine Seite, die mit 404 endet. Es ist jetzt für
+  alle ausser dem Besitzer weg und fällt auch aus der Merkliste. Pausierte,
+  verhandelte und getauschte Autos bleiben sichtbar, sagen aber auf der
+  Fahrzeugseite und auf der Karte, dass sie nicht zu haben sind.
+- **Vollständigkeitsaussagen über einen Ausschnitt.** Die Treffer-Seite
+  rechnet über die 500 neuesten Inserate — wie der Marktplatz, nur sagte sie
+  es nicht, während sie «niemand sucht ein Auto wie deines» schrieb. Der
+  nächtliche Trefferlauf hatte gar keine Obergrenze und wäre bei vollem Markt
+  in die Laufzeitgrenze gelaufen; dann bekäme niemand mehr eine Meldung.
+- **Dasselbe Geld, zwei Vorzeichen.** Auf der Fahrzeugseite stand «+CHF 2'000»
+  für die Zuzahlung, die in der Tausch- und Ringliste als «−CHF 2'000»
+  erscheint. Jetzt steht dort ein Wort statt eines Vorzeichens — «du zahlst»,
+  «du erhältst», wie auf der Fahrzeugkarte.
+
+Dazu drei Stellen, an denen die Seite ganz verschwand: der Kopf im
+Wurzellayout fragte ungesichert die Datenbank, und weil `error.tsx` innerhalb
+dieses Layouts sitzt, riss ein Blip auch `/impressum`, `/agb` und
+`/datenschutz` in den globalen Fehlerfall. Die Ringseite stürzte ab, wenn ein
+Bein fehlte, und sperrte die Beteiligten aus einem laufenden Ring samt Geld
+aus. Und der Datenexport entwertete die Objektadresse im selben Durchlauf, in
+dem der Klick den Download erst anstösst — in Firefox und Safari passierte
+dann nichts, ohne Fehlermeldung, obwohl die Auskunft in der
+Datenschutzerklärung zugesagt ist.
+
 ## Struktur
 
 ```
@@ -676,7 +749,9 @@ src/
     treffer.ts         Täglicher Lauf: neue beidseitige Treffer per Mail
     wartung.ts         Täglicher Lauf: Abschlüsse nachholen, aufräumen
     lagebericht.ts     Was die Betreiberin heute wissen muss — sonst nichts
+    bindung.ts         Steckt dieses Auto schon in einem verbindlichen Vorgang?
     validation.ts      Zod-Schemata für alle Eingaben
+  proxy.ts             CSP mit Nonce, gleitende Cookie-Verlängerung
 scripts/               Migration, Seed, Demo-Daten
 drizzle/               Erzeugte SQL-Migrationen
 ```
