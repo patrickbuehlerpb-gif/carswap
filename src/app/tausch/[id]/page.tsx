@@ -31,7 +31,7 @@ export default async function TauschPage({
   const { mine } = await searchParams;
 
   const me = await getSessionUser();
-  if (!me) redirect(`/konto/anmelden?next=/tausch/${id}`);
+  if (!me) redirect(`/konto/anmelden?next=/tausch/${encodeURIComponent(id)}`);
 
   const view = await getListingByVehicle(id);
   if (!view || view.listing.status !== "aktiv") notFound();

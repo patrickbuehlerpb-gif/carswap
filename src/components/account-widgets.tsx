@@ -471,12 +471,24 @@ export function DatenUndLoeschung() {
         setError(res.error ?? "Die Auskunft konnte nicht erstellt werden.");
         return;
       }
+      /*
+       * Der Anker muss im Dokument hängen und die Objektadresse einen Tick
+       * überleben. Vorher wurde sie im selben Durchlauf wieder entwertet, in
+       * dem der Klick den Download erst anstösst — in Firefox und Safari
+       * passierte dann gar nichts, ohne Fehlermeldung. Die Auskunft ist
+       * zugesagt; sie darf nicht still ausbleiben.
+       */
       const url = URL.createObjectURL(new Blob([res.json], { type: "application/json" }));
       const a = document.createElement("a");
       a.href = url;
       a.download = "autotauschen-meine-daten.json";
+      a.style.display = "none";
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => {
+        a.remove();
+        URL.revokeObjectURL(url);
+      }, 0);
     });
   }
 

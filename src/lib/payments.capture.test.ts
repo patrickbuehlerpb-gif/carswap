@@ -37,7 +37,8 @@ vi.mock("stripe", () => {
   return { default: FakeStripe };
 });
 
-const { captureAndPayout, PaymentStateError, PayoutBlockedError } = await import("@/lib/payments");
+const { captureAndPayout, currentDealPayment, zahlungBrauchbar, PaymentStateError, PayoutBlockedError } =
+  await import("@/lib/payments");
 
 /** Ein Tausch mit hinterlegter Zahlung im gewünschten Zustand. */
 async function aufbau(status: (typeof payments.$inferSelect)["status"], konto = true) {
@@ -199,3 +200,70 @@ describe("captureAndPayout", () => {
 
 void users;
 void vehicles;
+
+/**
+ * Welche Zeile für einen Tausch gilt, entscheidet nicht das Datum. Die
+ * Abwicklung und die Vorgangsseite müssen dieselbe nehmen — sonst rechnet die
+ * eine mit Geld, das die andere für verschwunden hält.
+ */
+describe("currentDealPayment", () => {
+  async function zweiteZeile(
+    dealId: string,
+    payerId: string,
+    payeeId: string,
+    status: (typeof payments.$inferSelect)["status"],
+  ) {
+    const id = newId("pay");
+    await db.insert(payments).values({
+      id,
+      dealId,
+      payerId,
+      payeeId,
+      amountMinor: 400_000,
+      feeMinor: 12_000,
+      status,
+      // Jünger als die aus `aufbau`.
+      createdAt: new Date(Date.now() + 60_000),
+      stripePaymentIntentId: `pi_${id}`,
+    });
+    return id;
+  }
+
+  it("nimmt die gültige Reservierung, nicht die jüngere stornierte", async () => {
+    const { a, b, dealId, payment } = await aufbau("autorisiert");
+    await zweiteZeile(dealId, a, b, "storniert");
+
+    const gewaehlt = await currentDealPayment(dealId);
+    expect(gewaehlt?.id).toBe(payment.id);
+    expect(zahlungBrauchbar(gewaehlt)).toBe(true);
+  });
+
+  it("gibt die jüngste zurück, wenn keine brauchbar ist", async () => {
+    const { a, b, dealId } = await aufbau("storniert");
+    const neuere = await zweiteZeile(dealId, a, b, "erstellt");
+
+    const gewaehlt = await currentDealPayment(dealId);
+    // Die Seite soll den letzten Versuch zeigen können — behaupten, es liege
+    // Geld, darf sie deswegen nicht.
+    expect(gewaehlt?.id).toBe(neuere);
+    expect(zahlungBrauchbar(gewaehlt)).toBe(false);
+  });
+
+  it("hält eine verfallene Reservierung nicht für hinterlegtes Geld", async () => {
+    const { dealId, payment } = await aufbau("autorisiert");
+    await db
+      .update(payments)
+      .set({ authorizedAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000) })
+      .where(eq(payments.id, payment.id));
+
+    const gewaehlt = await currentDealPayment(dealId);
+    expect(gewaehlt?.id).toBe(payment.id);
+    expect(zahlungBrauchbar(gewaehlt)).toBe(false);
+  });
+
+  it("meldet nichts, wenn es zum Tausch gar keine Zahlung gibt", async () => {
+    const { dealId, payment } = await aufbau("autorisiert");
+    await db.delete(payments).where(eq(payments.id, payment.id));
+    expect(await currentDealPayment(dealId)).toBeNull();
+  });
+});

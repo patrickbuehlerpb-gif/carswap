@@ -365,12 +365,22 @@ export function valuate(vehicle: Vehicle, asOf?: string): Valuation {
     });
   }
 
-  // Je jünger und je gängiger das Fahrzeug, desto sicherer die Schätzung
-  const comparables = Math.max(
+  /*
+   * Je jünger und je gängiger das Fahrzeug, desto sicherer die Schätzung.
+   *
+   * Diese Zahl stand bis hierher als «vergleichbare Inserate» auf der
+   * Fahrzeugseite und als Kennzahl «Vergleichbare» auf der Startseite — sie
+   * ist aber nie eine gezählte Zeile in `listings` gewesen, sondern kommt aus
+   * dieser Formel. Am Starttag mit vier Autos im Markt hätte dort «31
+   * vergleichbare Inserate» gestanden und eine Marktbreite belegt, die es
+   * nicht gab. Sie bleibt als Zwischengrösse für die Zuverlässigkeit, wird
+   * aber nicht mehr als Beleg ausgegeben.
+   */
+  const abdeckung = Math.max(
     3,
     Math.round(48 * Math.exp(-ageYears / 5) * (BRAND_STRENGTH[vehicle.make] ?? 1)),
   );
-  const confidence = Math.max(0.45, Math.min(0.93, 0.5 + comparables / 90));
+  const confidence = Math.max(0.45, Math.min(0.93, 0.5 + abdeckung / 90));
   const spread = 0.14 - confidence * 0.08;
 
   return {
@@ -380,7 +390,6 @@ export function valuate(vehicle: Vehicle, asOf?: string): Valuation {
     high: deckeln(value * (1 + spread), vehicle.listPriceNew),
     breakdown,
     confidence,
-    comparables,
   };
 }
 

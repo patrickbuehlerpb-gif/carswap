@@ -53,6 +53,7 @@ export function DealDetail({
   detail,
   meId,
   payment,
+  geldLiegt,
   escrowFeeMinor,
   paymentsEnabled,
   escrowNotice,
@@ -62,6 +63,14 @@ export function DealDetail({
   detail: DealDetailData;
   meId: string;
   payment: PaymentSummary | null;
+  /**
+   * Liegt das Geld wirklich? Die blosse Existenz einer Zahlungszeile sagt das
+   * nicht: «erstellt» heisst, der Checkout wurde geöffnet und nie bezahlt,
+   * «storniert» und «erstattet» heissen, es ist wieder weg, und bei einer
+   * Rückbuchung hat Stripe es uns längst abgezogen. Die Antwort kommt aus
+   * `zahlungBrauchbar`, derselben Regel, nach der auch ausgezahlt wird.
+   */
+  geldLiegt: boolean;
   /** Zahlungsgebühr in Rappen, die beim Hinterlegen dazukommt */
   escrowFeeMinor: number;
   paymentsEnabled: boolean;
@@ -426,9 +435,11 @@ export function DealDetail({
           {deal.status === "treuhand" && (
             <>
               <p className="mt-3 text-sm text-ink-2">
-                {payment
+                {geldLiegt
                   ? "Der Betrag ist reserviert. Arbeitet die Checkliste ab und bestätigt anschliessend die Übergabe — danach erfolgt die Auszahlung."
-                  : "Es zahlt niemand drauf. Geht die Checkliste durch und bestätigt die Übergabe."}
+                  : deal.cashDelta === 0
+                    ? "Es zahlt niemand drauf. Geht die Checkliste durch und bestätigt die Übergabe."
+                    : "Der Ausgleich ist gerade nicht reserviert — die Einzahlung ist noch nicht bestätigt oder wieder verfallen. Übergebt das Auto erst, wenn hier steht, dass der Betrag liegt."}
               </p>
 
               <div className="mt-4 flex gap-2 text-xs">

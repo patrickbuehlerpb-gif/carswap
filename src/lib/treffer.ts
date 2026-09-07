@@ -1,13 +1,13 @@
 import "server-only";
-import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { db } from "./db";
 import { listings, matchNotices, users, vehicles } from "./db/schema";
-import { toListing, toUser, toVehicle } from "./queries";
-import { findMatches } from "./matching";
+import { MARKTPOOL_LIMIT, toListing, toUser, toVehicle } from "./queries";
+import { findMatches, wunschIstEcht } from "./matching";
 import { chf, vehicleTitle } from "./format";
 import { sendMail, siteUrl } from "./mail";
 import type { ListingEntry } from "./matching";
-import type { Match, SwapWish, Vehicle } from "./types";
+import type { Match, Vehicle } from "./types";
 
 /**
  * Meldet neue Treffer per Mail.
@@ -36,26 +36,6 @@ interface Kandidat {
   email: string;
 }
 
-/**
- * Hat diese Person überhaupt gesagt, was sie sucht?
- *
- * Ein leerer Wunsch besteht jede Prüfung — er stellt ja keine. Die Passung
- * gilt dann formal als beidseitig, obwohl die Gegenseite nie etwas gesucht
- * hat. Eine Mail «jemand sucht ausdrücklich ein Auto wie deines» wäre in dem
- * Fall schlicht falsch.
- *
- * Der Höchstbetrag zählt bewusst nicht mit: er sagt, was jemand ausgeben
- * will, nicht welches Auto er will.
- */
-function wunschIstEcht(wish: SwapWish): boolean {
-  return Boolean(
-    wish.makes.length ||
-      wish.bodies.length ||
-      wish.fuels.length ||
-      wish.minYear !== undefined ||
-      wish.maxMileageKm !== undefined,
-  );
-}
 
 /**
  * Nur beidseitige Treffer mit einem echten Wunsch dahinter sind eine Mail
@@ -93,14 +73,28 @@ export async function verschickeTreffermeldungen(): Promise<TrefferLauf> {
   return { benachrichtigt, gemeldet, fehler };
 }
 
-/** Alle aktiven Inserate — derselbe Bestand, den die Treffer-Seite benutzt. */
+/**
+ * Der Bestand, gegen den gerechnet wird — dieselbe Obergrenze wie auf der
+ * Treffer-Seite.
+ *
+ * Ohne Deckel zog dieser Lauf jede aktive Zeile samt Fahrzeug und Konto in den
+ * Speicher und rechnete dann Kandidaten × eigene Fahrzeuge × Inserate. Bei
+ * einem vollen Markt läuft er damit in die Laufzeit- oder Speichergrenze — und
+ * dann bekommt niemand mehr eine Meldung, auch die nicht, deren Treffer im
+ * ersten Hundert gestanden hätte. Ausserdem meldete er Treffer aus einem
+ * Bestand, den die Seite gar nicht anzeigen kann.
+ *
+ * Die neuesten zuerst: dieselbe Reihenfolge, in der auch die Seite deckelt.
+ */
 async function ladeBestand(): Promise<ListingEntry[]> {
   const rows = await db
     .select({ listing: listings, vehicle: vehicles, owner: users })
     .from(listings)
     .innerJoin(vehicles, eq(vehicles.id, listings.vehicleId))
     .innerJoin(users, eq(users.id, listings.ownerId))
-    .where(eq(listings.status, "aktiv"));
+    .where(eq(listings.status, "aktiv"))
+    .orderBy(desc(listings.createdAt))
+    .limit(MARKTPOOL_LIMIT);
 
   return rows.map((r) => ({
     listing: toListing(r.listing),

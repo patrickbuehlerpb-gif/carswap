@@ -1,15 +1,43 @@
 import Link from "next/link";
+import { unstable_rethrow } from "next/navigation";
 import { and, count, eq, inArray, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { deals } from "@/lib/db/schema";
 import { getSessionUser } from "@/lib/auth/session";
 import { NavLinks, UserMenu } from "./site-nav";
 
-export async function SiteHeader() {
-  const user = await getSessionUser();
+/*
+ * Der Kopf steht im Wurzellayout und fragt die Datenbank. Wirft er, greift
+ * nicht `error.tsx` — das sitzt innerhalb dieses Layouts —, sondern
+ * `global-error.tsx`: ein kurzer Datenbankausfall machte damit auch
+ * /impressum, /agb und /datenschutz unerreichbar, die gar keine Daten
+ * brauchen. Die Sitemap sichert sich aus genau demselben Grund ab.
+ *
+ * Der Preis ist ehrlich benannt: fällt die Abfrage aus, sieht der Kopf für
+ * diesen Aufruf abgemeldet aus. Das ist weniger schlimm als eine Seite, die
+ * gar nicht mehr da ist.
+ *
+ * `unstable_rethrow` muss dabei sein: Next wirft für `cookies()` beim
+ * Vorrendern einen eigenen Fehler, mit dem es die Route als dynamisch
+ * markiert. Ohne das Weiterwerfen verschluckt dieses `catch` genau dieses
+ * Signal — der Kopf würde dann fest als «abgemeldet» in die vorgerenderte
+ * Seite eingebacken.
+ */
+async function kopfdaten(): Promise<{
+  user: Awaited<ReturnType<typeof getSessionUser>>;
+  openDeals: number;
+}> {
+  let user: Awaited<ReturnType<typeof getSessionUser>> = null;
+  try {
+    user = await getSessionUser();
+  } catch (err) {
+    unstable_rethrow(err);
+    console.error("[header] Anmeldezustand nicht ladbar:", err);
+    return { user: null, openDeals: 0 };
+  }
+  if (!user) return { user: null, openDeals: 0 };
 
-  let openDeals = 0;
-  if (user) {
+  try {
     const rows = await db
       .select({ n: count() })
       .from(deals)
@@ -19,8 +47,17 @@ export async function SiteHeader() {
           inArray(deals.status, ["vorschlag", "verhandlung", "angenommen", "treuhand"]),
         ),
       );
-    openDeals = rows[0]?.n ?? 0;
+    return { user, openDeals: rows[0]?.n ?? 0 };
+  } catch (err) {
+    unstable_rethrow(err);
+    // Die Zahl neben «Tausche» ist ein Hinweis, kein Inhalt.
+    console.error("[header] Offene Tausche nicht zählbar:", err);
+    return { user, openDeals: 0 };
   }
+}
+
+export async function SiteHeader() {
+  const { user, openDeals } = await kopfdaten();
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-surface/85 backdrop-blur-md">

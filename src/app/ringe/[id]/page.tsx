@@ -23,7 +23,7 @@ export default async function RingPage({
   const { treuhand } = await searchParams;
 
   const me = await getSessionUser();
-  if (!me) redirect(`/konto/anmelden?next=/ringe/${id}`);
+  if (!me) redirect(`/konto/anmelden?next=/ringe/${encodeURIComponent(id)}`);
 
   const ring = await getRingForUser(id, me.id);
   if (!ring) notFound();
@@ -44,6 +44,33 @@ export default async function RingPage({
   )) {
     gebuehren[`${t.payerId}|${t.payeeId}`] = platformFee(Math.round(t.amount * 100));
   }
+
+  /*
+   * Der Rückkehrparameter sagt nur, woher jemand kommt — nicht, ob Geld liegt.
+   * Die Adresse lässt sich eintippen, und selbst nach einer echten Zahlung ist
+   * Stripes Rückleitung meist vor unserem Webhook da. Massgeblich ist deshalb,
+   * ob meine Wege wirklich hinterlegt sind; sonst hätte die Zeile «liegt jetzt
+   * bei uns» allein aufgrund der Adresse gestanden — und die anderen beiden
+   * hätten darauf ihre Autos übergeben.
+   */
+  const meineWege = ringTransfers(
+    ring.participants.map((p) => ({ userId: p.user.id, cash: p.cash })),
+  ).filter((t) => t.payerId === me.id);
+  const meinGeldLiegt =
+    meineWege.length > 0 &&
+    meineWege.every((t) =>
+      ring.payments.some((z) => z.payerId === t.payerId && z.payeeId === t.payeeId && z.brauchbar),
+    );
+
+  const escrowNotice =
+    treuhand === "ok"
+      ? meinGeldLiegt
+        ? "Danke. Der Betrag ist hinterlegt und liegt jetzt bei uns."
+        : "Danke. Wir warten noch auf die Bestätigung der Bank — das dauert meist ein paar " +
+          "Sekunden. Lade die Seite gleich neu."
+      : treuhand === "abgebrochen"
+        ? "Die Einzahlung wurde abgebrochen. Du kannst es jederzeit erneut versuchen."
+        : null;
 
   return (
     <div>
@@ -66,13 +93,7 @@ export default async function RingPage({
         feesMinor={gebuehren}
         meineBewertungen={meineBewertungen}
         paymentsEnabled={stripeConfigured()}
-        escrowNotice={
-          treuhand === "ok"
-            ? "Danke. Der Betrag ist hinterlegt und liegt jetzt bei uns."
-            : treuhand === "abgebrochen"
-              ? "Die Einzahlung wurde abgebrochen. Du kannst es jederzeit erneut versuchen."
-              : null
-        }
+        escrowNotice={escrowNotice}
       />
       <KontaktKarte kontakte={kontakte} />
     </div>

@@ -61,6 +61,21 @@ export function VehicleCard({
             <p className="truncate text-xs text-ink-3">{vehicle.trim || " "}</p>
           </Link>
           <div className="flex shrink-0 gap-1.5">
+            {/*
+              Eine Karte in der Merkliste kann längst getauscht, pausiert oder
+              in Verhandlung sein. Ohne diesen Hinweis stand sie dort unverändert
+              als Angebot — mit aktuellem Marktwert und Link, als wäre sie zu
+              haben.
+            */}
+            {listing && listing.status !== "aktiv" && (
+              <Badge tone="warn">
+                {listing.status === "getauscht"
+                  ? "getauscht"
+                  : listing.status === "in verhandlung"
+                    ? "in Verhandlung"
+                    : "pausiert"}
+              </Badge>
+            )}
             {mutual && <Badge tone="marke">beidseitig</Badge>}
             {watched && <Badge tone="info">gemerkt</Badge>}
           </div>

@@ -91,7 +91,25 @@ export function RingDetail({
   const me = ring.participants[meIndex];
   const nachId = new Map(ring.participants.map((p) => [p.user.id, p]));
   // Ich bekomme das Auto der Person, die mich als Empfänger nennt.
-  const iGet = ring.participants.find((p) => p.receiverId === meId)!;
+  const iGet = ring.participants.find((p) => p.receiverId === meId);
+
+  /*
+   * Ohne diese Prüfung stand hier eine Nicht-null-Zusicherung, und die erste
+   * Verwendung von `iGet` warf. Wer in einem Ring steckt, dessen Beine nicht
+   * zusammenpassen, sähe dann nur noch die Fehlerkarte — und käme an einen
+   * laufenden Ring samt hinterlegtem Geld gar nicht mehr heran. Die Ringliste
+   * fängt denselben Fall längst ab.
+   */
+  if (!me || !iGet) {
+    return (
+      <Card className="p-6">
+        <p className="text-sm text-ink-2">
+          Dieser Ringtausch lässt sich gerade nicht vollständig darstellen. Bitte melde dich beim
+          Support — wir sehen uns den Vorgang an. Es geht dabei nichts verloren.
+        </p>
+      </Card>
+    );
+  }
 
   const meta = STATUS_META[ring.status];
   const stepIndex = STEPS.findIndex(
@@ -104,12 +122,14 @@ export function RingDetail({
     ring.participants.map((p) => ({ userId: p.user.id, cash: p.cash })),
   );
   const meineZahlungen = transfers.filter((t) => t.payerId === meId);
+  const zahlungZu = (payerId: string, payeeId: string) =>
+    ring.payments.find((p) => p.payerId === payerId && p.payeeId === payeeId) ?? null;
   const zahlungStatus = (payerId: string, payeeId: string) =>
-    ring.payments.find((p) => p.payerId === payerId && p.payeeId === payeeId)?.status ?? null;
-  const meineOffenen = meineZahlungen.filter((t) => {
-    const status = zahlungStatus(t.payerId, t.payeeId);
-    return status !== "autorisiert" && status !== "eingezogen" && status !== "ausgezahlt";
-  });
+    zahlungZu(payerId, payeeId)?.status ?? null;
+  // Nicht am Status entlang aufgezählt, sondern an der Regel, nach der auch
+  // ausgezahlt wird: eine verfallene Reservierung oder ein zurückgebuchter
+  // Betrag stand hier vorher als erledigt.
+  const meineOffenen = meineZahlungen.filter((t) => !zahlungZu(t.payerId, t.payeeId)?.brauchbar);
 
   const offeneZusagen = ring.participants.filter((p) => !p.accepted);
   const offeneBestaetigungen = ring.participants.filter((p) => !p.confirmed);

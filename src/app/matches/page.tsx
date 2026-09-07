@@ -5,10 +5,12 @@ import { MatchFinder } from "@/components/match-finder";
 import { Card, SectionHead } from "@/components/ui";
 import { getSessionUser } from "@/lib/auth/session";
 import {
+  countActiveListings,
   countMyActiveListings,
   getActiveListings,
   getMyVehicles,
   getPublicUser,
+  MARKTPOOL_LIMIT,
 } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Treffer" };
@@ -18,11 +20,12 @@ export default async function MatchesPage() {
   const me = await getSessionUser();
   if (!me) redirect("/konto/anmelden?next=/matches");
 
-  const [pool, myVehicles, publicMe, eigeneAktiv] = await Promise.all([
+  const [pool, myVehicles, publicMe, eigeneAktiv, gesamt] = await Promise.all([
     getActiveListings(me.id),
     getMyVehicles(me.id),
     getPublicUser(me.id),
     countMyActiveListings(me.id),
+    countActiveListings(me.id),
   ]);
 
   return (
@@ -103,7 +106,22 @@ export default async function MatchesPage() {
           )}
         </Card>
       ) : (
-        <MatchFinder pool={pool} myVehicles={myVehicles} me={publicMe} />
+        <>
+          {/*
+            Die Seite trifft Aussagen über den ganzen Markt — «Beide Seiten
+            wollen (3)», «niemand sucht ein Auto wie deines» — rechnet aber
+            über die neuesten Inserate bis zur Obergrenze. Ohne diesen Satz
+            wäre das eine Vollständigkeitsaussage über einen Ausschnitt. Der
+            Marktplatz sagt es an derselben Stelle genauso.
+          */}
+          {gesamt > pool.length && (
+            <p className="mb-4 rounded-lg border border-line bg-surface-2 px-4 py-2.5 text-xs text-ink-2">
+              Ausser deinen stehen {gesamt} Autos zum Tausch. Gerechnet wird gegen die{" "}
+              {MARKTPOOL_LIMIT} neuesten — auch die Ringsuche.
+            </p>
+          )}
+          <MatchFinder pool={pool} myVehicles={myVehicles} me={publicMe} />
+        </>
       )}
     </div>
   );

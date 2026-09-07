@@ -19,7 +19,7 @@ import {
   type UserRow,
   type VehicleRow,
 } from "./db/schema";
-import { currentRingPayments } from "./payments";
+import { currentRingPayments, zahlungBrauchbar } from "./payments";
 import type { Deal, DealMessage, DealStatus, Listing, User, Vehicle } from "./types";
 
 /* ------------------------------------------------------------------ */
@@ -96,6 +96,7 @@ export function toListing(row: ListingRow): Listing {
     askPremium: row.askPremium,
     views: row.views,
     status: row.status,
+    blockedAt: row.blockedAt?.toISOString(),
   };
 }
 
@@ -516,7 +517,11 @@ export async function getWatchlist(userId: string): Promise<ListingView[]> {
     .innerJoin(listings, eq(listings.id, watchlist.listingId))
     .innerJoin(vehicles, eq(vehicles.id, listings.vehicleId))
     .innerJoin(users, eq(users.id, listings.ownerId))
-    .where(eq(watchlist.userId, userId))
+    // Ein gesperrtes Inserat verschwindet auch aus der Merkliste: was die
+    // Betreiberin nach einer Meldung aus dem Verkehr gezogen hat, soll nicht
+    // über den Umweg «gemerkt» weiter lesbar sein. Pausierte und getauschte
+    // bleiben stehen — die Karte sagt dann, woran man ist.
+    .where(and(eq(watchlist.userId, userId), isNull(listings.blockedAt)))
     .orderBy(desc(watchlist.createdAt));
   return rows.map((r) => ({
     listing: toListing(r.listing),
@@ -557,6 +562,13 @@ export interface RingPaymentView {
   amountMinor: number;
   feeMinor: number;
   status: PaymentStatus;
+  /**
+   * Liegt das Geld wirklich? Der Status allein reicht nicht: eine
+   * Reservierung verfällt nach sieben Tagen, auch ohne Ereignis von Stripe,
+   * und bei einer Rückbuchung ist der Betrag längst wieder weg. Gerechnet
+   * wird hier, weil die dafür nötigen Felder nicht in den Browser gehören.
+   */
+  brauchbar: boolean;
 }
 
 export interface RingDetail extends RingView {
@@ -675,6 +687,7 @@ export async function getRingForUser(ringId: string, userId: string): Promise<Ri
     amountMinor: row.amountMinor,
     feeMinor: row.feeMinor,
     status: row.status,
+    brauchbar: zahlungBrauchbar(row),
   }));
 
   return {

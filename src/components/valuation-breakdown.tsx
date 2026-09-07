@@ -63,7 +63,10 @@ export function ValuationBreakdown({
         <Badge tone={valuation.confidence > 0.75 ? "good" : "warn"}>
           Zuverlässigkeit {pct(valuation.confidence)}
         </Badge>
-        <Badge>{valuation.comparables} vergleichbare Inserate</Badge>
+        <span className="text-xs text-ink-3">
+          Rechnerische Schätzung aus Neupreis, Alter, Laufleistung und Zustand — kein
+          Angebotspreis.
+        </span>
       </div>
     </div>
   );

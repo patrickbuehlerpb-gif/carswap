@@ -87,6 +87,29 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
   const owner = view?.owner ?? null;
   const isMine = me?.id === vehicle.ownerId;
 
+  /*
+   * Ein gesperrtes Inserat hat die Betreiberin nach einer bestätigten Meldung
+   * aus dem Verkehr gezogen. Es blieb hier trotzdem vollständig lesbar — unter
+   * einer Adresse, die in der Sitemap steht. Wem es gehört, sieht es weiter;
+   * für alle anderen gibt es die Seite nicht mehr.
+   */
+  if (listing?.blockedAt && !isMine) notFound();
+
+  /*
+   * Pausiert, in Verhandlung, getauscht: das Auto steht dann nicht zum Tausch.
+   * Vorher zeigte die Seite unverändert «Tausch vorschlagen» — der Knopf führte
+   * auf /tausch/<id>, das mit 404 endet. Ein Versprechen, das ins Leere läuft.
+   */
+  const handelbar = listing?.status === "aktiv";
+  const nichtHandelbarGrund =
+    !listing || handelbar
+      ? null
+      : listing.status === "in verhandlung"
+        ? "Über dieses Auto wird gerade verhandelt. Kommt der Tausch nicht zustande, steht es wieder zur Verfügung."
+        : listing.status === "getauscht"
+          ? "Dieses Auto ist getauscht und steht nicht mehr zur Verfügung."
+          : "Der Besitzer hat dieses Inserat pausiert. Es steht gerade nicht zum Tausch.";
+
   const [myVehicles, watchlist, bewertungen] = await Promise.all([
     me && !isMine ? getMyVehicles(me.id) : Promise.resolve([]),
     me ? getWatchlistIds(me.id) : Promise.resolve([]),
@@ -151,7 +174,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
                   </Badge>
                 )}
                 {!vehicle.accidentFree && <Badge tone="bad">Vorschaden</Badge>}
-                {listing && !isMine && (
+                {listing && handelbar && !isMine && (
                   <WatchButton
                     listingId={listing.id}
                     vehicleId={vehicle.id}
@@ -291,6 +314,17 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
                 Inserat bearbeiten
               </Link>
             </Card>
+          ) : nichtHandelbarGrund ? (
+            <Card className="p-5">
+              <Badge tone="warn">nicht zu haben</Badge>
+              <p className="mt-3 text-sm text-ink-2">{nichtHandelbarGrund}</p>
+              <Link
+                href="/markt"
+                className="mt-4 block rounded-lg border border-line-strong py-2.5 text-center text-sm text-ink-2 transition-colors hover:border-ink-3 hover:text-ink"
+              >
+                Andere Autos ansehen
+              </Link>
+            </Card>
           ) : !me ? (
             <Card className="p-5">
               <p className="text-sm text-ink-2">
@@ -304,7 +338,7 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
                 Konto erstellen
               </Link>
               <Link
-                href={`/konto/anmelden?next=/auto/${vehicle.id}`}
+                href={`/konto/anmelden?next=/auto/${encodeURIComponent(vehicle.id)}`}
                 className="mt-2 block py-1 text-center text-sm text-ink-3 hover:text-ink"
               >
                 Ich habe schon ein Konto
@@ -342,13 +376,32 @@ export default async function VehiclePage({ params }: { params: Promise<{ id: st
                         <span className="text-sm font-medium text-ink">
                           {o.mine.make} {o.mine.model}
                         </span>
-                        <span
-                          className={`text-sm font-semibold tabular ${
-                            o.cash.delta > 0 ? "text-warn" : "text-good"
-                          }`}
-                        >
-                          {o.cash.delta > 0 ? "+" : "−"}
-                          {chf(Math.abs(o.cash.delta))}
+                        {/*
+                          Mit Wort statt Vorzeichen: hier stand «+CHF 2'000»
+                          für dieselbe Zuzahlung, die in der Tausch- und
+                          Ringliste als «−CHF 2'000» erscheint. Wer das «+»
+                          für einen Erlös hielt, fand im Vorgang das Gegenteil.
+                          Die Fahrzeugkarte macht es schon so.
+                        */}
+                        <span className="flex shrink-0 items-baseline gap-1.5">
+                          <span className="text-[11px] text-ink-3">
+                            {o.cash.delta > 0
+                              ? "du zahlst"
+                              : o.cash.delta < 0
+                                ? "du erhältst"
+                                : "Ausgleich"}
+                          </span>
+                          <span
+                            className={`text-sm font-semibold tabular ${
+                              o.cash.delta > 0
+                                ? "text-warn"
+                                : o.cash.delta < 0
+                                  ? "text-good"
+                                  : "text-ink-2"
+                            }`}
+                          >
+                            {chf(Math.abs(o.cash.delta))}
+                          </span>
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-ink-3">

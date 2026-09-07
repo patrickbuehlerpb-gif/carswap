@@ -98,6 +98,8 @@ export interface Listing {
   askPremium?: number;
   views: number;
   status: "aktiv" | "pausiert" | "in verhandlung" | "getauscht";
+  /** Von der Betreiberin gesperrt (Meldung bestätigt) — dann ist es kein Angebot mehr. */
+  blockedAt?: string;
 }
 
 export type DealStatus =
@@ -151,10 +153,11 @@ export interface Valuation {
   high: number;
   /** Aufschlüsselung, wie sich der Wert ergibt */
   breakdown: ValuationFactor[];
-  /** Wie sicher ist die Schätzung, 0..1 */
+  /**
+   * Wie sicher ist die Schätzung, 0..1 — aus Alter und Verbreitung des
+   * Modells, nicht aus gezählten Inseraten.
+   */
   confidence: number;
-  /** Vergleichbare Inserate, auf denen die Schätzung fusst */
-  comparables: number;
 }
 
 export interface ValuationFactor {

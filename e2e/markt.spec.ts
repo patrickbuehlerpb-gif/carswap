@@ -46,9 +46,12 @@ test.beforeAll(async () => {
         ${20000 + i * 500}, 'elektro', 'suv', 'heck', 210, ${50000 + i * 100}, 'gut',
         'lückenlos scheckheft', 'blau'
       )`);
+    // Mit echtem Wunsch: «beidseitig» gilt nur, wenn die Gegenseite auch
+    // wirklich etwas sucht. Eine leere Wunschliste besteht zwar jede Prüfung,
+    // aber niemand hat dann ein Auto wie meines gesucht.
     await db.execute(raw`
-      insert into listings (id, vehicle_id, owner_id, status)
-      values (${eindeutig(`lst_m${i}`)}, ${vehicleId}, ${userId}, 'aktiv')`);
+      insert into listings (id, vehicle_id, owner_id, status, wish_makes)
+      values (${eindeutig(`lst_m${i}`)}, ${vehicleId}, ${userId}, 'aktiv', '["Polestar"]'::jsonb)`);
     angelegt.push(userId);
   }
   await sql.end();
@@ -90,9 +93,9 @@ test("kommt ohne Nachladeknopf aus, wenn alles auf eine Seite passt", async ({ p
 
 /**
  * Dieselbe Rechnung auf der Treffer-Seite. «Beide Seiten wollen» war dort
- * ungedeckelt: wer nichts in die Wunschliste einträgt — und das sind die
- * meisten —, passt formal zu jedem. Mit 500 Inseraten standen 1560 Zeilen im
- * DOM und die Seite brauchte auf einem gedrosselten Gerät vier Sekunden.
+ * ungedeckelt: bei einem Markt voller Inserate, die alle dieselbe Marke
+ * suchen, standen mit 500 Stück 1560 Zeilen im DOM und die Seite brauchte auf
+ * einem gedrosselten Gerät vier Sekunden.
  */
 test("Treffer-Seite zeigt je Gruppe eine Seite und lädt nach", async ({ page }) => {
   const email = await registriere(page, { name: "Suchende" });

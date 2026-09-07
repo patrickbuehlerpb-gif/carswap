@@ -26,6 +26,31 @@ export interface WishFit {
 }
 
 /**
+ * Hat diese Person überhaupt gesagt, was sie sucht?
+ *
+ * Ein leerer Wunsch besteht jede Prüfung — er stellt ja keine. Die Passung
+ * gälte dann formal als beidseitig, obwohl die Gegenseite nie etwas gesucht
+ * hat. Der Satz «sucht ausdrücklich ein Fahrzeug wie deines» wäre schlicht
+ * falsch, und das Abzeichen «beidseitig» daneben auch.
+ *
+ * Die Regel stand nur im Mailversand, der sie deshalb als einziger befolgte —
+ * die Oberfläche behauptete weiter, was die Mail bewusst nicht behauptete.
+ *
+ * Der Höchstbetrag zählt bewusst nicht mit: er sagt, was jemand ausgeben
+ * will, nicht welches Auto er will.
+ */
+export function wunschIstEcht(wish: Partial<SwapWish> | undefined): boolean {
+  return Boolean(
+    wish &&
+      (wish.makes?.length ||
+        wish.bodies?.length ||
+        wish.fuels?.length ||
+        wish.minYear !== undefined ||
+        wish.maxMileageKm !== undefined),
+  );
+}
+
+/**
  * Prüft, ob ein Fahrzeug einen Tauschwunsch erfüllt. Marke, Karosserie und
  * Antrieb sind harte Kriterien (sofern angegeben), Baujahr und Laufleistung
  * dürfen knapp verfehlt werden, kosten dann aber Punkte.
@@ -173,7 +198,7 @@ export function findMatches(
     // Die Gegenseite zahlt das Negative meiner Zuzahlung
     const theirPayment = -cash.delta;
     const cashOk = imRahmen(theirPayment, listing.wish.maxCashOut);
-    const mutual = theirFit.ok && cashOk;
+    const mutual = wunschIstEcht(listing.wish) && theirFit.ok && cashOk;
 
     if (mutual) {
       reasons.push(`${owner.name} sucht ausdrücklich ein Fahrzeug wie deines`);
@@ -190,13 +215,7 @@ export function findMatches(
     // 2) Passt das Fahrzeug zu dem, was ich suche?
     let myQuality = 0.6;
     let fitsMyWish = true;
-    const hasWish =
-      !!opts.wish &&
-      ((opts.wish.makes?.length ?? 0) > 0 ||
-        (opts.wish.bodies?.length ?? 0) > 0 ||
-        (opts.wish.fuels?.length ?? 0) > 0 ||
-        opts.wish.minYear !== undefined ||
-        opts.wish.maxMileageKm !== undefined);
+    const hasWish = wunschIstEcht(opts.wish);
 
     if (hasWish && opts.wish) {
       const w: SwapWish = {

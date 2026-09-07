@@ -28,7 +28,7 @@ export function ReportButton({ vehicleId, signedIn }: { vehicleId: string; signe
       <button
         onClick={() => {
           if (!signedIn) {
-            router.push(`/konto/anmelden?next=/auto/${vehicleId}`);
+            router.push(`/konto/anmelden?next=/auto/${encodeURIComponent(vehicleId)}`);
             return;
           }
           setOffen(true);

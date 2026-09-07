@@ -17,7 +17,14 @@ export default async function InseratBearbeitenPage({
 }) {
   const { id } = await params;
   const me = await getSessionUser();
-  if (!me) redirect(`/konto/anmelden?next=/inserat/${id}/bearbeiten`);
+  /*
+   * Die Kennung kommt aus der Adresse und ist bereits dekodiert. Ohne Kodierung
+   * beendete ein «&» darin den Wert `next` und der Rest wurde zu einem zweiten
+   * Abfrageparameter — nach dem Anmelden landete man dann woanders. Für dieses
+   * Feld gibt es mit `sicheresZiel` schon einen Wächter; er kann aber nur
+   * prüfen, was heil bei ihm ankommt.
+   */
+  if (!me) redirect(`/konto/anmelden?next=/inserat/${encodeURIComponent(id)}/bearbeiten`);
 
   const vehicle = await getVehicle(id);
   if (!vehicle) notFound();

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { deals, listings, reports, users } from "@/lib/db/schema";
+import { deals, listings, reports, users, watchlist } from "@/lib/db/schema";
 import { newId } from "@/lib/db/ids";
 import { als, createUser, createVehicle, resetDatabase } from "@/test/fixtures";
 import {
@@ -15,6 +15,7 @@ import {
 import { proposeSwapAction } from "@/app/actions/deals";
 import { setListingStatusAction } from "@/app/actions/listings";
 import { exportMyDataAction } from "@/app/actions/account";
+import { getWatchlist } from "@/lib/queries";
 
 beforeEach(async () => {
   await resetDatabase();
@@ -72,6 +73,20 @@ describe("Sperren und stilllegen", () => {
     expect((await setListingStatusAction(vehicleId, "aktiv")).error).toMatch(/gesperrt/);
     const [danach] = await db.select().from(listings).where(eq(listings.vehicleId, vehicleId));
     expect(danach.status).toBe("pausiert");
+  });
+
+  it("nimmt das gesperrte Inserat auch aus der Merkliste", async () => {
+    const { melder, admin, vehicleId, meldungId } = await gemeldet();
+    const [inseratRow] = await db.select().from(listings).where(eq(listings.vehicleId, vehicleId));
+    await db.insert(watchlist).values({ userId: melder, listingId: inseratRow.id });
+    expect(await getWatchlist(melder)).toHaveLength(1);
+
+    als(admin);
+    expect((await blockListingAction(meldungId, "Kennzeichen gefälscht")).error).toBeUndefined();
+
+    // Sonst bliebe der gemeldete Inhalt über den Umweg «gemerkt» lesbar —
+    // samt Beschreibung, Mängelliste und Link auf die Fahrzeugseite.
+    expect(await getWatchlist(melder)).toHaveLength(0);
   });
 
   it("storniert offene Vorschläge zum gesperrten Fahrzeug", async () => {

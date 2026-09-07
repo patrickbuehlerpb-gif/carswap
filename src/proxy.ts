@@ -8,6 +8,14 @@ const MAX_AGE = 30 * 24 * 60 * 60;
  * Setzt die Sicherheitsrichtlinie mit Nonce und verlängert das
  * Sitzungs-Cookie bei jedem Seitenaufruf.
  *
+ * Die Datei hiess `middleware.ts` und der Export `middleware`. Beides ist in
+ * dieser Next-Fassung abgekündigt und heisst jetzt `proxy`
+ * (`node_modules/next/dist/docs/01-app/02-guides/upgrading/version-16.md`).
+ * Die alte Schreibweise fällt beim nächsten Hauptsprung weg — und damit
+ * ausgerechnet die Sicherheitsrichtlinie und die Cookie-Verlängerung, still
+ * und ohne Fehler. Die `edge`-Laufzeit unterstützt `proxy` nicht; hier wird
+ * sie nicht gebraucht.
+ *
  * Die Serverkomponenten verlängern zwar die Zeile in der Datenbank, können
  * aber keine Cookies schreiben — `cookies().set()` ist dort nicht erlaubt.
  * Ohne diese Stelle lief das Cookie exakt 30 Tage nach der Anmeldung ab,
@@ -15,7 +23,7 @@ const MAX_AGE = 30 * 24 * 60 * 60;
  * also gar nicht. Über die Gültigkeit entscheidet weiterhin die Datenbank —
  * hier wird nur die Frist des Cookies nachgezogen.
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // Frische Nonce je Antwort. Next.js liest sie aus der CSP der Anfrage,
   // deshalb muss der Header auch dort stehen — nicht nur in der Antwort.
   const nonce = crypto.randomUUID().replace(/-/g, "");
@@ -30,7 +38,7 @@ export function middleware(request: NextRequest) {
 
   // Nur bei Seitenaufrufen. Eine Server Action kommt als POST und setzt das
   // Cookie unter Umständen selbst — beim Anmelden neu, beim Abmelden weg.
-  // Schriebe die Middleware in dieselbe Antwort den alten Wert zurück,
+  // Schriebe diese Schicht in dieselbe Antwort den alten Wert zurück,
   // stünden dort zwei widersprüchliche `Set-Cookie`, und welches am Ende
   // gilt, wäre Glückssache.
   if (request.method !== "GET") return response;

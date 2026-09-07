@@ -6,7 +6,12 @@ import { Badge, Card, SectionHead } from "@/components/ui";
 import { getSessionUser } from "@/lib/auth/session";
 import { chf, km, vehicleFullTitle } from "@/lib/format";
 import { findMatches, findRingSwaps } from "@/lib/matching";
-import { getActiveListings, getMyVehicles, getPublicUser } from "@/lib/queries";
+import {
+  countActiveListings,
+  getActiveListings,
+  getMyVehicles,
+  getPublicUser,
+} from "@/lib/queries";
 import type { Vehicle } from "@/lib/types";
 import { currentMonth, depreciationPerMonth, valuate, valueHistory } from "@/lib/valuation";
 
@@ -16,10 +21,16 @@ export default async function HomePage() {
   const me = await getSessionUser();
   const asOf = currentMonth();
 
-  const [pool, myVehicles, publicMe] = await Promise.all([
+  const [pool, myVehicles, publicMe, inserate] = await Promise.all([
     getActiveListings(me?.id),
     me ? getMyVehicles(me.id) : Promise.resolve([]),
     me ? getPublicUser(me.id) : Promise.resolve(null),
+    // Die Kennzahl zählt den Markt, nicht den geladenen Ausschnitt: `pool`
+    // lässt die eigenen Inserate weg und hört bei der Obergrenze auf. Wer zwei
+    // von zehn Autos selbst eingestellt hat, las hier «8» — abgemeldet stand
+    // an derselben Stelle «10», und ab 500 wäre die Zahl für immer stehen
+    // geblieben.
+    countActiveListings(),
   ]);
 
   const myCar = myVehicles[0] ?? null;
@@ -77,7 +88,7 @@ export default async function HomePage() {
             <dl className="mt-9 grid max-w-md grid-cols-3 gap-6 border-t border-line pt-6">
               <div>
                 <dt className="text-[11px] uppercase tracking-wider text-ink-3">Inserate</dt>
-                <dd className="mt-1 text-2xl betrag text-ink">{pool.length}</dd>
+                <dd className="mt-1 text-2xl betrag text-ink">{inserate}</dd>
               </div>
               <div>
                 <dt className="text-[11px] uppercase tracking-wider text-ink-3">davon E-Auto</dt>
@@ -272,8 +283,10 @@ function ValuationTeaser({ vehicle, asOf }: { vehicle: Vehicle; asOf: string }) 
             </p>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wider text-ink-3">Vergleichbare</p>
-            <p className="mt-1 text-lg font-semibold tabular text-ink">{valuation.comparables}</p>
+            <p className="text-[11px] uppercase tracking-wider text-ink-3">Spanne</p>
+            <p className="mt-1 text-lg font-semibold tabular text-ink">
+              {chf(valuation.low)} – {chf(valuation.high)}
+            </p>
           </div>
         </div>
       </div>

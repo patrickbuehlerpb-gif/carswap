@@ -23,7 +23,7 @@ export function WatchButton({
 
   function toggle() {
     if (!signedIn) {
-      router.push(`/konto/anmelden?next=/auto/${vehicleId}`);
+      router.push(`/konto/anmelden?next=/auto/${encodeURIComponent(vehicleId)}`);
       return;
     }
     // Optimistisch umschalten und bei Fehler zurücknehmen

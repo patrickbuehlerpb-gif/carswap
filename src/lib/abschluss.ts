@@ -21,6 +21,7 @@ import {
   captureAndPayout,
   paymentParties,
   stripeConfigured,
+  currentDealPayment,
   zahlungBrauchbar,
   PaymentStateError,
   PayoutBlockedError,
@@ -247,24 +248,15 @@ export async function schliesseTauschAb(
   }
 
   /*
-   * Alle Zahlungen zu diesem Tausch, nicht nur die jüngste. Es kann mehrere
-   * Zeilen geben — ein abgebrochener erster Anlauf, danach ein zweiter —, und
-   * die neueste ist dann ausgerechnet die stornierte. Wer nur sie ansieht,
-   * setzt den Tausch zurück und verlangt eine zweite Zahlung, während die
-   * erste noch gültig reserviert ist.
+   * Nicht einfach die jüngste Zeile: es kann mehrere geben — ein abgebrochener
+   * erster Anlauf, danach ein zweiter —, und die neueste ist dann ausgerechnet
+   * die stornierte. Wer nur sie ansieht, setzt den Tausch zurück und verlangt
+   * eine zweite Zahlung, während die erste noch gültig reserviert ist.
+   * Dieselbe Auswahl trifft die Vorgangsseite.
    */
-  const alle = await db
-    .select()
-    .from(payments)
-    .where(eq(payments.dealId, deal.id))
-    .orderBy(desc(payments.createdAt));
+  const payment = await currentDealPayment(deal.id);
 
-  // Eine Reservierung, die älter als die Stripe-Frist ist, gilt als verfallen —
-  // auch wenn das Stornierungsereignis noch nicht angekommen ist.
-  const payment = alle.find(zahlungBrauchbar) ?? alle[0];
-  const usable = zahlungBrauchbar(payment);
-
-  if (!usable) {
+  if (!zahlungBrauchbar(payment)) {
     // Reservierung verfallen, storniert oder gar nie bezahlt: zurück in die
     // Zusage, damit der Ausgleich neu hinterlegt werden kann. Auf keinen Fall
     // die Fahrzeuge umschreiben.

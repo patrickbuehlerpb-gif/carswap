@@ -442,3 +442,31 @@ describe("Erklärte Geldgrenzen", () => {
     expect(mit[0].mutual).toBe(true);
   });
 });
+
+describe("Ein leerer Wunsch ist kein Wunsch", () => {
+  it("nennt einen Treffer nicht «beidseitig», wenn die Gegenseite nichts gesucht hat", () => {
+    const meins = fahrzeug("v-me", "u-me", { make: "Polestar" });
+    const fremd = fahrzeug("v-b", "u-b", { make: "Zeekr" });
+
+    // Leere Wunschliste: `fitsWish` besteht sie, weil sie nichts verlangt.
+    const ohne = findMatches(meins, [eintrag(fremd, wunsch())], {});
+    expect(ohne).toHaveLength(1);
+    expect(ohne[0].mutual).toBe(false);
+    expect(ohne[0].reasons.join(" ")).not.toMatch(/sucht ausdrücklich/);
+
+    // Sobald wirklich etwas gesucht wird, gilt die Aussage.
+    const mit = findMatches(meins, [eintrag(fremd, wunsch({ makes: ["Polestar"] }))], {});
+    expect(mit[0].mutual).toBe(true);
+    expect(mit[0].reasons.join(" ")).toMatch(/sucht ausdrücklich/);
+  });
+
+  it("lässt «nur beidseitige Treffer» keine leeren Wunschlisten durch", () => {
+    const meins = fahrzeug("v-me", "u-me");
+    const pool = [
+      eintrag(fahrzeug("v-a", "u-a"), wunsch()),
+      eintrag(fahrzeug("v-b", "u-b"), wunsch({ bodies: ["suv"] })),
+    ];
+    const nurBeide = findMatches(meins, pool, { onlyMutual: true });
+    expect(nurBeide.map((m) => m.vehicle.id)).toEqual(["v-b"]);
+  });
+});

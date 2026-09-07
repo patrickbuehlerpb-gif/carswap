@@ -93,13 +93,14 @@ export function authorizationExpiresAt(payment: Pick<PaymentRow, "authorizedAt">
  * weiterleitet, bezahlt die Gegenseite aus eigener Tasche. Eine gewonnene
  * Anfechtung («won») zählt nicht mehr — dort ist das Geld zurück.
  */
-export function zahlungBrauchbar(
-  payment: Pick<
-    PaymentRow,
-    "status" | "authorizedAt" | "disputedAt" | "disputeStatus"
-  > | null
-  | undefined,
-): boolean {
+export type Zahlungsstand = Pick<
+  PaymentRow,
+  "status" | "authorizedAt" | "disputedAt" | "disputeStatus"
+>;
+
+export function zahlungBrauchbar<T extends Zahlungsstand>(
+  payment: T | null | undefined,
+): payment is T {
   if (!payment) return false;
   if (payment.disputedAt && payment.disputeStatus !== "won") return false;
   if (payment.status === "eingezogen" || payment.status === "ausgezahlt") return true;
@@ -644,4 +645,26 @@ export async function currentRingPayments(
     if (!latest.has(key)) latest.set(key, row);
   }
   return [...latest.values()];
+}
+
+/**
+ * Die Zahlung, die für einen Zweiertausch zählt. Es kann mehrere Zeilen
+ * geben — ein abgebrochener erster Anlauf, danach ein zweiter —, und die
+ * neueste ist dann ausgerechnet die stornierte. Wer nur sie ansieht, hält
+ * hinterlegtes Geld für verschwunden.
+ *
+ * Gibt es keine brauchbare, kommt die jüngste zurück: die Seite soll den
+ * letzten Versuch zeigen können, statt zu behaupten, es habe nie einen
+ * gegeben. `zahlungBrauchbar` beantwortet dann, ob wirklich Geld liegt.
+ */
+export async function currentDealPayment(
+  dealId: string,
+  ausfuehrer: Ausfuehrer = db,
+): Promise<PaymentRow | null> {
+  const alle = await ausfuehrer
+    .select()
+    .from(payments)
+    .where(eq(payments.dealId, dealId))
+    .orderBy(desc(payments.createdAt));
+  return alle.find(zahlungBrauchbar) ?? alle[0] ?? null;
 }
