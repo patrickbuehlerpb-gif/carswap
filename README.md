@@ -188,6 +188,28 @@ die generierte Silhouette — ein ehrlicher Platzhalter statt einer Behauptung
 über das Fahrzeug. Die Silhouette ist damit kein Normalfall mehr, sondern
 zeigt Altbestand und Inserate aus dem Seed.
 
+## Warum sich jeder Klick zäh anfühlte
+
+Nichts an der Anwendung war langsam — es fehlte die Rückmeldung. Fast jede
+Seite hier wird bei jedem Aufruf neu gerechnet, und ohne `loading.tsx` zeigt
+Next in der Zwischenzeit **gar nichts**: Der Browser bleibt auf der alten Seite
+stehen, bis der Server fertig ist. Es sieht aus, als wäre der Klick
+verlorengegangen, und man klickt noch einmal.
+
+Es gibt jetzt Platzhalter — einen allgemeinen und je einen für Marktplatz,
+Treffer, Garage, Fahrzeugseite und Wertrechner, deren Umrisse die echte Seite
+nachahmen. Sie werden zusammen mit dem Link vorgeladen, sind also schon im
+Browser, bevor geklickt wird, und erscheinen ohne Wartezeit.
+
+Der zweite Teil ist die Entfernung. Die Funktionen laufen in `iad1`
+(Washington), die Nutzer sitzen in der Schweiz: Jeder Aufruf geht einmal über
+den Atlantik, und jede Datenbankabfrage darin noch einmal. Damit man nicht
+raten muss, misst `scripts/migrate.ts` beim Deployment die Antwortzeit der
+Datenbank und schreibt sie ins Build-Protokoll — zweimal gemessen, der zweite
+Wert zählt, weil im ersten der Verbindungsaufbau steckt. Steht dort ein
+zweistelliger Wert, gehören Funktionen und Datenbank in dieselbe Region
+(`"regions"` in `vercel.json`).
+
 ## Erscheinungsbild
 
 Die Oberfläche soll aussehen wie ein Messblatt, nicht wie ein Dashboard: Ein

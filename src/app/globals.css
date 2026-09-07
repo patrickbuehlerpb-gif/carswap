@@ -24,6 +24,23 @@
 
   /* Marke: tiefes Petrol als einzige Handlungsfarbe. Es ist dunkel, also
      steht darauf helle Schrift (--color-onmarke), nicht die Textfarbe. */
+  /*
+   * Der Bernstein steckte bisher nur im Signet und in der zweiten
+   * Diagrammlinie. Als benannte Farbe ist er das Gegengewicht zum vielen
+   * Grün und Beige — sparsam eingesetzt für Ziffern, Hervorhebungen und
+   * einzelne Symbole.
+   */
+  /*
+   * Zwei Bernsteintöne, weil eine Farbe zwei Aufgaben hat. `akzent` steht auf
+   * hellem Grund als Schrift und muss dafür 4.5:1 erreichen — das Signet-Gelb
+   * #b0730f kommt nur auf 3.76:1 und ist als Kleinschrift durchgefallen, die
+   * Barrierefreiheitsprüfung hat es gemeldet. `akzent-flaeche` ist der
+   * ursprüngliche Ton für Flächen und Diagrammlinien, wo kein Text draufsteht.
+   */
+  --color-akzent: #8f5d0a;
+  --color-akzent-flaeche: #b0730f;
+  --color-akzent-weich: #f5ead6;
+
   --color-marke: #0e4c46;
   --color-marke-hi: #146058;
   --color-onmarke: #f3efe6;

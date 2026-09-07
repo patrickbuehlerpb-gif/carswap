@@ -25,7 +25,16 @@ const PRIVATE_NAV: NavItem[] = [
   { href: "/garage", label: "Garage" },
 ];
 
-const PUBLIC_NAV_ENDE: NavItem[] = [{ href: "/wert", label: "Wertrechner" }];
+/*
+ * Am Ende, aber vor dem Konto: Wer die Seite zum ersten Mal sieht, findet
+ * «Marktplatz» und «Wertrechner» — und muss danach fragen dürfen, wie das
+ * überhaupt läuft. Die Erklärseite stand bisher nur im Fusszeilentext, also
+ * dort, wo niemand sucht, der gerade oben ankommt.
+ */
+const PUBLIC_NAV_ENDE: NavItem[] = [
+  { href: "/wert", label: "Wertrechner" },
+  { href: "/so-funktionierts", label: "So funktioniert es" },
+];
 
 export function NavLinks({
   signedIn,

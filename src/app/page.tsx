@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ValueChart } from "@/components/value-chart";
+import {
+  IconAuto,
+  IconGespraech,
+  IconSchluessel,
+  IconTausch,
+  IconTreuhand,
+} from "@/components/icons";
 import { VehicleCard } from "@/components/vehicle-card";
 import { VehicleVisual } from "@/components/vehicle-visual";
 import { Badge, Card, SectionHead } from "@/components/ui";
@@ -77,11 +84,22 @@ export default async function HomePage() {
   return (
     <div className="space-y-20">
       {/* ---------------- Hero ---------------- */}
-      <section className="relative overflow-hidden rounded-2xl border border-line bg-surface card-shadow">
+      {/*
+        Der Aufmacher lag farblich fast auf dem Seitenhintergrund — beige auf
+        beige, dazu ein kaum sichtbarer Schimmer. Die Seite hatte damit keinen
+        Punkt, an dem das Auge zuerst hängen bleibt, und wirkte flach. Jetzt
+        trägt er einen sichtbaren Verlauf und einen wärmeren Rand; die Fläche
+        bleibt hell, damit die Schrift ihren Kontrast behält.
+      */}
+      <section className="relative overflow-hidden rounded-2xl border border-line-strong bg-surface card-shadow">
         <div className="absolute inset-0 grid-noise opacity-40" />
         <div
-          className="pointer-events-none absolute -right-32 -top-40 h-96 w-96 rounded-full opacity-[0.14] blur-3xl"
-          style={{ background: "radial-gradient(circle, #0e4c46, transparent 68%)" }}
+          className="pointer-events-none absolute -right-24 -top-32 h-[28rem] w-[28rem] rounded-full opacity-25 blur-3xl"
+          style={{ background: "radial-gradient(circle, #0e4c46, transparent 70%)" }}
+        />
+        <div
+          className="pointer-events-none absolute -bottom-40 -left-24 h-96 w-96 rounded-full opacity-[0.18] blur-3xl"
+          style={{ background: "radial-gradient(circle, #b0730f, transparent 70%)" }}
         />
         <div className="relative grid gap-10 p-7 sm:p-10 lg:grid-cols-[1.1fr_1fr] lg:p-12">
           <div className="flex flex-col justify-center">
@@ -154,17 +172,29 @@ export default async function HomePage() {
               <p className="text-[11px] uppercase tracking-wider text-ink-3">So läuft es ab</p>
               <ol className="mt-4 space-y-4">
                 {[
-                  ["Auto einstellen", "Du gibst Daten und Zustand ein. Den Wert rechnen wir sofort aus."],
-                  ["Tausch aussuchen", "Wir zeigen dir nur Autos, deren Besitzer auch deines suchen."],
-                  ["Übergeben", "Das Geld liegt bei uns, bis ihr beide die Übergabe bestätigt habt."],
-                ].map(([title, body], i) => (
-                  <li key={title} className="flex gap-3">
-                    <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-marke text-xs font-semibold text-onmarke tabular">
-                      {i + 1}
+                  {
+                    Icon: IconAuto,
+                    t: "Auto einstellen",
+                    d: "Du gibst Daten und Zustand ein. Den Wert rechnen wir sofort aus.",
+                  },
+                  {
+                    Icon: IconTausch,
+                    t: "Tausch aussuchen",
+                    d: "Wir zeigen dir nur Autos, deren Besitzer auch deines suchen.",
+                  },
+                  {
+                    Icon: IconTreuhand,
+                    t: "Übergeben",
+                    d: "Das Geld liegt bei uns, bis ihr beide die Übergabe bestätigt habt.",
+                  },
+                ].map((schritt) => (
+                  <li key={schritt.t} className="flex gap-3">
+                    <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-marke text-onmarke">
+                      <schritt.Icon className="h-4 w-4" />
                     </span>
                     <span>
-                      <span className="block text-sm font-medium text-ink">{title}</span>
-                      <span className="block text-sm text-ink-3">{body}</span>
+                      <span className="block text-sm font-medium text-ink">{schritt.t}</span>
+                      <span className="block text-sm text-ink-3">{schritt.d}</span>
                     </span>
                   </li>
                 ))}
@@ -179,6 +209,74 @@ export default async function HomePage() {
               )}
             </Card>
           )}
+        </div>
+      </section>
+
+      {/* ---------------- Ein Geschäft statt zwei ---------------- */}
+      <section>
+        <SectionHead
+          title="Ein Geschäft statt zwei"
+          sub="Der Umweg über Verkauf und Kauf ist nicht nur länger — er kostet an jeder Station."
+        />
+        <div className="grid gap-4 lg:grid-cols-2">
+          {/*
+            Bewusst ohne Frankenbetrag für die linke Spalte. Was ein Händler an
+            einer Eintauschmarge verdient oder was ein Inserat anderswo kostet,
+            wissen wir nicht aus eigener Anschauung — und eine erfundene Zahl
+            in einem Vergleich mit einem benannten Mitbewerber wäre nicht bloss
+            schlechter Stil, sondern vergleichende Werbung mit falschen
+            Angaben. Genannt wird deshalb, was anfällt, nicht wie viel.
+          */}
+          <Card className="p-6">
+            <p className="text-[11px] uppercase tracking-wider text-ink-3">Der übliche Weg</p>
+            <h3 className="mt-1 text-base font-semibold text-ink">Verkaufen, dann kaufen</h3>
+            <ol className="mt-4 space-y-3 text-sm text-ink-2">
+              {[
+                "Inserat schalten, Fotos machen, Fragen beantworten.",
+                "Besichtigungen, Probefahrten, Verhandlung — einmal als Verkäufer.",
+                "Geld entgegennehmen und hoffen, dass es echt ist.",
+                "Von vorn: suchen, besichtigen, verhandeln — jetzt als Käufer.",
+                "Zwei Halterwechsel, zwei Termine, zwei Versicherungswechsel.",
+              ].map((zeile, i) => (
+                <li key={zeile} className="flex gap-3">
+                  <span className="mt-px grid h-5 w-5 shrink-0 place-items-center rounded-full border border-line-strong text-[11px] tabular text-ink-3">
+                    {i + 1}
+                  </span>
+                  <span>{zeile}</span>
+                </li>
+              ))}
+            </ol>
+            <p className="mt-4 border-t border-line pt-4 text-sm text-ink-3">
+              Dazu, je nach Weg: die Marge des Händlers beim Eintausch oder die Gebühren des
+              Portals beim Selbstverkaufen.
+            </p>
+          </Card>
+
+          <Card className="border-marke/30 bg-marke/[0.04] p-6">
+            <p className="text-[11px] uppercase tracking-wider text-marke">Bei autotauschen</p>
+            <h3 className="mt-1 text-base font-semibold text-ink">Einmal, mit beiden zugleich</h3>
+            <ol className="mt-4 space-y-3 text-sm text-ink-2">
+              {[
+                { Icon: IconAuto, t: "Auto eintragen — den Wert rechnen wir dabei aus." },
+                { Icon: IconTausch, t: "Wir zeigen dir nur, wo beide Seiten wollen." },
+                { Icon: IconGespraech, t: "Eine Verhandlung, über die Differenz statt über zwei Preise." },
+                { Icon: IconTreuhand, t: "Der Ausgleich wird reserviert, nicht abgebucht." },
+                { Icon: IconSchluessel, t: "Ein Termin: ihr übergebt beide Autos auf einmal." },
+              ].map((zeile) => (
+                <li key={zeile.t} className="flex gap-3">
+                  <span className="mt-px grid h-5 w-5 shrink-0 place-items-center rounded-full bg-marke/12 text-marke">
+                    <zeile.Icon className="h-3.5 w-3.5" />
+                  </span>
+                  <span>{zeile.t}</span>
+                </li>
+              ))}
+            </ol>
+            <p className="mt-4 border-t border-marke/20 pt-4 text-sm text-ink-2">
+              <span className="font-semibold text-ink">Keine Provision, keine Inseratsgebühr.</span>{" "}
+              Wer draufzahlt, trägt die Gebühr des Zahlungsdienstleisters — sie ist so gerechnet,
+              dass beim Empfänger der volle Betrag ankommt, und steht da, bevor du einzahlst.
+            </p>
+          </Card>
         </div>
       </section>
 
