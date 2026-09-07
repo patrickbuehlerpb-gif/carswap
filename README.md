@@ -206,9 +206,16 @@ Der zweite Teil ist die Entfernung. Die Funktionen laufen in `iad1`
 den Atlantik, und jede Datenbankabfrage darin noch einmal. Damit man nicht
 raten muss, misst `scripts/migrate.ts` beim Deployment die Antwortzeit der
 Datenbank und schreibt sie ins Build-Protokoll — zweimal gemessen, der zweite
-Wert zählt, weil im ersten der Verbindungsaufbau steckt. Steht dort ein
-zweistelliger Wert, gehören Funktionen und Datenbank in dieselbe Region
-(`"regions"` in `vercel.json`).
+Wert zählt, weil im ersten der Verbindungsaufbau steckt.
+
+Gemessen wurden **97 ms**. Das ist ein Atlantiküberquerung, keine Abfrage: Die
+Datenbank steht in Europa, die Funktionen standen in `iad1`. Eine Seite mit
+drei Abfragen zahlte damit rund 300 ms allein fürs Warten auf die Datenbank,
+dazu zweimal 60 ms zwischen Zürich und Washington für die Seite selbst.
+`vercel.json` setzt die Funktionen deshalb auf `fra1` — dorthin, wo die
+Datenbank und der Fotospeicher schon stehen. Wer die Datenbank umzieht, muss
+diese Zeile mitziehen; das Build-Protokoll sagt bei jedem Deployment, ob es
+noch passt.
 
 ## Erscheinungsbild
 
