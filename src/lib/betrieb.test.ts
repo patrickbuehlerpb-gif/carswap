@@ -167,7 +167,11 @@ describe("Betriebsbild", () => {
       "BLOB_READ_WRITE_TOKEN",
       "CRON_SECRET",
       "HEALTH_TOKEN",
-      "OPERATOR_NAME",
+      // Die Kontaktadresse ist die einzige Pflichtangabe, die überhaupt fehlen
+      // kann: Firmenname, Rechtsform, Adresse, UID und Register stehen seit
+      // dem Handelsregisterauszug im Code. `OPERATOR_NAME` zu löschen erzeugte
+      // deshalb keine Lücke mehr.
+      "OPERATOR_EMAIL",
     ]) {
       delete process.env[k];
     }

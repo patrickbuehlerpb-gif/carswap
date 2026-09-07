@@ -1,6 +1,7 @@
 import { readdirSync } from "node:fs";
 import { sql as raw } from "drizzle-orm";
 import { connect, databaseUrl } from "./db-connect";
+import { missingOperatorFields, operator } from "../src/lib/operator-daten";
 
 /**
  * Startklar-Prüfung vor dem Livegang.
@@ -132,18 +133,16 @@ async function main() {
 
   /* ---------------- Recht ---------------- */
 
-  const pflicht: Array<[string, string]> = [
-    ["OPERATOR_NAME", "Firmenname"],
-    ["OPERATOR_LEGAL_FORM", "Rechtsform"],
-    ["OPERATOR_ADDRESS", "Adresse"],
-    ["OPERATOR_UID", "UID/MWST-Nummer"],
-    ["OPERATOR_EMAIL", "Kontaktadresse"],
-  ];
-  const fehlend = pflicht.filter(([n]) => !gesetzt(n)).map(([, bez]) => bez);
+  /*
+   * Dieselbe Quelle wie die Rechtsseiten, nicht eine zweite Aufzählung
+   * derselben Pflichtfelder: Die stand hier gegen die Umgebung und meldete
+   * «es fehlt alles», als die Registerangaben längst im Code standen.
+   */
+  const fehlend = missingOperatorFields();
   pruefe(fehlend.length === 0, "Impressum", {
     grad: "fehler",
     folge: `Es fehlen: ${fehlend.join(", ")}. Ohne diese Angaben ist der Betrieb in der Schweiz nicht zulässig (Art. 3 Abs. 1 lit. s UWG).`,
-    hinweis: "OPERATOR_* setzen.",
+    hinweis: "Fehlende Angabe als OPERATOR_* setzen.",
   });
   pruefe(gesetzt("OPERATOR_DB_PROVIDER"), "Datenbankanbieter in der Datenschutzerklärung", {
     grad: "fehler",
@@ -154,7 +153,7 @@ async function main() {
     hinweis: 'OPERATOR_DB_PROVIDER setzen, etwa "Neon Inc. (USA), Server in Frankfurt".',
   });
 
-  pruefe(gesetzt("OPERATOR_EMAIL"), "Empfänger für Meldungen", {
+  pruefe(Boolean(operator().email), "Empfänger für Meldungen", {
     grad: "warnung",
     folge: "Meldungen zu Inseraten landen nur in der Datenbank, niemand wird benachrichtigt.",
     hinweis: "OPERATOR_EMAIL setzen.",

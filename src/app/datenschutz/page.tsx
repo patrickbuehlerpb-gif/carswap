@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Angabe, H2, LegalPage, Todo } from "@/components/legal";
-import { operator, operatorComplete } from "@/lib/operator";
+import { missingOperatorFields, operator, operatorHatAngaben } from "@/lib/operator";
 
 export const metadata: Metadata = {
   title: "Datenschutz",
@@ -16,7 +16,7 @@ export default function DatenschutzPage() {
     <LegalPage title="Datenschutzerklärung" updated="September 2026">
       <Todo>
         {`${[
-          operatorComplete(op) ? null : "die verantwortliche Stelle",
+          missingOperatorFields(op).length === 0 ? null : "die verantwortliche Stelle",
           op.dbProvider ? null : "der Anbieter der Datenbank",
           "eine Vertretung in der EU (falls nötig)",
           "für die Bekanntgabe ins Ausland die Garantie je Anbieter",
@@ -25,7 +25,8 @@ export default function DatenschutzPage() {
           .join(", ")}. Dieser Text beschreibt, was wirklich passiert. Eine juristische Prüfung ersetzt er nicht.`}
       </Todo>
 
-      {operatorComplete(op) && (
+      {/* Wie im Impressum: zeigen, was bekannt ist, statt alles zu verschweigen. */}
+      {operatorHatAngaben(op) && (
         <>
           <H2>Verantwortliche Stelle</H2>
           <div className="space-y-1">

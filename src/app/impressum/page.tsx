@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Angabe, H2, LegalPage, Todo } from "@/components/legal";
-import { missingOperatorFields, operator, operatorComplete } from "@/lib/operator";
+import { missingOperatorFields, operator, operatorHatAngaben } from "@/lib/operator";
 
 export const metadata: Metadata = {
   title: "Impressum",
@@ -17,16 +17,20 @@ export default function ImpressumPage() {
       {fehlend.length > 0 && (
         <Todo>
           Es fehlen noch: {fehlend.join(", ")}. Ohne diese Angaben ist der Betrieb in der Schweiz
-          nicht zulässig (Art. 3 Abs. 1 lit. s UWG). Gesetzt werden sie über die
-          Umgebungsvariablen <code>OPERATOR_NAME</code>, <code>OPERATOR_LEGAL_FORM</code>,{" "}
-          <code>OPERATOR_ADDRESS</code>, <code>OPERATOR_UID</code> und{" "}
-          <code>OPERATOR_EMAIL</code>, optional dazu <code>OPERATOR_REGISTER</code> und{" "}
-          <code>OPERATOR_PHONE</code>.
+          nicht zulässig (Art. 3 Abs. 1 lit. s UWG). Firmenname, Rechtsform, Adresse, UID und
+          Register stehen mit den Angaben aus dem Handelsregisterauszug im Code; alles Weitere
+          kommt aus <code>OPERATOR_EMAIL</code> und, freiwillig, <code>OPERATOR_PHONE</code>.
         </Todo>
       )}
 
       <H2>Betreiberin</H2>
-      {operatorComplete(op) ? (
+      {/*
+        Was bekannt ist, steht hier — auch wenn noch eine Pflichtangabe fehlt.
+        Vorher verschwand der ganze Block, sobald eine einzige fehlte, und wer
+        die Betreiberin suchte, fand gar nichts, obwohl Name, Adresse und UID
+        feststanden. Welche Angabe fehlt, sagt der Hinweis oben.
+      */}
+      {operatorHatAngaben(op) ? (
         <div className="space-y-1">
           <Angabe label="Name" value={op.name} />
           <Angabe label="Rechtsform" value={op.legalForm} />

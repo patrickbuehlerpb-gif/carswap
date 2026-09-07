@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import type Stripe from "stripe";
 import { db } from "@/lib/db";
@@ -79,10 +79,24 @@ async function zahlung(id: string) {
   return row;
 }
 
+const vorherigeOperatorMail = process.env.OPERATOR_EMAIL;
+
 beforeEach(async () => {
   await resetDatabase();
   briefe.length = 0;
   process.env.OPERATOR_EMAIL = "betrieb@autotauschen.test";
+});
+
+afterAll(() => {
+  /*
+   * Alle Testdateien teilen sich einen Prozess. Blieb diese Adresse stehen,
+   * hielt jede folgende Datei das Impressum für vollständig — und eine
+   * Prüfung, die genau das Gegenteil festhalten wollte, schlug fehl, ohne dass
+   * an ihr etwas falsch war. `process.env.X = undefined` schriebe die
+   * Zeichenkette "undefined" hinein, deshalb löschen statt zuweisen.
+   */
+  if (vorherigeOperatorMail === undefined) delete process.env.OPERATOR_EMAIL;
+  else process.env.OPERATOR_EMAIL = vorherigeOperatorMail;
 });
 
 describe("Rückbuchung", () => {

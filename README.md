@@ -1057,15 +1057,30 @@ ist hier noch nicht eingetragen», und `npm run preflight` meldet es als Fehler.
 
 ## Was vor dem Livegang noch fehlt
 
+- **Der eingetragene Zweck deckt diese Plattform nicht.** Im Handelsregister
+  steht als Zweck der HMZ craftsmanship GmbH die «Erbringung von
+  Beratungsdienstleistungen für Unternehmen, insbesondere in den Bereichen
+  Strategie, Innovationsmanagement, Produktentwicklung, Trendscouting, Human
+  Resources, Marketing und Kommunikation». Ein Marktplatz für private
+  Autotausche, der Ausgleichszahlungen verwahrt, ist davon weder erfasst noch
+  ein «gleichartiges oder verwandtes» Geschäft. Nach aussen bleiben Verträge
+  zwar gültig, aber die Frage gehört zusammen mit der GwG-Frage vor dieselbe
+  Anwältin — und eine Zweckänderung ist ein Statutenbeschluss, kein
+  Nebensatz.
 - **Impressum, Datenschutz und AGB** müssen juristisch geprüft werden.
   Insbesondere ist zu klären, ob die Treuhandfunktion unter das
   Geldwäschereigesetz fällt — die Konstruktion über Stripe Connect ist darauf
   ausgelegt, dass nie autotauschen selbst Gelder Dritter hält. Die Firmenangaben
-  kommen aus `OPERATOR_NAME`, `OPERATOR_ADDRESS`, `OPERATOR_EMAIL` und
-  `OPERATOR_LEGAL_FORM` und `OPERATOR_UID`, optional dazu `OPERATOR_REGISTER`
-  und `OPERATOR_PHONE`. Fehlt eines davon, benennt die Seite es einzeln —
-  statt eine vollständige Rechtsseite vorzutäuschen. `/api/health` meldet den
-  Zustand als `impressum`.
+  stehen mit den Angaben aus dem beglaubigten Handelsregisterauszug in
+  `src/lib/operator-daten.ts` — Firmenname, Rechtsform, Domiziladresse, UID und
+  Register. Die Umgebung sticht sie weiterhin (`OPERATOR_NAME`,
+  `OPERATOR_LEGAL_FORM`, `OPERATOR_ADDRESS`, `OPERATOR_UID`,
+  `OPERATOR_REGISTER`), etwa für eine zweite Installation unter anderem
+  Betreiber. Was in keinem Registerauszug steht und deshalb gesetzt werden
+  muss: `OPERATOR_EMAIL`, optional dazu `OPERATOR_PHONE`. Fehlt eine
+  Pflichtangabe, benennt die Seite sie einzeln und zeigt trotzdem, was schon
+  bekannt ist — vorher verschwand der ganze Block, sobald eines fehlte.
+  `/api/health` meldet den Zustand als `impressum`.
 
   Was beschreibbar war, steht inzwischen drin (siehe unten). Offen sind die
   Punkte, die eine Entscheidung verlangen und keine Beschreibung: **Haftung**
