@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { H2, LegalPage, Todo } from "@/components/legal";
 
-export const metadata: Metadata = { title: "AGB" };
+export const metadata: Metadata = { title: "AGB", alternates: { canonical: "/agb" } };
 
 export const dynamic = "force-dynamic";
 

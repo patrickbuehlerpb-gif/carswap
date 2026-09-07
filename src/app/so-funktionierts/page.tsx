@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Card, SectionHead } from "@/components/ui";
 
-export const metadata: Metadata = { title: "So funktioniert es" };
+export const metadata: Metadata = {
+  title: "So funktioniert es",
+  alternates: { canonical: "/so-funktionierts" },
+};
 
 const STEPS = [
   {

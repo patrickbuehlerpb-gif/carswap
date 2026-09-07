@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ValueChart } from "@/components/value-chart";
 import { VehicleCard } from "@/components/vehicle-card";
@@ -16,6 +17,14 @@ import type { Vehicle } from "@/lib/types";
 import { currentMonth, depreciationPerMonth, valuate, valueHistory } from "@/lib/valuation";
 
 export const dynamic = "force-dynamic";
+
+/*
+ * Die Startseite erbt Titel und Beschreibung aus dem Wurzellayout — nur der
+ * Verweis auf die eigene Adresse fehlte. Ohne ihn sind die Startseite unter
+ * der eigenen Domain und die unter der Anbieteradresse für eine Suchmaschine
+ * zwei Seiten mit demselben Inhalt.
+ */
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 export default async function HomePage() {
   const me = await getSessionUser();

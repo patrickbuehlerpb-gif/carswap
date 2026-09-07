@@ -63,6 +63,14 @@ export async function generateMetadata({
   return {
     title: titel,
     description: beschreibung,
+    /*
+     * Dieselbe Seite wird unter zwei Adressen ausgeliefert: unter der eigenen
+     * Domain und unter der, die der Anbieter dem Projekt gegeben hat. Ohne
+     * diesen Verweis sind das für eine Suchmaschine zwei Seiten mit demselben
+     * Inhalt, die einander Rang wegnehmen. Aufgelöst wird er gegen
+     * `metadataBase`, also gegen SITE_URL.
+     */
+    alternates: { canonical: `/auto/${v.id}` },
     openGraph: {
       type: "article",
       title: `${titel} — zum Tausch`,

@@ -837,6 +837,15 @@ Einrichtung:
 - `npm run preflight` hat dafür eine eigene Zeile — die allgemeine Prüfung
   darüber war ja grün.
 
+Solange beide Adressen dieselbe Seite ausliefern — und das bleibt so, weil die
+Anbieteradresse nicht verschwindet —, sind das für eine Suchmaschine zwei
+Seiten mit demselben Inhalt, die einander Rang wegnehmen. Jede indexierbare
+Seite nennt deshalb ihre kanonische Adresse (`alternates.canonical`), aufgelöst
+gegen `metadataBase` und damit gegen `SITE_URL`. Ein Browserlauf prüft das für
+jede Seite und gleicht die Liste ausserdem gegen die Sitemap ab: Kommt eine
+Seite dazu und wird nur eine der beiden Aufzählungen nachgeführt, fällt es
+sonst erst auf, wenn die falsche Adresse indexiert ist.
+
 ## Deployment
 
 Auf Vercel ohne Konfiguration deploybar. Erforderliche Umgebungsvariablen

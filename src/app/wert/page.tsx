@@ -9,6 +9,7 @@ export const metadata: Metadata = {
   title: "Wertrechner",
   description:
     "Was ist dein Auto heute wert, und was in zwei Jahren? Mit vollständiger Aufschlüsselung.",
+  alternates: { canonical: "/wert" },
 };
 export const dynamic = "force-dynamic";
 

@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { Angabe, H2, LegalPage, Todo } from "@/components/legal";
 import { missingOperatorFields, operator, operatorComplete } from "@/lib/operator";
 
-export const metadata: Metadata = { title: "Impressum" };
+export const metadata: Metadata = {
+  title: "Impressum",
+  alternates: { canonical: "/impressum" },
+};
 export const dynamic = "force-dynamic";
 
 export default function ImpressumPage() {

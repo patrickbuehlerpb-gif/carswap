@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   title: "Marktplatz",
   description:
     "Alle Autos, die zum Tausch stehen. Angemeldet rechnen wir jede Zuzahlung direkt gegen dein eigenes.",
+  alternates: { canonical: "/markt" },
 };
 export const dynamic = "force-dynamic";
 

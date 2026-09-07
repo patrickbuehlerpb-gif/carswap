@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { Angabe, H2, LegalPage, Todo } from "@/components/legal";
 import { operator, operatorComplete } from "@/lib/operator";
 
-export const metadata: Metadata = { title: "Datenschutz" };
+export const metadata: Metadata = {
+  title: "Datenschutz",
+  alternates: { canonical: "/datenschutz" },
+};
 
 export const dynamic = "force-dynamic";
 
