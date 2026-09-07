@@ -137,4 +137,30 @@ describe("ringClosed", () => {
       { userId: "c", receiverId: "a" },
     ])).toBe(false);
   });
+
+  it("weist zwei getrennte Dreierringe zurück", () => {
+    // Sechs Beine, zwei saubere Dreiecke: jede Person gibt genau einmal und
+    // bekommt genau einmal, und nach sechs Schritten steht man wieder am
+    // Anfang — nur eben, ohne die anderen drei je berührt zu haben. Genau
+    // das hat die Prüfung vorher durchgelassen.
+    expect(ringClosed([
+      { userId: "a", receiverId: "b" },
+      { userId: "b", receiverId: "c" },
+      { userId: "c", receiverId: "a" },
+      { userId: "d", receiverId: "e" },
+      { userId: "e", receiverId: "f" },
+      { userId: "f", receiverId: "d" },
+    ])).toBe(false);
+  });
+
+  it("akzeptiert einen Sechserring", () => {
+    expect(ringClosed([
+      { userId: "a", receiverId: "b" },
+      { userId: "b", receiverId: "c" },
+      { userId: "c", receiverId: "d" },
+      { userId: "d", receiverId: "e" },
+      { userId: "e", receiverId: "f" },
+      { userId: "f", receiverId: "a" },
+    ])).toBe(true);
+  });
 });

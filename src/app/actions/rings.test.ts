@@ -582,8 +582,8 @@ describe("Gleichzeitige Zusagen", () => {
 
   it("hält den zweiten Ring an der Fahrzeugsperre auf", async () => {
     // Zwei Ringe werden vorgeschlagen, bevor einer verbindlich ist — sie
-    // teilen sich zwei Fahrzeuge. Kein Zweiertausch ist im Spiel, es hält
-    // also allein der Primärschlüssel der Sperrtabelle.
+    // teilen sich zwei Fahrzeuge. Die Zusage zum zweiten Ring muss scheitern,
+    // solange der erste läuft.
     const { ringId, a, b, c, vA, vB, vC } = await legeRingAn();
     const d = await createUser("Dora");
     const vD = await createVehicle(d);
@@ -595,12 +595,19 @@ describe("Gleichzeitige Zusagen", () => {
     await zusagenAlle(ringId, b, c);
     expect(await ringStatus(ringId)).toBe("angenommen");
 
+    // Schon die *erste* Zusage zum zweiten Ring wird abgewiesen: `istGebunden`
+    // beantwortet die Frage beim Zusagen, nicht erst beim Schreiben der
+    // Sperrzeile. Früher sagten zwei Leute zu und die dritte lief in den
+    // Primärschlüssel — der Hinweis kam also erst, nachdem zwei Personen sich
+    // schon gebunden fühlten.
     als(b);
-    expect((await acceptRingAction(zweiter.ringId!)).error).toBeUndefined();
+    expect((await acceptRingAction(zweiter.ringId!)).error).toMatch(/anderen zugesagten Tausch/);
     als(c);
     const res = await acceptRingAction(zweiter.ringId!);
     expect(res.error).toMatch(/anderen zugesagten Tausch/);
     expect(await ringStatus(zweiter.ringId!)).toBe("vorschlag");
+    // Und niemand hat zugesagt — der Ring steht unberührt da.
+    expect((await beine(zweiter.ringId!)).filter((l) => l.acceptedAt !== null)).toHaveLength(1);
 
     // Die Sperren des ersten Rings sind unangetastet.
     const sperren = await db.select().from(dealVehicleLocks);

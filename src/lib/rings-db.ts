@@ -428,7 +428,7 @@ export type RingErgebnis =
   | { art: "umschreiben-gescheitert" };
 
 /** Schreibt allen Genannten dieselbe Nachricht. */
-async function benachrichtigeRing(
+export async function benachrichtigeRing(
   userIds: string[],
   subject: string,
   text: string,

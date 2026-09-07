@@ -67,11 +67,22 @@ export function ringClosed(legs: { userId: string; receiverId: string }[]): bool
   if (new Set(legs.map((l) => l.receiverId)).size !== legs.length) return false;
   if (legs.some((l) => l.userId === l.receiverId)) return false;
 
+  /*
+   * Der Weg muss *alle* Beteiligten berühren, bevor er zurückkommt. Nur zu
+   * zählen, ob man nach n Schritten wieder am Anfang steht, reicht nicht:
+   * zwei getrennte Dreierringe in einer Liste von sechs Beinen führen nach
+   * sechs Schritten ebenfalls zum Ausgangspunkt zurück — und wären dann als
+   * ein Ring durchgegangen. Heute sind es immer drei Beine; die Prüfung soll
+   * aber auch dann noch stimmen, wenn das nicht mehr so ist.
+   */
   let cur = legs[0].userId;
+  const gesehen = new Set<string>();
   for (let step = 0; step < legs.length; step++) {
+    if (gesehen.has(cur)) return false;
+    gesehen.add(cur);
     const nxt = next.get(cur);
     if (!nxt) return false;
     cur = nxt;
   }
-  return cur === legs[0].userId;
+  return cur === legs[0].userId && gesehen.size === legs.length;
 }

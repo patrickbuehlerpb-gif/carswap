@@ -370,3 +370,75 @@ describe("Ringsuche unter vielen Inseraten", () => {
     expect(ringe).toHaveLength(1);
   });
 });
+
+/**
+ * Wer in sein Inserat schreibt, höchstens tausend Franken zuzahlen zu wollen,
+ * meint das als Bedingung — nicht als Zierde. Im Zweiertausch wurde die Zahl
+ * gelesen, in der Ringsuche nicht, und für die eigene Grenze galt sie
+ * nirgends.
+ */
+describe("Erklärte Geldgrenzen", () => {
+  /** Drei ungleich wertvolle Autos: so zahlt wirklich jemand und jemand erhält. */
+  function ungleich() {
+    const meins = fahrzeug("v-me", "u-me", { make: "Polestar" });
+    const aAuto = fahrzeug("v-a", "u-a", { make: "Kia", mileageKm: 120_000 });
+    const bAuto = fahrzeug("v-b", "u-b", { make: "Zeekr", listPriceNew: 90_000 });
+    return { meins, aAuto, bAuto };
+  }
+
+  function ring(grenzen: { me?: number; a?: number; b?: number }) {
+    const { meins, aAuto, bAuto } = ungleich();
+    return findRingSwaps(
+      meins,
+      [
+        eintrag(aAuto, wunsch({ makes: ["Polestar"], maxCashOut: grenzen.a })),
+        eintrag(bAuto, wunsch({ makes: ["Kia"], maxCashOut: grenzen.b })),
+      ],
+      { makes: ["Zeekr"], maxCashOut: grenzen.me },
+      nutzer("u-me"),
+    );
+  }
+
+  it("findet den Ring, solange niemand eine Grenze gesetzt hat", () => {
+    const [gefunden] = ring({});
+    expect(gefunden).toBeDefined();
+    // Es zahlt wirklich jemand und jemand bekommt — sonst prüfte der Rest nichts.
+    const betraege = gefunden.participants.map((p) => p.cash);
+    expect(betraege.some((c) => c > 0)).toBe(true);
+    expect(betraege.some((c) => c < 0)).toBe(true);
+  });
+
+  it("verwirft ihn, wenn eine der drei Zuzahlungen über der erklärten Grenze liegt", () => {
+    const [offen] = ring({});
+    const [meiner, seiner, ihrer] = offen.participants.map((p) => p.cash);
+
+    // Für jede der drei Personen einzeln: Grenze knapp unter dem, was der
+    // Ring von ihr verlangt — dann darf er nicht mehr vorgeschlagen werden.
+    expect(ring({ me: meiner - 50 })).toHaveLength(0);
+    expect(ring({ a: seiner - 50 })).toHaveLength(0);
+    expect(ring({ b: ihrer - 50 })).toHaveLength(0);
+
+    // Genau auf der Grenze bleibt er stehen.
+    expect(ring({ me: meiner, a: seiner, b: ihrer })).toHaveLength(1);
+  });
+
+  it("nimmt auch im Zweiertausch die eigene Grenze ernst", () => {
+    const meins = fahrzeug("v-me", "u-me", { make: "Polestar" });
+    const teuer = fahrzeug("v-b", "u-b", { make: "Zeekr", listPriceNew: 90_000 });
+    const pool = [eintrag(teuer, wunsch({ makes: ["Polestar"] }))];
+
+    const ohne = findMatches(meins, pool, { wish: { makes: ["Zeekr"] } });
+    expect(ohne).toHaveLength(1);
+    expect(ohne[0].fitsMyWish).toBe(true);
+    const noetig = ohne[0].cashDelta;
+    expect(noetig).toBeGreaterThan(0);
+
+    // Das Inserat verschwindet nicht — es wird als das gezeigt, was es ist.
+    const mit = findMatches(meins, pool, { wish: { makes: ["Zeekr"], maxCashOut: noetig - 50 } });
+    expect(mit).toHaveLength(1);
+    expect(mit[0].fitsMyWish).toBe(false);
+    expect(mit[0].concerns.join(" ")).toMatch(/über deiner Grenze/);
+    // Die Gegenseite passt weiterhin — das ist eine andere Frage.
+    expect(mit[0].mutual).toBe(true);
+  });
+});

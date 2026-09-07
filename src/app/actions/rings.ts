@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, inArray, isNull, ne, or, sql as raw } from "drizzle-orm";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
@@ -19,6 +19,7 @@ import {
 } from "@/lib/db/schema";
 import { requireUser } from "@/lib/auth/session";
 import { braucheBestaetigteMail, suspendedNotice } from "@/lib/auth/guards";
+import { istGebunden } from "@/lib/bindung";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
 import { toVehicle } from "@/lib/queries";
 import { ringCashSplit } from "@/lib/matching";
@@ -28,6 +29,7 @@ import {
   acceptRingLeg,
   addRingSystemMessage,
   advanceRingToEscrow,
+  benachrichtigeRing as notify,
   loadRing,
   releaseRingPayments,
   schliesseRingAb,
@@ -68,14 +70,6 @@ async function loadMyRing(
   return { ...geladen, myLeg };
 }
 
-async function notify(userIds: string[], subject: string, text: string): Promise<void> {
-  if (!userIds.length) return;
-  const rows = await db.select({ email: users.email }).from(users).where(inArray(users.id, userIds));
-  for (const row of rows) {
-    await sendMail({ to: row.email, subject, text });
-  }
-}
-
 /** Alle ausser mir — für Benachrichtigungen. */
 function andere(legs: RingLegRow[], meId: string): string[] {
   return legs.filter((l) => l.userId !== meId).map((l) => l.userId);
@@ -107,22 +101,39 @@ export async function proposeRingAction(input: {
   const unbestaetigt = braucheBestaetigteMail(me);
   if (unbestaetigt) return { error: unbestaetigt };
 
-  const limit = await checkRateLimit(`ring:${me.id}`, 10, 60 * 60);
-  if (!limit.ok) return { error: "Zu viele Ringvorschläge in kurzer Zeit. Bitte kurz warten." };
-
+  // Erst prüfen, dann zählen: Eine abgewiesene Eingabe darf kein Kontingent
+  // kosten, sonst sperrt ein Fehler im Formular für eine Stunde aus.
   const parsed = proposeSchema.safeParse(input);
   if (!parsed.success) return { error: "Ein Ring braucht genau drei Fahrzeuge." };
   const ids = parsed.data.vehicleIds;
   if (new Set(ids).size !== 3) return { error: "Ein Fahrzeug kann im Ring nicht zweimal stehen." };
 
+  const limit = await checkRateLimit(`ring:${me.id}`, 10, 60 * 60);
+  if (!limit.ok) return { error: "Zu viele Ringvorschläge in kurzer Zeit. Bitte kurz warten." };
+
   // Das erste Fahrzeug ist meines und braucht kein Inserat — genau wie beim
   // Zweiertausch, bei dem nur die Gegenseite inseriert haben muss.
-  const [mine] = await db
-    .select()
+  const [meins] = await db
+    .select({ vehicle: vehicles })
     .from(vehicles)
-    .where(and(eq(vehicles.id, ids[0]), eq(vehicles.ownerId, me.id), isNull(vehicles.archivedAt)))
+    .leftJoin(listings, eq(listings.vehicleId, vehicles.id))
+    .where(
+      and(
+        eq(vehicles.id, ids[0]),
+        eq(vehicles.ownerId, me.id),
+        isNull(vehicles.archivedAt),
+        // Auch das eigene Inserat darf nicht gesperrt sein. Die Prüfung galt
+        // bisher nur den beiden fremden: Wer sein Inserat sperren liess,
+        // konnte das Auto über einen neuen Ring trotzdem weggeben — und der
+        // neue Halter hätte es nie wieder aktivieren können.
+        isNull(listings.blockedAt),
+      ),
+    )
     .limit(1);
-  if (!mine) return { error: "Das erste Fahrzeug im Ring muss dir gehören." };
+  if (!meins) {
+    return { error: "Das erste Fahrzeug im Ring muss dir gehören und darf nicht gesperrt sein." };
+  }
+  const mine = meins.vehicle;
 
   // Die beiden anderen müssen aktiv inseriert sein.
   const fremde = await db
@@ -147,11 +158,14 @@ export async function proposeRingAction(input: {
   if (!eintragA || !eintragB) return { error: "Mindestens ein Inserat im Ring ist nicht mehr verfügbar." };
 
   const besitzer = [me.id, eintragA.vehicle.ownerId, eintragB.vehicle.ownerId];
-  if (new Set(besitzer).size !== 3) {
-    return { error: "Ein Ring braucht drei verschiedene Personen." };
-  }
+  // Das eigene Auto zuerst prüfen: Sonst verschluckte die allgemeine Meldung
+  // «drei verschiedene Personen» den genaueren Hinweis, denn wer sich selbst
+  // im Ring hat, hat damit auch nur zwei Personen.
   if (besitzer.slice(1).some((id) => id === me.id)) {
     return { error: "Du kannst dir kein eigenes Fahrzeug vorschlagen." };
+  }
+  if (new Set(besitzer).size !== 3) {
+    return { error: "Ein Ring braucht drei verschiedene Personen." };
   }
 
   // Steckt eines der Fahrzeuge schon in einem verbindlichen Vorgang? Die
@@ -302,19 +316,13 @@ export async function acceptRingAction(ringId: string): Promise<RingActionResult
 
   const vehicleIds = geladen.legs.map((l) => l.vehicleId);
 
-  // Wie beim Zweiertausch: zusätzlich zu den Sperren auch ältere zugesagte
-  // Tausche prüfen, die vor deren Einführung entstanden sind.
-  const gebunden = await db
-    .select({ id: deals.id })
-    .from(deals)
-    .where(
-      and(
-        inArray(deals.status, ["angenommen", "treuhand", "abwicklung"]),
-        or(inArray(deals.fromVehicleId, vehicleIds), inArray(deals.toVehicleId, vehicleIds)),
-      ),
-    )
-    .limit(1);
-  if (gebunden.length) {
+  // Steckt eines der drei Autos inzwischen in einem verbindlichen Vorgang?
+  // Dieselbe Frage wie beim Bearbeiten, Archivieren und Sperren — und deshalb
+  // dieselbe Antwort: `istGebunden` sieht Sperrtabelle, Zweiertausche *und*
+  // andere Ringe. Vorher wurden hier nur `deals` abgefragt.
+  const gebunden: boolean[] = [];
+  for (const id of vehicleIds) gebunden.push(await istGebunden(id));
+  if (gebunden.some(Boolean)) {
     return {
       error:
         "Eines der drei Autos steckt schon in einem anderen zugesagten Tausch. Der muss " +
@@ -417,10 +425,29 @@ export async function cancelRingAction(ringId: string): Promise<RingActionResult
         );
       }
       await tx.delete(dealVehicleLocks).where(eq(dealVehicleLocks.ringId, ringId));
+      /*
+       * Zurück in den Markt — mit denselben Bedingungen wie beim Zweiertausch:
+       * Ein gesperrtes Inserat und das einer stillgelegten oder gelöschten
+       * Person bleiben draussen. In «in verhandlung» steht ohnehin nur, was
+       * vorher aktiv war.
+       */
       await tx
         .update(listings)
         .set({ status: "aktiv", updatedAt: new Date() })
-        .where(and(inArray(listings.vehicleId, vehicleIds), eq(listings.status, "in verhandlung")));
+        .where(
+          and(
+            inArray(listings.vehicleId, vehicleIds),
+            eq(listings.status, "in verhandlung"),
+            isNull(listings.blockedAt),
+            inArray(
+              listings.ownerId,
+              tx
+                .select({ id: users.id })
+                .from(users)
+                .where(and(isNull(users.suspendedAt), isNull(users.deletedAt))),
+            ),
+          ),
+        );
     });
   } catch (err) {
     if (err instanceof RingConflict) return { error: err.message };
@@ -459,6 +486,11 @@ export async function sendRingMessageAction(
   text: string,
 ): Promise<RingActionResult> {
   const me = await requireUser();
+  // Wie beim Zweiertausch: «beleidigend» ist ein Meldegrund, und das
+  // Stilllegen ist die Antwort darauf — sie muss auch hier greifen.
+  const stillgelegt = suspendedNotice(me);
+  if (stillgelegt) return { error: stillgelegt };
+
   const geladen = await loadMyRing(ringId, me.id);
   if (!geladen) return { error: "Ringtausch nicht gefunden." };
   if (["abgelehnt", "storniert", "abgeschlossen"].includes(geladen.ring.status)) {
@@ -549,12 +581,22 @@ export async function startRingEscrowAction(ringId: string): Promise<RingActionR
   // Der Empfänger muss das Geld annehmen können. Wird das erst beim Einzug
   // geprüft, liegt der Betrag hinterher auf dem Plattformkonto fest.
   if (!(await payoutReady(offen.payeeId))) {
-    await notify(
-      [offen.payeeId],
-      "autotauschen: Auszahlungskonto einrichten",
-      "Bei eurem Ringtausch wird als Nächstes der Ausgleich hinterlegt. Damit er bei dir " +
-        `ankommt, richte bitte zuerst dein Auszahlungskonto ein.\n\n${siteUrl()}/konto\n`,
+    // Höchstens eine Erinnerung am Tag: Die Fehlermeldung darunter lädt zum
+    // erneuten Klicken ein, und im Ring kann derselbe Empfänger sogar von zwei
+    // Zahlenden angestossen werden.
+    const erinnerung = await checkRateLimit(
+      `kontoerinnerung:${offen.payeeId}:${ringId}`,
+      1,
+      24 * 60 * 60,
     );
+    if (erinnerung.ok) {
+      await notify(
+        [offen.payeeId],
+        "autotauschen: Auszahlungskonto einrichten",
+        "Bei eurem Ringtausch wird als Nächstes der Ausgleich hinterlegt. Damit er bei dir " +
+          `ankommt, richte bitte zuerst dein Auszahlungskonto ein.\n\n${siteUrl()}/konto\n`,
+      );
+    }
     return {
       error:
         "Wer dein Geld bekommt, hat noch kein Auszahlungskonto. Wir haben ihm eben " +
@@ -632,17 +674,23 @@ export async function confirmRingHandoverAction(ringId: string): Promise<RingAct
   const frisch = await loadRing(ringId);
   if (!frisch) return { error: "Ringtausch nicht gefunden." };
   const meinBein = frisch.legs.find((l) => l.userId === me.id);
-  if (meinBein?.confirmedAt && !geladen.myLeg.confirmedAt) {
+  // War diese Bestätigung gerade neu? Danach richten sich Systemnachricht und
+  // Mail gleichermassen: Ein zweiter Klick — oder ein Neuladen — schickte den
+  // beiden anderen sonst dieselbe Nachricht noch einmal.
+  const neuBestaetigt = Boolean(meinBein?.confirmedAt) && !geladen.myLeg.confirmedAt;
+  if (neuBestaetigt) {
     await addRingSystemMessage(ringId, me.id, `${me.name} hat die Übergabe bestätigt.`);
   }
 
   if (!alle) {
-    await notify(
-      andere(frisch.legs, me.id),
-      "autotauschen: Übergabe bestätigt",
-      `${me.name} hat die Übergabe bestätigt. Sobald alle drei bestätigt haben, wird der ` +
-        `Ausgleich ausgezahlt und die Fahrzeuge werden umgeschrieben.\n\n${siteUrl()}/ringe/${ringId}\n`,
-    );
+    if (neuBestaetigt) {
+      await notify(
+        andere(frisch.legs, me.id),
+        "autotauschen: Übergabe bestätigt",
+        `${me.name} hat die Übergabe bestätigt. Sobald alle drei bestätigt haben, wird der ` +
+          `Ausgleich ausgezahlt und die Fahrzeuge werden umgeschrieben.\n\n${siteUrl()}/ringe/${ringId}\n`,
+      );
+    }
     revalidatePath(`/ringe/${ringId}`);
     return { ok: true };
   }

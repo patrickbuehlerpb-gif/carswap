@@ -123,12 +123,26 @@ export function cashDelta(give: Vehicle, get: Vehicle, premium = 0, asOf?: strin
 /* ------------------------------------------------------------------ */
 
 export interface MatchOptions {
-  /** Wonach der Nutzer selbst sucht — optional. */
+  /**
+   * Wonach der Nutzer selbst sucht — optional. `maxCashOut` daraus ist die
+   * eigene Obergrenze für die Zuzahlung.
+   */
   wish?: Partial<SwapWish>;
-  /** Obergrenze für die eigene Zuzahlung. */
-  maxCashOut?: number;
   /** Nur Inserate zeigen, bei denen auch die Gegenseite passt. */
   onlyMutual?: boolean;
+}
+
+/**
+ * Bleibt eine Zuzahlung im angegebenen Rahmen? Ein Franken Toleranz, weil die
+ * Ausgleiche auf 50 gerundet werden und eine glatt eingegebene Grenze sonst
+ * an einem einzelnen Rundungsschritt scheitern könnte.
+ *
+ * Eine Funktion für beide Seiten: vorher galt die Toleranz nur der
+ * Gegenseite, die eigene Grenze wurde ohne sie geprüft — und an zwei Stellen
+ * unterschiedlich.
+ */
+export function imRahmen(zahlung: number, grenze: number | undefined): boolean {
+  return grenze === undefined || zahlung <= grenze + 1;
 }
 
 /**
@@ -158,8 +172,7 @@ export function findMatches(
     const theirFit = fitsWish(listing.wish, myVehicle);
     // Die Gegenseite zahlt das Negative meiner Zuzahlung
     const theirPayment = -cash.delta;
-    const cashOk =
-      listing.wish.maxCashOut === undefined || theirPayment <= listing.wish.maxCashOut + 1;
+    const cashOk = imRahmen(theirPayment, listing.wish.maxCashOut);
     const mutual = theirFit.ok && cashOk;
 
     if (mutual) {
@@ -200,12 +213,22 @@ export function findMatches(
       concerns.push(...myFit.misses.slice(0, 2));
     }
 
+    // Die eigene Obergrenze für die Zuzahlung ist ein Suchkriterium wie jedes
+    // andere — sie stand bisher nur in der Wunschliste und wurde beim Suchen
+    // nie gelesen. Die Gegenseite wurde an ihrer Grenze gemessen, die eigene
+    // galt nicht. Der Hinweis dazu war unerreichbar: er wurde angehängt und
+    // die Zeile gleich darauf verworfen.
+    const meineGrenze = opts.wish?.maxCashOut;
+    if (!imRahmen(cash.delta, meineGrenze)) {
+      fitsMyWish = false;
+      concerns.push(
+        `Zuzahlung ${fmtChf(cash.delta)} liegt über deiner Grenze von ${fmtChf(meineGrenze!)}`,
+      );
+    }
+
     // 3) Wie gross ist die Lücke, die mit Geld überbrückt werden muss?
     const relGap = Math.abs(cash.delta) / Math.max(cash.giveValue, cash.getValue);
     if (relGap < 0.05) reasons.push("Werte liegen nah beieinander — wenig Geld nötig");
-    if (cash.delta > (opts.maxCashOut ?? Infinity)) {
-      concerns.push(`Zuzahlung ${fmtChf(cash.delta)} liegt über deinem Limit`);
-    }
 
     // 4) Objektiver Fortschritt gegenüber dem eigenen Auto
     if (vehicle.year > myVehicle.year) reasons.push(`${vehicle.year - myVehicle.year} Jahr(e) jünger`);
@@ -233,7 +256,6 @@ export function findMatches(
     );
 
     if (opts.onlyMutual && !mutual) continue;
-    if (opts.maxCashOut !== undefined && cash.delta > opts.maxCashOut) continue;
 
     results.push({
       listing,
@@ -322,6 +344,21 @@ export function findRingSwaps(
 
   const wantsMyCar = pool.filter((e) => fitsWish(e.listing.wish, myVehicle).ok);
 
+  // Ob *ich* ein Fahrzeug will, hängt nicht davon ab, über wen der Ring läuft.
+  // Einmal je Fahrzeug statt einmal je Paar: in der inneren Schleife wurde
+  // dieselbe Antwort bis zu n-mal neu ausgerechnet.
+  const meinFit = new Map<string, WishFit>();
+  if (myWish) {
+    const w: SwapWish = {
+      makes: myWish.makes ?? [],
+      bodies: myWish.bodies ?? [],
+      fuels: myWish.fuels ?? [],
+      minYear: myWish.minYear,
+      maxMileageKm: myWish.maxMileageKm,
+    };
+    for (const e of pool) meinFit.set(e.vehicle.id, fitsWish(w, e.vehicle));
+  }
+
   for (const entryA of wantsMyCar) {
     const a = entryA.listing;
     const aVehicle = entryA.vehicle;
@@ -340,17 +377,8 @@ export function findRingSwaps(
 
       // Und ich muss das Auto von B wollen
       let myQuality = 0.65;
-      if (myWish) {
-        const fit = fitsWish(
-          {
-            makes: myWish.makes ?? [],
-            bodies: myWish.bodies ?? [],
-            fuels: myWish.fuels ?? [],
-            minYear: myWish.minYear,
-            maxMileageKm: myWish.maxMileageKm,
-          },
-          bVehicle,
-        );
+      const fit = meinFit.get(bVehicle.id);
+      if (fit) {
         if (!fit.ok) continue;
         myQuality = fit.quality;
       }
@@ -361,7 +389,22 @@ export function findRingSwaps(
       const vA = askValue.get(aVehicle.id) ?? valueAt(aVehicle);
       const vB = askValue.get(bVehicle.id) ?? valueAt(bVehicle);
 
-      const [myCash] = ringCashSplit([vMe, vA, vB]);
+      const [myCash, aCash, bCash] = ringCashSplit([vMe, vA, vB]);
+
+      /*
+       * Wer geschrieben hat, höchstens tausend Franken zuzahlen zu wollen,
+       * meint das auch im Ring. Im Zweiertausch wurde diese Grenze auf beiden
+       * Seiten geprüft, in der Ringsuche auf keiner — Vorschläge, die schon
+       * auf dem Papier an einer erklärten Grenze scheitern, verdrängten dann
+       * aus den sechs besten die, die möglich gewesen wären.
+       */
+      if (
+        !imRahmen(myCash, myWish?.maxCashOut) ||
+        !imRahmen(aCash, a.wish.maxCashOut) ||
+        !imRahmen(bCash, b.wish.maxCashOut)
+      ) {
+        continue;
+      }
 
       const ownerA = entryA.owner;
       const ownerB = entryB.owner;

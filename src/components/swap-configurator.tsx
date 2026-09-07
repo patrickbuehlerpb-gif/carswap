@@ -8,7 +8,7 @@ import { VehicleVisual } from "@/components/vehicle-visual";
 import { Badge, Card } from "@/components/ui";
 import { proposeSwapAction } from "@/app/actions/deals";
 import { chf, km, label, vehicleFullTitle } from "@/lib/format";
-import { cashDelta, fitsWish } from "@/lib/matching";
+import { cashDelta, fitsWish, imRahmen } from "@/lib/matching";
 import type { Listing, User, Vehicle } from "@/lib/types";
 import { valuate, valueHistory } from "@/lib/valuation";
 
@@ -49,8 +49,7 @@ export function SwapConfigurator({
 
   const fit = fitsWish(listing.wish, mine);
   const theirPayment = -current;
-  const withinTheirRange =
-    listing.wish.maxCashOut === undefined || theirPayment <= listing.wish.maxCashOut + 1;
+  const withinTheirRange = imRahmen(theirPayment, listing.wish.maxCashOut);
 
   const spread = Math.abs(current - fair.delta);
   const fairness =

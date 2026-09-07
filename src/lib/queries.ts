@@ -6,7 +6,6 @@ import {
   dealMessages,
   deals,
   listings,
-  payments,
   reviews,
   ringLegs,
   ringSwaps,
@@ -20,6 +19,7 @@ import {
   type UserRow,
   type VehicleRow,
 } from "./db/schema";
+import { currentRingPayments } from "./payments";
 import type { Deal, DealMessage, DealStatus, Listing, User, Vehicle } from "./types";
 
 /* ------------------------------------------------------------------ */
@@ -657,39 +657,25 @@ export async function getRingForUser(ringId: string, userId: string): Promise<Ri
       .orderBy(dealMessages.createdAt),
     getVehiclesByIds(legs.map((l) => l.vehicleId)),
     db.select().from(users).where(inArray(users.id, legs.map((l) => l.userId))),
-    db
-      .select({
-        payerId: payments.payerId,
-        payeeId: payments.payeeId,
-        amountMinor: payments.amountMinor,
-        feeMinor: payments.feeMinor,
-        status: payments.status,
-        createdAt: payments.createdAt,
-      })
-      .from(payments)
-      .where(eq(payments.ringId, ringId))
-      .orderBy(desc(payments.createdAt)),
+    // Je Weg zählt nur der jüngste Versuch — ältere, verfallene Sessions
+    // stünden sonst als zweite Zeile in der Übersicht. Dieselbe Auswahl
+    // trifft die Abwicklung; sie darf hier nicht ein zweites Mal nachgebaut
+    // werden, sonst zeigt die Seite irgendwann etwas anderes an, als der
+    // Abschluss verrechnet.
+    currentRingPayments(ringId),
   ]);
 
   const userMap = new Map(userRows.map((u) => [u.id, toUser(u)]));
   const participants = toParticipants(legs, vehicleMap, userMap);
   if (!participants) return null;
 
-  // Je Weg zählt nur der jüngste Versuch — ältere, verfallene Sessions
-  // stehen sonst als zweite Zeile in der Übersicht.
-  const jüngste = new Map<string, RingPaymentView>();
-  for (const row of paymentRows) {
-    const key = `${row.payerId}|${row.payeeId}`;
-    if (!jüngste.has(key)) {
-      jüngste.set(key, {
-        payerId: row.payerId,
-        payeeId: row.payeeId,
-        amountMinor: row.amountMinor,
-        feeMinor: row.feeMinor,
-        status: row.status,
-      });
-    }
-  }
+  const zahlungen: RingPaymentView[] = paymentRows.map((row) => ({
+    payerId: row.payerId,
+    payeeId: row.payeeId,
+    amountMinor: row.amountMinor,
+    feeMinor: row.feeMinor,
+    status: row.status,
+  }));
 
   return {
     id: ring.id,
@@ -705,6 +691,6 @@ export async function getRingForUser(ringId: string, userId: string): Promise<Ri
       text: m.body,
       system: m.system,
     })),
-    payments: [...jüngste.values()],
+    payments: zahlungen,
   };
 }
