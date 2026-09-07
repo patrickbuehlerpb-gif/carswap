@@ -20,9 +20,11 @@ import {
   createSession,
   destroyAllSessions,
   destroySession,
+  getSessionUser,
   occasionalCleanup,
 } from "@/lib/auth/session";
 import { consumeToken, issueToken } from "@/lib/auth/tokens";
+import { widerrufeAdresswechsel } from "./account";
 import { mailConfigured, sendMail, siteUrl } from "@/lib/mail";
 import { emailSchema } from "@/lib/validation";
 
@@ -108,6 +110,14 @@ export async function signUpAction(_prev: FormState, formData: FormData): Promis
     return { error: "Für diese E-Mail-Adresse gibt es bereits ein Konto." };
   }
 
+  /*
+   * Erst die Sitzung, dann die Mail. Der Versand hat zehn Sekunden Zeit; wird
+   * die Ausführung vorher abgebrochen, gäbe es sonst ein Konto ohne Sitzung —
+   * die Person landete auf der Anmeldeseite für ein Konto, dessen Anlegen sie
+   * für gescheitert hält.
+   */
+  await createSession(id, userAgent);
+
   const token = await issueToken(id, "verify_email");
   const zustellung = await sendMail({
     to: parsed.data.email,
@@ -120,7 +130,6 @@ export async function signUpAction(_prev: FormState, formData: FormData): Promis
       `kannst du diese Nachricht ignorieren.\n`,
   });
 
-  await createSession(id, userAgent);
   // Die Begrüssung sagt sonst «wir haben dir eine E-Mail geschickt» — auch
   // wenn der Versand gerade abgelehnt hat. Wer dann auf eine Mail wartet, die
   // nie kommt, hält sein Konto für kaputt. Ohne eingerichteten Versand ist
@@ -146,7 +155,16 @@ export async function signInAction(_prev: FormState, formData: FormData): Promis
   //   login-paar   — wie oft hat diese Verbindung genau dieses Konto probiert?
   // Ein Zähler allein auf der Adresse wäre eine Einladung: damit sperrt jeder
   // ein fremdes Konto aus, ohne das Passwort zu kennen.
-  const byIp = await checkRateLimit(`login-ip:${ip}`, 20, 15 * 60);
+  /*
+   * Beide werden nur gelesen, nicht hochgezählt. Der Zähler auf der Verbindung
+   * zählte vorher jeden Versuch mit — auch die erfolgreichen — und wurde nie
+   * zurückgesetzt. Hinter einer Adresse steckt in der Schweiz oft ein ganzes
+   * Büro oder, im Mobilfunk, ein halbes Quartier: Nach zwanzig ganz normalen
+   * Anmeldungen in einer Viertelstunde kam dort niemand mehr hinein, auch mit
+   * richtigem Passwort nicht.
+   */
+  const ipKey = `login-ip:${ip}`;
+  const byIp = await peekRateLimit(ipKey, 20, 15 * 60);
   const paarKey = `login-paar:${ip}|${emailRaw}`;
   const byPaar = await peekRateLimit(paarKey, 8, 15 * 60);
   if (!byIp.ok || !byPaar.ok) {
@@ -170,8 +188,9 @@ export async function signInAction(_prev: FormState, formData: FormData): Promis
     : await verifyPassword(password, "scrypt$32768$8$1$AAAAAAAAAAAAAAAAAAAAAA$AAAA");
 
   if (!user || !ok) {
-    // Erst jetzt zählen — und nur den Fehlversuch. Beide Zähler laufen mit:
-    // der auf dem Paar sperrt, der auf der Adresse bremst.
+    // Erst jetzt zählen — und nur den Fehlversuch. Alle drei Zähler laufen mit:
+    // der auf der Verbindung, der auf dem Paar und der auf der Adresse.
+    await checkRateLimit(ipKey, 20, 15 * 60);
     await checkRateLimit(paarKey, 8, 15 * 60);
     const stand = await checkRateLimit(mailKey, 8, 15 * 60);
     // Ab dem vierten Fehlversuch wird jede weitere Antwort für diese Adresse
@@ -182,10 +201,19 @@ export async function signInAction(_prev: FormState, formData: FormData): Promis
     return { error: "E-Mail-Adresse oder Passwort stimmt nicht." };
   }
 
-  // Erfolg löscht beide Zähler, damit ein Tippfehler von gestern nicht nachwirkt.
+  // Erfolg löscht die Zähler, damit ein Tippfehler von gestern nicht nachwirkt.
   if (fehlversuche.count > 0) await clearRateLimit(mailKey);
   if (byPaar.count > 0) await clearRateLimit(paarKey);
+  if (byIp.count > 0) await clearRateLimit(ipKey);
 
+  /*
+   * Die bisherige Sitzung dieses Browsers ablösen, statt eine zweite
+   * danebenzustellen. Sonst sammelt jede erneute Anmeldung im selben Browser
+   * eine weitere Zeile an, die dreissig Tage lang gültig bleibt — und wer ein
+   * altes Cookie in die Hände bekommt, kommt damit weiter hinein, obwohl sich
+   * die Besitzerin längst neu angemeldet hat.
+   */
+  await destroySession();
   await createSession(user.id, userAgent);
   // Nebenbei aufräumen — es gibt keinen Hintergrunddienst, der das täte.
   await occasionalCleanup();
@@ -273,10 +301,17 @@ export async function resetPasswordAction(
   const problem = passwordProblem(password);
   if (problem) return { error: problem };
 
-  const userId = await consumeToken(token, "reset_password");
-  if (!userId) {
+  const eingeloest = await consumeToken(token, "reset_password");
+  if (!eingeloest) {
     return { error: "Dieser Link ist abgelaufen oder wurde bereits verwendet." };
   }
+  const { userId } = eingeloest;
+
+  const [konto] = await db
+    .select({ email: users.email, name: users.name })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
 
   await db
     .update(users)
@@ -285,6 +320,28 @@ export async function resetPasswordAction(
 
   // Nach einem Passwortwechsel alle Geräte abmelden
   await destroyAllSessions(userId);
+  // Und einen angefragten Adresswechsel widerrufen: Sonst bliebe der Link an
+  // die fremde Adresse gültig, und das Zurücksetzen brächte nichts.
+  await widerrufeAdresswechsel(userId);
+
+  /*
+   * Dieser Weg verlangt kein Passwort — nur den Link aus dem Postfach. Genau
+   * hier muss eine Nachricht raus: Wer sich kurz Zugriff auf ein Postfach
+   * verschafft hat, setzt sonst still das Passwort, meldet alle Geräte ab, und
+   * die Besitzerin erfährt nichts. Der Weg mit Passwortabfrage schrieb längst.
+   */
+  if (konto) {
+    await sendMail({
+      to: konto.email,
+      subject: "autotauschen: Passwort zurückgesetzt",
+      text:
+        `Hallo ${konto.name}\n\n` +
+        "Das Passwort deines Kontos wurde soeben über den Link «Passwort vergessen» neu " +
+        "gesetzt, und alle Geräte wurden abgemeldet.\n\n" +
+        "Warst du das nicht, setze es sofort erneut — und sieh nach, wer sonst Zugriff auf " +
+        `dein Postfach hat:\n${siteUrl()}/konto/passwort-vergessen\n`,
+    });
+  }
   redirect("/konto/anmelden?zurueckgesetzt=1");
 }
 
@@ -293,17 +350,16 @@ export async function resetPasswordAction(
 /* ------------------------------------------------------------------ */
 
 export async function verifyEmailToken(token: string): Promise<boolean> {
-  const userId = await consumeToken(token, "verify_email");
-  if (!userId) return false;
+  const eingeloest = await consumeToken(token, "verify_email");
+  if (!eingeloest) return false;
   await db
     .update(users)
     .set({ emailVerifiedAt: new Date(), updatedAt: new Date() })
-    .where(eq(users.id, userId));
+    .where(eq(users.id, eingeloest.userId));
   return true;
 }
 
 export async function resendVerificationAction(): Promise<FormState> {
-  const { getSessionUser } = await import("@/lib/auth/session");
   const user = await getSessionUser();
   if (!user) return { error: "Nicht angemeldet." };
   if (user.emailVerified) return { notice: "Deine Adresse ist bereits bestätigt." };

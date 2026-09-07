@@ -65,10 +65,14 @@ vi.mock("@/lib/payments", async (importOriginal) => {
  * geforderte Aufschlag der beiden inserierten Fahrzeuge steuern und damit,
  * wer im Ring wie viel zahlt.
  */
+/** Die Kontolöschung verlangt das Passwort — die Ringkonten bekommen eines. */
+const PW = "ein sehr langes Testpasswort";
+
 async function baueRunde(premium: { b?: number; c?: number } = {}) {
-  const a = await createUser("Anna", { stripeAccountId: "acct_a", stripePayoutsEnabled: true });
-  const b = await createUser("Bruno", { stripeAccountId: "acct_b", stripePayoutsEnabled: true });
-  const c = await createUser("Clara", { stripeAccountId: "acct_c", stripePayoutsEnabled: true });
+  const gemeinsam = { password: PW, stripePayoutsEnabled: true };
+  const a = await createUser("Anna", { ...gemeinsam, stripeAccountId: "acct_a" });
+  const b = await createUser("Bruno", { ...gemeinsam, stripeAccountId: "acct_b" });
+  const c = await createUser("Clara", { ...gemeinsam, stripeAccountId: "acct_c" });
 
   const vA = await createVehicle(a);
   const vB = await createVehicle(b);
@@ -613,14 +617,14 @@ describe("Kontolöschung und Ringe", () => {
     await ohneAusgleich(ringId);
     await zusagenAlle(ringId, b, c);
     als(b);
-    const res = await deleteAccountAction("LÖSCHEN");
+    const res = await deleteAccountAction("LÖSCHEN", PW);
     expect(res.error).toMatch(/Ringtausch/);
   });
 
   it("zieht offene Ringvorschläge zurück", async () => {
     const { ringId, b } = await legeRingAn();
     als(b);
-    const res = await deleteAccountAction("LÖSCHEN");
+    const res = await deleteAccountAction("LÖSCHEN", PW);
     expect(res.error).toBeUndefined();
     expect(await ringStatus(ringId)).toBe("storniert");
   });

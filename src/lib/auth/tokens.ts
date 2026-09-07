@@ -1,9 +1,10 @@
 import "server-only";
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { db } from "../db";
 import { newId } from "../db/ids";
 import { authTokens } from "../db/schema";
+import { hashToken as hash } from "./token-hash";
 
 type Purpose = "verify_email" | "reset_password" | "change_email";
 
@@ -13,12 +14,25 @@ const TTL: Record<Purpose, number> = {
   change_email: 24 * 60 * 60 * 1000,
 };
 
-function hash(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
+/*
+ * Dieselbe Ableitung wie bei den Sitzungen — und deshalb aus derselben Quelle.
+ * Vorher stand die Funktion hier ein zweites Mal Zeichen für Zeichen; wer die
+ * Ableitung einmal ändert (ein Pfeffer, ein anderes Verfahren), hätte sie
+ * sonst für Sitzungen geändert und für Token nicht.
+ */
 
-/** Erzeugt ein Einmal-Token und gibt den Klartext zurück (nur für den Versand). */
-export async function issueToken(userId: string, purpose: Purpose): Promise<string> {
+/**
+ * Erzeugt ein Einmal-Token und gibt den Klartext zurück (nur für den Versand).
+ *
+ * `target` hält fest, wofür das Token gilt — beim Adresswechsel die angefragte
+ * Adresse. Beim Einlösen zählt dann diese und nicht, was inzwischen in der
+ * Kontozeile steht.
+ */
+export async function issueToken(
+  userId: string,
+  purpose: Purpose,
+  target?: string,
+): Promise<string> {
   // Ältere, noch offene Token desselben Zwecks entwerten
   await db
     .update(authTokens)
@@ -31,13 +45,25 @@ export async function issueToken(userId: string, purpose: Purpose): Promise<stri
     userId,
     purpose,
     tokenHash: hash(token),
+    target: target ?? null,
     expiresAt: new Date(Date.now() + TTL[purpose]),
   });
   return token;
 }
 
-/** Löst ein Token ein. Gibt die userId zurück oder null, wenn ungültig. */
-export async function consumeToken(token: string, purpose: Purpose): Promise<string | null> {
+export interface EingeloestesToken {
+  userId: string;
+  /** Wofür es galt — beim Adresswechsel die angefragte Adresse. */
+  target: string | null;
+}
+
+/**
+ * Löst ein Token ein. Gibt Konto und Ziel zurück oder null, wenn ungültig.
+ */
+export async function consumeToken(
+  token: string,
+  purpose: Purpose,
+): Promise<EingeloestesToken | null> {
   const rows = await db
     .select()
     .from(authTokens)
@@ -62,5 +88,5 @@ export async function consumeToken(token: string, purpose: Purpose): Promise<str
     .where(and(eq(authTokens.id, row.id), isNull(authTokens.usedAt)))
     .returning({ id: authTokens.id });
 
-  return updated.length ? row.userId : null;
+  return updated.length ? { userId: row.userId, target: row.target } : null;
 }

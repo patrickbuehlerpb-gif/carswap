@@ -229,6 +229,43 @@ describe("E-Mail-Adresse wechseln", () => {
     expect(await confirmEmailChange(token)).toEqual({ ok: false, grund: "ungueltig" });
   });
 
+  it("macht den offenen Link wertlos, wenn das Passwort gewechselt wird", async () => {
+    // Genau das rät die Warnmail an die bisherige Adresse. Half vorher nichts:
+    // Der Link an die fremde Adresse blieb 24 Stunden gültig, und wer ihn
+    // anklickte, bekam das Konto.
+    const anna = await createUser("Anna", { password: PW, email: "anna@alt.test" });
+    als(anna);
+    await requestEmailChangeAction({}, form({ email: "fremd@boese.test", current: PW }));
+    const token = tokenAus("fremd@boese.test");
+
+    await changePasswordAction(
+      {},
+      form({ current: PW, password: "ein noch längeres Passwort", repeat: "ein noch längeres Passwort" }),
+    );
+
+    expect(await confirmEmailChange(token)).toEqual({ ok: false, grund: "ungueltig" });
+    const [row] = await db.select().from(users).where(eq(users.id, anna));
+    expect(row.email).toBe("anna@alt.test");
+    expect(row.pendingEmail).toBeNull();
+  });
+
+  it("hängt auf die Adresse um, die im Link steht — nicht auf die zuletzt angefragte", async () => {
+    // Zwei überlappende Anfragen: Der Link aus dem ersten Postfach darf nicht
+    // die Adresse der zweiten Anfrage freischalten. Deren Postfach hat
+    // niemand nachgewiesen.
+    const anna = await createUser("Anna", { password: PW, email: "anna@alt.test" });
+    als(anna);
+    await requestEmailChangeAction({}, form({ email: "erste@neu.test", current: PW }));
+    const ersterLink = tokenAus("erste@neu.test");
+    await requestEmailChangeAction({}, form({ email: "zweite@neu.test", current: PW }));
+
+    // Der erste Link ist durch die zweite Anfrage entwertet — und schaltet
+    // erst recht nicht die zweite Adresse frei.
+    expect(await confirmEmailChange(ersterLink)).toEqual({ ok: false, grund: "ungueltig" });
+    const [row] = await db.select().from(users).where(eq(users.id, anna));
+    expect(row.email).toBe("anna@alt.test");
+  });
+
   it("verlangt eine Anmeldung", async () => {
     als(null);
     await expect(

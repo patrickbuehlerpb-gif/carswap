@@ -22,8 +22,11 @@ beforeEach(async () => {
   als(null);
 });
 
+/** Dasselbe Passwort für alle Testkonten — die Löschung verlangt es jetzt. */
+const PW = "ein sehr langes Testpasswort";
+
 async function kontoMitAllem() {
-  const a = await createUser("Anna");
+  const a = await createUser("Anna", { password: PW });
   const b = await createUser("Bruno");
   const va = await createVehicle(a);
   const vb = await createVehicle(b);
@@ -80,6 +83,65 @@ describe("Auskunft", () => {
     expect(daten.bewertungen).toHaveLength(1);
   });
 
+  it("gibt fremde Nachrichtentexte nicht heraus", async () => {
+    const { a, b, va, vb } = await kontoMitAllem();
+    const dealId = newId("dl");
+    await db.insert(deals).values({
+      id: dealId,
+      fromVehicleId: va,
+      toVehicleId: vb,
+      initiatorId: a,
+      counterpartyId: b,
+      cashDelta: 0,
+      status: "verhandlung",
+    });
+    await db.insert(dealMessages).values([
+      { id: newId("msg"), dealId, authorId: a, body: "Wann passt es dir?" },
+      { id: newId("msg"), dealId, authorId: b, body: "Bahnhofstrasse 1, 079 111 22 33" },
+    ]);
+
+    als(a);
+    const daten = JSON.parse((await exportMyDataAction()).json!);
+    const texte = daten.nachrichten.map((n: { body: string }) => n.body);
+    // Die eigene Nachricht steht drin, die der Gegenseite nicht — dort stünden
+    // Adresse und Telefonnummer einer anderen Person.
+    expect(texte).toContain("Wann passt es dir?");
+    expect(texte.join(" ")).not.toContain("Bahnhofstrasse");
+    expect(daten.nachrichten).toHaveLength(2);
+  });
+
+  it("gibt keine internen Kennungen des Zahlungsdienstleisters heraus", async () => {
+    const { a, b, va, vb } = await kontoMitAllem();
+    const dealId = newId("dl");
+    await db.insert(deals).values({
+      id: dealId,
+      fromVehicleId: va,
+      toVehicleId: vb,
+      initiatorId: a,
+      counterpartyId: b,
+      cashDelta: 3_000,
+      status: "treuhand",
+    });
+    await db.insert(payments).values({
+      id: newId("pay"),
+      dealId,
+      payerId: a,
+      payeeId: b,
+      amountMinor: 300_000,
+      feeMinor: 9_000,
+      status: "autorisiert",
+      stripeSessionId: "cs_geheim",
+      stripePaymentIntentId: "pi_geheim",
+    });
+
+    als(a);
+    const roh = (await exportMyDataAction()).json!;
+    expect(roh).not.toContain("cs_geheim");
+    expect(roh).not.toContain("pi_geheim");
+    const [zahlung] = JSON.parse(roh).zahlungen;
+    expect(zahlung).toMatchObject({ betragRappen: 300_000, richtung: "gezahlt", status: "autorisiert" });
+  });
+
   it("verlangt eine Anmeldung", async () => {
     await expect(exportMyDataAction()).rejects.toThrow(/Nicht angemeldet/);
   });
@@ -89,7 +151,7 @@ describe("Kontolöschung", () => {
   it("verlangt das Bestätigungswort", async () => {
     const { a } = await kontoMitAllem();
     als(a);
-    expect((await deleteAccountAction("ja bitte")).error).toMatch(/LÖSCHEN/);
+    expect((await deleteAccountAction("ja bitte", PW)).error).toMatch(/LÖSCHEN/);
     const [row] = await db.select().from(users).where(eq(users.id, a));
     expect(row.deletedAt).toBeNull();
   });
@@ -97,7 +159,7 @@ describe("Kontolöschung", () => {
   it("entkoppelt das Konto und räumt Fahrzeuge, Sitzungen und Token weg", async () => {
     const { a, va } = await kontoMitAllem();
     als(a);
-    const res = await deleteAccountAction("löschen");
+    const res = await deleteAccountAction("löschen", PW);
     expect(res.error).toBeUndefined();
 
     const [row] = await db.select().from(users).where(eq(users.id, a));
@@ -130,7 +192,7 @@ describe("Kontolöschung", () => {
       status: "treuhand",
     });
     als(a);
-    const res = await deleteAccountAction("LÖSCHEN");
+    const res = await deleteAccountAction("LÖSCHEN", PW);
     expect(res.error).toMatch(/zugesagter Tausch/);
     const [row] = await db.select().from(users).where(eq(users.id, a));
     expect(row.deletedAt).toBeNull();
@@ -160,16 +222,20 @@ describe("Kontolöschung", () => {
     });
 
     als(a);
-    const res = await deleteAccountAction("LÖSCHEN");
+    const res = await deleteAccountAction("LÖSCHEN", PW);
     expect(res.error).toMatch(/liegt noch Geld bei uns oder ist unterwegs/);
     const [row] = await db.select().from(users).where(eq(users.id, a));
     expect(row.deletedAt).toBeNull();
   });
 
   it("löst den Verweis auf das Auszahlungskonto", async () => {
-    const a = await createUser("Anna", { stripeAccountId: "acct_x", stripePayoutsEnabled: true });
+    const a = await createUser("Anna", {
+      password: PW,
+      stripeAccountId: "acct_x",
+      stripePayoutsEnabled: true,
+    });
     als(a);
-    expect((await deleteAccountAction("LÖSCHEN")).error).toBeUndefined();
+    expect((await deleteAccountAction("LÖSCHEN", PW)).error).toBeUndefined();
     const [row] = await db.select().from(users).where(eq(users.id, a));
     expect(row.stripeAccountId).toBeNull();
     expect(row.stripePayoutsEnabled).toBe(false);
@@ -197,7 +263,7 @@ describe("Kontolöschung", () => {
     ]);
 
     als(a);
-    expect((await deleteAccountAction("LÖSCHEN")).error).toBeUndefined();
+    expect((await deleteAccountAction("LÖSCHEN", PW)).error).toBeUndefined();
 
     const rows = await db.select().from(dealMessages).where(eq(dealMessages.dealId, dealId));
     const byId = new Map(rows.map((r) => [r.id, r.body]));
@@ -224,7 +290,7 @@ describe("Kontolöschung", () => {
       status: "verhandlung",
     });
     als(a);
-    expect((await deleteAccountAction("LÖSCHEN")).error).toBeUndefined();
+    expect((await deleteAccountAction("LÖSCHEN", PW)).error).toBeUndefined();
     const [row] = await db.select().from(deals).where(eq(deals.id, dealId));
     expect(row.status).toBe("storniert");
   });

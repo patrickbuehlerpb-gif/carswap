@@ -1,20 +1,17 @@
 import "server-only";
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { cache } from "react";
 import { and, eq, gt, lt, ne } from "drizzle-orm";
 import { db } from "../db";
 import { newId } from "../db/ids";
+import { hashToken } from "./token-hash";
 import { authTokens, sessions, users, type UserRow } from "../db/schema";
 
 const COOKIE = "autotauschen_session";
 const TTL_MS = 30 * 24 * 60 * 60 * 1000;
 /** Ab dieser Restlaufzeit wird die Sitzung beim Zugriff verlängert. */
 const REFRESH_BELOW_MS = 25 * 24 * 60 * 60 * 1000;
-
-function hashToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
 
 /** Legt eine Sitzung an und setzt das Cookie. Gibt das Klartext-Token zurück. */
 export async function createSession(userId: string, userAgent?: string): Promise<void> {
@@ -188,4 +185,3 @@ export async function occasionalCleanup(): Promise<void> {
   }
 }
 
-export { hashToken };

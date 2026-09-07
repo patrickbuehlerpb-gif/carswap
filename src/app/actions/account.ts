@@ -198,6 +198,9 @@ export async function changePasswordAction(
   // Wer das Passwort wechselt, will die anderen Sitzungen loswerden — sich
   // dabei selbst hinauszuwerfen wäre aber nur lästig.
   await destroyOtherSessions(me.id);
+  // Und einen angefragten Adresswechsel gleich mit: Genau dazu rät die
+  // Warnmail, wenn jemand Fremdes ihn angestossen hat.
+  await widerrufeAdresswechsel(me.id);
 
   await sendMail({
     to: me.email,
@@ -253,7 +256,7 @@ export async function requestEmailChangeAction(
     .set({ pendingEmail: neueAdresse, updatedAt: new Date() })
     .where(eq(users.id, me.id));
 
-  const token = await issueToken(me.id, "change_email");
+  const token = await issueToken(me.id, "change_email", neueAdresse);
   const zustellung = await sendMail({
     to: neueAdresse,
     subject: "autotauschen: neue E-Mail-Adresse bestätigen",
@@ -295,23 +298,50 @@ export async function requestEmailChangeAction(
   };
 }
 
-/** Nimmt einen angefragten Adresswechsel zurück. */
-export async function cancelEmailChangeAction(): Promise<AccountResult> {
-  const me = await requireUser();
+/**
+ * Ist das der eindeutige Index auf der Adresse — oder etwas ganz anderes?
+ *
+ * Der Treiberfehler steckt eine Ebene tiefer: Drizzle verpackt ihn, der Code
+ * steht erst an der Ursache. Wer nur die äussere Hülle ansieht, hält jeden
+ * Fehler für «Adresse vergeben» — oder, andersherum, keinen einzigen.
+ */
+function istAdresseVergeben(err: unknown): boolean {
+  for (let e: unknown = err, tiefe = 0; e && tiefe < 5; e = (e as { cause?: unknown }).cause, tiefe++) {
+    const { code, constraint_name: feld } = e as { code?: string; constraint_name?: string };
+    if (code === "23505") return feld === undefined || feld === "users_email_key";
+  }
+  return false;
+}
+
+/**
+ * Widerruft einen angefragten Adresswechsel samt Link.
+ *
+ * Wird nicht nur beim Abbrechen gebraucht, sondern auch beim Passwortwechsel:
+ * Die Warnmail an die bisherige Adresse rät «ändere sofort dein Passwort» —
+ * und dieser Rat half nichts, solange der Link an die fremde Adresse gültig
+ * blieb. Wer das Passwort setzt, macht den Wechsel damit rückgängig.
+ */
+export async function widerrufeAdresswechsel(userId: string): Promise<void> {
   await db
     .update(users)
     .set({ pendingEmail: null, updatedAt: new Date() })
-    .where(eq(users.id, me.id));
+    .where(eq(users.id, userId));
   await db
     .update(authTokens)
     .set({ usedAt: new Date() })
     .where(
       and(
-        eq(authTokens.userId, me.id),
+        eq(authTokens.userId, userId),
         eq(authTokens.purpose, "change_email"),
         isNull(authTokens.usedAt),
       ),
     );
+}
+
+/** Nimmt einen angefragten Adresswechsel zurück. */
+export async function cancelEmailChangeAction(): Promise<AccountResult> {
+  const me = await requireUser();
+  await widerrufeAdresswechsel(me.id);
   revalidatePath("/konto");
   return { notice: "Der Wechsel wurde abgebrochen." };
 }
@@ -326,15 +356,29 @@ export async function cancelEmailChangeAction(): Promise<AccountResult> {
 export async function confirmEmailChange(token: string): Promise<
   { ok: true; email: string } | { ok: false; grund: "ungueltig" | "belegt" }
 > {
-  const userId = await consumeToken(token, "change_email");
-  if (!userId) return { ok: false, grund: "ungueltig" };
+  const eingeloest = await consumeToken(token, "change_email");
+  if (!eingeloest) return { ok: false, grund: "ungueltig" };
+  const { userId } = eingeloest;
+
+  /*
+   * Massgeblich ist die Adresse, die im Token steht — nicht die, die gerade
+   * in der Kontozeile vermerkt ist. Vorher entschied allein `pendingEmail`,
+   * und zwei überlappende Anfragen konnten sich überkreuzen: Der Link aus dem
+   * einen Postfach schaltete die Adresse aus der anderen Anfrage frei, also
+   * eine, deren Postfach niemand nachgewiesen hat. Genau darauf beruht der
+   * Schutz aber.
+   */
+  const zieladresse = eingeloest.target;
+  if (!zieladresse) return { ok: false, grund: "ungueltig" };
 
   const [konto] = await db
     .select({ pendingEmail: users.pendingEmail, name: users.name, email: users.email })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
-  if (!konto?.pendingEmail) return { ok: false, grund: "ungueltig" };
+  // Der Wechsel muss noch angefragt sein: Wer ihn abgebrochen oder das
+  // Passwort geändert hat, hat ihn damit widerrufen.
+  if (!konto || konto.pendingEmail !== zieladresse) return { ok: false, grund: "ungueltig" };
 
   // Zwischen Anfrage und Klick kann sich jemand anders mit der Adresse
   // registriert haben. Der eindeutige Index entscheidet, nicht ein SELECT
@@ -344,7 +388,7 @@ export async function confirmEmailChange(token: string): Promise<
     umgehaengt = await db
       .update(users)
       .set({
-        email: konto.pendingEmail,
+        email: zieladresse,
         pendingEmail: null,
         // Die Adresse ist durch den Klick belegt — ein zweiter
         // Bestätigungslauf wäre eine Schikane.
@@ -353,7 +397,14 @@ export async function confirmEmailChange(token: string): Promise<
       })
       .where(eq(users.id, userId))
       .returning({ email: users.email });
-  } catch {
+  } catch (err) {
+    /*
+     * Nur der eindeutige Index zählt hier als «Adresse vergeben». Ein blankes
+     * `catch` machte aus jedem Datenbankfehler — abgerissene Verbindung,
+     * Zeitüberschreitung — die Auskunft «jemand anders war schneller», löschte
+     * die Anfrage und verbrannte das Token. Alles andere gehört nach oben.
+     */
+    if (!istAdresseVergeben(err)) throw err;
     umgehaengt = [];
   }
 
@@ -370,7 +421,7 @@ export async function confirmEmailChange(token: string): Promise<
     subject: "autotauschen: E-Mail-Adresse geändert",
     text:
       `Hallo ${konto.name}\n\n` +
-      `Dein Konto läuft jetzt auf ${konto.pendingEmail}. An diese bisherige Adresse ` +
+      `Dein Konto läuft jetzt auf ${zieladresse}. An diese bisherige Adresse ` +
       "schicken wir nichts mehr.\n\n" +
       "Warst du das nicht, melde dich sofort beim Support.\n",
   });
@@ -452,6 +503,40 @@ export async function exportMyDataAction(): Promise<{
   // personenbezogenes Datum im Sinne der Auskunftspflicht, aber ein Geheimnis.
   const { passwordHash: _hash, ...kontoOhneGeheimnis } = konto;
 
+  /*
+   * Fremde Nachrichtentexte gehören nicht hinein.
+   *
+   * Die Auskunft soll zeigen, was zu dieser Person gespeichert ist — nicht,
+   * was die Gegenseite geschrieben hat. Dort stehen Abholadressen,
+   * Telefonnummern und Namen Dritter; beim Löschen werden genau diese Texte
+   * geschwärzt, weil sie fremde Personendaten sind. Wer sie in der Auskunft
+   * mitgibt, macht das Auskunftsrecht zum Auslesewerkzeug für die
+   * Gegenseite. Dass es die Nachricht gab, wann sie kam und von wem, bleibt
+   * sichtbar — nur der Text der anderen nicht.
+   */
+  const nachrichtenGefiltert = nachrichten.map((n) =>
+    n.authorId === me.id ? n : { ...n, body: "[Text der Gegenseite — nicht Teil deiner Auskunft]" },
+  );
+
+  /*
+   * Und keine internen Kennungen des Zahlungsdienstleisters: Sitzungs-,
+   * Intent- und Transferkennungen sind Betriebsdaten, keine Auskunft. Was die
+   * Person wissen will, steht in Betrag, Gebühr, Status und Zeitpunkt.
+   */
+  const zahlungenSchlank = meineZahlungen.map((z) => ({
+    id: z.id,
+    dealId: z.dealId,
+    ringId: z.ringId,
+    richtung: z.payerId === me.id ? ("gezahlt" as const) : ("erhalten" as const),
+    betragRappen: z.amountMinor,
+    gebuehrRappen: z.feeMinor,
+    waehrung: z.currency,
+    status: z.status,
+    angefochtenAm: z.disputedAt,
+    erstelltAm: z.createdAt,
+    aktualisiertAm: z.updatedAt,
+  }));
+
   return {
     json: JSON.stringify(
       {
@@ -462,8 +547,8 @@ export async function exportMyDataAction(): Promise<{
         tausche: meineDeals,
         ringtausche: meineRinge,
         ringbeine: meineRingBeine,
-        nachrichten,
-        zahlungen: meineZahlungen,
+        nachrichten: nachrichtenGefiltert,
+        zahlungen: zahlungenSchlank,
         merkliste: meineMerkliste,
         gemeldeteTreffer,
         bewertungen: meineBewertungen,
@@ -482,10 +567,24 @@ export async function exportMyDataAction(): Promise<{
  */
 export async function deleteAccountAction(
   bestaetigung: string,
+  passwort: string,
 ): Promise<AccountResult> {
   const me = await requireUser();
   if (bestaetigung.trim().toUpperCase() !== "LÖSCHEN") {
     return { error: "Bitte zum Bestätigen das Wort LÖSCHEN eintippen." };
+  }
+
+  /*
+   * Auch hier das Passwort — und zwar aus demselben Grund, den `passwortStimmt`
+   * für Passwort- und Adresswechsel nennt: Wer ein offenes Notebook erwischt,
+   * konnte bis eben in zwei Klicks Fotos, Nachrichten und Bewertungen
+   * unwiederbringlich löschen. Von den drei Handlungen war ausgerechnet die
+   * einzige unumkehrbare die am schwächsten gesicherte.
+   */
+  const limit = await checkRateLimit(`loeschen:${me.id}`, 5, 60 * 60);
+  if (!limit.ok) return { error: "Zu viele Versuche. Bitte später erneut." };
+  if (!(await passwortStimmt(me.id, passwort))) {
+    return { error: "Das Passwort stimmt nicht." };
   }
 
   // Ein laufender verbindlicher Tausch muss zuerst zu Ende gebracht werden —
@@ -555,35 +654,54 @@ export async function deleteAccountAction(
 
   try {
     await db.transaction(async (tx) => {
-      // Die beiden Sperrgründe innerhalb der Transaktion erneut prüfen und
-      // die Zeilen dabei sperren. Zwischen der Vorprüfung oben und hier
-      // könnte die Gegenseite einen Vorschlag angenommen haben.
-      const nochOffen = await tx
-        .select({ id: deals.id })
+      /*
+       * Die Sperrgründe innerhalb der Transaktion erneut prüfen — und dabei
+       * *alle* lebenden Zeilen sperren, nicht nur die bereits verbindlichen.
+       *
+       * Eine Sperre kann nur greifen, was sie auch sieht: Ein `for update` mit
+       * Statusfilter «angenommen» sperrte nichts, solange der Vorschlag noch
+       * offen war. Genau in diesem Moment konnte die Gegenseite zusagen; die
+       * Zusage lief an der Sperre vorbei, der Vorschlag stand danach auf
+       * «angenommen» und wurde vom Stornieren weiter unten nicht mehr erfasst
+       * — und das Konto wurde trotzdem anonymisiert. Übrig bliebe ein
+       * verbindlicher Tausch mit einer Gegenseite, die es nicht mehr gibt.
+       *
+       * Jetzt sperrt die Abfrage jede noch lebende Zeile dieser Person. Eine
+       * gleichzeitige Zusage wartet damit auf das Ende dieser Transaktion und
+       * findet danach einen stornierten Vorschlag vor: Ihr `update … where
+       * status = 'vorschlag'` trifft nichts mehr und meldet sauber, dass der
+       * Vorschlag weg ist.
+       */
+      const LEBENDE_TAUSCHE = ["vorschlag", "verhandlung", "angenommen", "treuhand", "abwicklung"] as const;
+      const gesperrteTausche = await tx
+        .select({ id: deals.id, status: deals.status })
         .from(deals)
         .where(
           and(
             or(eq(deals.initiatorId, me.id), eq(deals.counterpartyId, me.id)),
-            inArray(deals.status, ["angenommen", "treuhand", "abwicklung"]),
+            inArray(deals.status, [...LEBENDE_TAUSCHE]),
           ),
         )
-        .for("update")
-        .limit(1);
-      if (nochOffen.length) throw new LoeschKonflikt("verbindlicher Tausch");
+        .for("update");
+      if (gesperrteTausche.some((d) => d.status !== "vorschlag" && d.status !== "verhandlung")) {
+        throw new LoeschKonflikt("verbindlicher Tausch");
+      }
 
-      const nochRing = await tx
-        .select({ id: ringSwaps.id })
+      const gesperrteRinge = await tx
+        .select({ id: ringSwaps.id, status: ringSwaps.status })
         .from(ringSwaps)
         .innerJoin(ringLegs, eq(ringLegs.ringId, ringSwaps.id))
         .where(
           and(
             eq(ringLegs.userId, me.id),
-            inArray(ringSwaps.status, ["angenommen", "treuhand", "abwicklung"]),
+            // Der Ring kennt keine «verhandlung».
+            inArray(ringSwaps.status, ["vorschlag", "angenommen", "treuhand", "abwicklung"]),
           ),
         )
-        .for("update", { of: ringSwaps })
-        .limit(1);
-      if (nochRing.length) throw new LoeschKonflikt("verbindlicher Tausch");
+        .for("update", { of: ringSwaps });
+      if (gesperrteRinge.some((r) => r.status !== "vorschlag")) {
+        throw new LoeschKonflikt("verbindlicher Ringtausch");
+      }
 
       const nochZahlung = await tx
         .select({ id: payments.id })
@@ -696,14 +814,20 @@ export async function deleteAccountAction(
     });
   } catch (err) {
     if (err instanceof LoeschKonflikt) {
-      return {
-        error:
-          err.grund === "offene Zahlung"
-            ? "Zu deinem Konto ist noch ein Betrag hinterlegt oder unterwegs. Bitte melde dich " +
-              "beim Support."
-            : "Zu deinem Konto ist gerade ein Tausch verbindlich geworden. Er muss erst " +
-              "abgeschlossen oder abgebrochen sein.",
+      // Der Ring braucht seinen eigenen Satz: Wer «Tausch» liest, sucht unter
+      // «Tausche» und findet dort nichts.
+      const meldung = {
+        "offene Zahlung":
+          "Zu deinem Konto ist noch ein Betrag hinterlegt oder unterwegs. Bitte melde dich " +
+          "beim Support.",
+        "verbindlicher Tausch":
+          "Zu deinem Konto ist gerade ein Tausch verbindlich geworden. Er muss erst " +
+          "abgeschlossen oder abgebrochen sein.",
+        "verbindlicher Ringtausch":
+          "Zu deinem Konto ist gerade ein Ringtausch verbindlich geworden. Er muss erst " +
+          "abgeschlossen oder abgebrochen sein.",
       };
+      return { error: meldung[err.grund] };
     }
     throw err;
   }
@@ -717,7 +841,9 @@ export async function deleteAccountAction(
 
 /** Ein Sperrgrund, der erst innerhalb der Transaktion aufgefallen ist. */
 class LoeschKonflikt extends Error {
-  constructor(readonly grund: "verbindlicher Tausch" | "offene Zahlung") {
+  constructor(
+    readonly grund: "verbindlicher Tausch" | "verbindlicher Ringtausch" | "offene Zahlung",
+  ) {
     super(grund);
   }
 }

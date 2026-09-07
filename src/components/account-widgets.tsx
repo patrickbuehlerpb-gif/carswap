@@ -460,6 +460,7 @@ export function DatenUndLoeschung() {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [bestaetigung, setBestaetigung] = useState("");
+  const [passwort, setPasswort] = useState("");
   const [offen, setOffen] = useState(false);
 
   function herunterladen() {
@@ -482,7 +483,7 @@ export function DatenUndLoeschung() {
   function loeschen() {
     setError(null);
     start(async () => {
-      const res = await deleteAccountAction(bestaetigung);
+      const res = await deleteAccountAction(bestaetigung, passwort);
       if (res.error) {
         setError(res.error);
         return;
@@ -531,10 +532,22 @@ export function DatenUndLoeschung() {
                 className="mt-1 w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink"
               />
             </label>
+            <label className="block text-sm text-ink-2">
+              Dein Passwort
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={passwort}
+                onChange={(e) => setPasswort(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink"
+              />
+            </label>
             <div className="flex gap-2">
               <button
                 onClick={loeschen}
-                disabled={pending || bestaetigung.trim().toUpperCase() !== "LÖSCHEN"}
+                disabled={
+                  pending || bestaetigung.trim().toUpperCase() !== "LÖSCHEN" || passwort === ""
+                }
                 className="rounded-lg border border-bad/50 px-4 py-2 text-sm text-bad transition-colors hover:bg-bad/10 disabled:opacity-40"
               >
                 {pending ? "Wird gelöscht …" : "Endgültig löschen"}
@@ -543,6 +556,7 @@ export function DatenUndLoeschung() {
                 onClick={() => {
                   setOffen(false);
                   setBestaetigung("");
+                  setPasswort("");
                 }}
                 className="rounded-lg px-4 py-2 text-sm text-ink-3 hover:text-ink"
               >

@@ -86,6 +86,7 @@ export const sessions = pgTable(
   (t) => [
     uniqueIndex("sessions_token_hash_key").on(t.tokenHash),
     index("sessions_user_id_idx").on(t.userId),
+    index("sessions_expires_at_idx").on(t.expiresAt),
   ],
 );
 
@@ -101,6 +102,17 @@ export const authTokens = pgTable(
       .$type<"verify_email" | "reset_password" | "change_email">()
       .notNull(),
     tokenHash: text("token_hash").notNull(),
+    /**
+     * Wofür genau dieses Token gilt — beim Adresswechsel die angefragte
+     * Adresse.
+     *
+     * Ohne diese Bindung entschied allein `users.pending_email`, welche
+     * Adresse ein Klick auf den Link setzt. Zwei überlappende Anfragen
+     * konnten sich so überkreuzen: Der Link aus dem einen Postfach schaltete
+     * die Adresse aus der anderen Anfrage frei — also eine, deren Postfach
+     * niemand nachgewiesen hat. Genau darauf beruht der Schutz aber.
+     */
+    target: text("target"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     usedAt: timestamp("used_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -108,6 +120,9 @@ export const authTokens = pgTable(
   (t) => [
     uniqueIndex("auth_tokens_token_hash_key").on(t.tokenHash),
     index("auth_tokens_user_purpose_idx").on(t.userId, t.purpose),
+    // Der Aufräumlauf und die gelegentliche Nachlese beim Anmelden löschen
+    // über `expires_at`. Ohne Index ist das ein voller Tabellendurchlauf.
+    index("auth_tokens_expires_at_idx").on(t.expiresAt),
   ],
 );
 

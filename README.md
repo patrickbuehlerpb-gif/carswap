@@ -473,7 +473,11 @@ Ein paar Entscheidungen, die nicht offensichtlich sind:
   E-Mail-Adresse, der schon beim blossen Versuch hochläuft, wäre eine
   Einladung: damit sperrt jeder ein fremdes Konto aus, ohne das Passwort zu
   kennen. Fehlversuche pro Adresse werden gezählt und verlangsamen weitere
-  Fehlversuche, blockieren aber nie ein korrektes Passwort.
+  Fehlversuche, blockieren aber nie ein korrektes Passwort. Gezählt werden
+  ausschliesslich Fehlversuche: Der Zähler auf der Verbindung lief vorher bei
+  jeder Anmeldung mit und wurde nie zurückgesetzt — hinter einer Adresse
+  steckt aber oft ein ganzes Büro oder, im Mobilfunk, ein halbes Quartier, und
+  nach zwanzig ganz normalen Anmeldungen kam dort niemand mehr hinein.
 - **Verbindliche Schritte** (Vorschlag, Zusage, Treuhand) verlangen eine
   bestätigte E-Mail-Adresse. Kann die Installation keine Mails verschicken,
   wäre die Bestätigung unmöglich — dann greift die Regel nicht, und
@@ -485,6 +489,30 @@ Ein paar Entscheidungen, die nicht offensichtlich sind:
   abfragen lässt, ob eine Adresse ein Konto hat.
 
 
+- **Der Adresswechsel hängt am Token, nicht an der Kontozeile.** Welche
+  Adresse ein Klick freischaltet, steht im Token selbst (`auth_tokens.target`).
+  Vorher entschied allein `users.pending_email`: Zwei überlappende Anfragen
+  konnten sich überkreuzen, und der Link aus dem einen Postfach schaltete die
+  Adresse aus der anderen Anfrage frei — eine, deren Postfach niemand
+  nachgewiesen hat. Genau darauf beruht der Schutz aber.
+- **Ein Passwortwechsel widerruft einen angefragten Adresswechsel.** Die
+  Warnmail an die bisherige Adresse rät «ändere sofort dein Passwort» — und
+  dieser Rat half vorher nichts: Der Link an die fremde Adresse blieb 24
+  Stunden gültig. Dasselbe gilt beim Zurücksetzen über «Passwort vergessen»,
+  und dieser Weg schickt jetzt auch eine Nachricht: Er verlangt kein Passwort,
+  nur den Link aus dem Postfach — ausgerechnet dort erfuhr die Besitzerin
+  bisher nichts.
+- **Die Kontolöschung verlangt das Passwort.** Von den drei Handlungen im
+  Konto war ausgerechnet die einzige unumkehrbare die am schwächsten
+  gesicherte: Ein Wort eintippen genügte, und Fotos, Nachrichtentexte und
+  Bewertungen waren weg.
+- **Die Auskunft gibt keine fremden Nachrichtentexte heraus.** Dass es die
+  Nachricht gab, wann sie kam und von wem, steht drin — der Text der
+  Gegenseite nicht. Dort stehen Abholadressen und Telefonnummern Dritter;
+  beim Löschen werden genau diese Texte geschwärzt. Sie in der Auskunft
+  mitzugeben, machte das Auskunftsrecht zum Auslesewerkzeug. Interne
+  Kennungen des Zahlungsdienstleisters fehlen aus demselben Grund: Sie sind
+  Betriebsdaten, keine Auskunft.
 - **Passwörter** werden mit scrypt gehasht (N=32768, r=8, p=1, 64 Byte Schlüssel,
   16 Byte Salt), Vergleich in konstanter Zeit. Keine nativen Abhängigkeiten.
 - **Sitzungen** liegen als Zufallstoken im httpOnly-Cookie; in der Datenbank
