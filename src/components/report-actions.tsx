@@ -9,6 +9,7 @@ import {
   unblockListingAction,
   unsuspendUserAction,
 } from "@/app/actions/reports";
+import { feldKlasse } from "@/components/ui";
 
 /**
  * Was die Betreiberin mit einer Meldung tun kann. Abhaken ist der Normalfall;
@@ -49,7 +50,7 @@ export function ReportActions({ reportId }: { reportId: string }) {
           onChange={(e) => setGrund(e.target.value)}
           maxLength={500}
           placeholder="Grund (wird gespeichert)"
-          className="w-full rounded-md border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-ink placeholder:text-ink-3"
+          className={feldKlasse}
         />
         <div className="flex gap-2">
           <button

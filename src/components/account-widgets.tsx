@@ -14,6 +14,7 @@ import {
   startPayoutOnboardingAction,
   updateProfileAction,
 } from "@/app/actions/account";
+import { feldKlasse as input } from "@/components/ui";
 
 /** Hinweisbanner, solange die E-Mail-Adresse nicht bestätigt ist. */
 export function ResendVerification() {
@@ -47,8 +48,6 @@ export function ResendVerification() {
 
 /* ------------------------------------------------------------------ */
 
-const input =
-  "w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-3 focus:border-marke";
 
 function SaveButton() {
   const { pending } = useFormStatus();
@@ -541,7 +540,7 @@ export function DatenUndLoeschung() {
               <input
                 value={bestaetigung}
                 onChange={(e) => setBestaetigung(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink"
+                className={`${input} mt-1`}
               />
             </label>
             <label className="block text-sm text-ink-2">
@@ -551,7 +550,7 @@ export function DatenUndLoeschung() {
                 autoComplete="current-password"
                 value={passwort}
                 onChange={(e) => setPasswort(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink"
+                className={`${input} mt-1`}
               />
             </label>
             <div className="flex gap-2">

@@ -9,7 +9,7 @@ import { BildFehler, verkleinere } from "@/lib/bilder";
 import { Combobox } from "@/components/combobox";
 import { ValueChart } from "@/components/value-chart";
 import { VehicleVisual } from "@/components/vehicle-visual";
-import { Badge, Card } from "@/components/ui";
+import { Auswahl, Badge, Card, feldBeschriftung, feldKlasse as input } from "@/components/ui";
 import { createListingAction, updateListingAction } from "@/app/actions/listings";
 import { chf, km, label } from "@/lib/format";
 import type { Body, Condition, Fuel, ServiceHistory, Vehicle, VehiclePhoto } from "@/lib/types";
@@ -376,43 +376,40 @@ export function ListingForm({
 
           <div className="mt-4 grid gap-4 sm:grid-cols-3">
             <Field label="Antrieb">
-              <select
+              <Auswahl
                 value={v.fuel}
                 onChange={(e) => changeFuel(e.target.value as Fuel)}
-                className={input}
               >
                 {FUELS.map((f) => (
                   <option key={f} value={f}>
                     {label.fuel(f)}
                   </option>
                 ))}
-              </select>
+              </Auswahl>
             </Field>
             <Field label="Karosserie">
-              <select
+              <Auswahl
                 value={v.body}
                 onChange={(e) => set("body", e.target.value as Body)}
-                className={input}
               >
                 {BODIES.map((b) => (
                   <option key={b} value={b}>
                     {label.body(b)}
                   </option>
                 ))}
-              </select>
+              </Auswahl>
             </Field>
             <Field label="Antriebsart">
-              <select
+              <Auswahl
                 value={v.drivetrain}
                 onChange={(e) => set("drivetrain", e.target.value as ListingFormValues["drivetrain"])}
-                className={input}
               >
                 {DRIVETRAINS.map((d) => (
                   <option key={d} value={d}>
                     {label.drive(d)}
                   </option>
                 ))}
-              </select>
+              </Auswahl>
             </Field>
           </div>
 
@@ -447,26 +444,24 @@ export function ListingForm({
 
           <div className="mt-4 grid gap-4 sm:grid-cols-3">
             <Field label="Zustand">
-              <select
+              <Auswahl
                 value={v.condition}
                 onChange={(e) => set("condition", e.target.value as Condition)}
-                className={input}
               >
                 {CONDITIONS.map((c) => (
                   <option key={c}>{c}</option>
                 ))}
-              </select>
+              </Auswahl>
             </Field>
             <Field label="Serviceheft">
-              <select
+              <Auswahl
                 value={v.serviceHistory}
                 onChange={(e) => set("serviceHistory", e.target.value as ServiceHistory)}
-                className={input}
               >
                 {SERVICE_HISTORIES.map((h) => (
                   <option key={h}>{h}</option>
                 ))}
-              </select>
+              </Auswahl>
             </Field>
             <Field label="Anzahl Halter">
               <input
@@ -884,8 +879,6 @@ export function ListingForm({
   );
 }
 
-const input =
-  "w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-3 focus:border-marke";
 
 /** Für genau ein Eingabefeld — das umschliessende label verbindet Text und Feld. */
 function Field({
@@ -901,7 +894,7 @@ function Field({
 }) {
   return (
     <label className={`block ${className}`}>
-      <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-ink-3">
+      <span className={feldBeschriftung}>
         {l}
       </span>
       {children}
@@ -929,7 +922,7 @@ function FieldGroup({
 }) {
   return (
     <fieldset className={`block ${className}`}>
-      <legend className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-ink-3">
+      <legend className={feldBeschriftung}>
         {l}
       </legend>
       {children}

@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { VehicleVisual } from "@/components/vehicle-visual";
 import { STATUS_META } from "@/components/deal-list";
 import { ReviewForm, Sterne } from "@/components/review-form";
-import { Badge, Card } from "@/components/ui";
+import { Badge, Card, feldKlasse } from "@/components/ui";
 import {
   acceptDealAction,
   cancelDealAction,
@@ -304,7 +304,7 @@ export function DealDetail({
                         step={100}
                         value={counter}
                         onChange={(e) => setCounter(e.target.value)}
-                        className="w-36 rounded-md border border-line-strong bg-surface px-2.5 py-1.5 text-sm tabular text-ink outline-none focus:border-marke"
+                        className={`${feldKlasse} w-36 tabular`}
                         aria-label="Gegenangebot in CHF"
                       />
                     )}

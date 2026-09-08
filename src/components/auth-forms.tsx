@@ -10,9 +10,8 @@ import {
   signUpAction,
   type FormState,
 } from "@/app/actions/auth";
+import { feldKlasse as inputClass } from "@/components/ui";
 
-const inputClass =
-  "w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-3 focus:border-marke";
 
 function Field({
   label,

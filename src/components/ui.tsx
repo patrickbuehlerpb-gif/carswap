@@ -111,3 +111,49 @@ export function ScorePill({ score }: { score: number }) {
     </div>
   );
 }
+
+/**
+ * Wie ein Eingabefeld aussieht — an einer Stelle festgehalten.
+ *
+ * Vorher stand die Klassenliste in fünf Dateien noch einmal, und im
+ * Wertrechner war sie über die Zeit abgedriftet: schmalerer Rahmen, dunklerer
+ * Hintergrund, engere Polsterung. Auf demselben Formular standen dadurch zwei
+ * verschiedene Sorten Feld nebeneinander — die Marke sah aus wie ein Eingabe-
+ * feld, der Antrieb daneben wie etwas anderes.
+ */
+export const feldKlasse =
+  "w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-3 focus:border-marke";
+
+/** Die Beschriftung darüber. Gehört zum Feld und driftet sonst genauso. */
+export const feldBeschriftung =
+  "mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-ink-3";
+
+/**
+ * Eine Auswahlliste, die aussieht wie die durchsuchbare daneben.
+ *
+ * Ein `select` zeichnet der Browser selbst, und sein Pfeil sieht in jedem
+ * Browser anders aus — neben der Marke, deren Pfeil wir zeichnen, fiel das auf.
+ * `appearance-none` nimmt ihm die eigene Darstellung, den Rest übernimmt der
+ * gleiche Rahmen und der gleiche Pfeil wie in der Combobox.
+ */
+export function Auswahl({
+  className = "",
+  children,
+  ...rest
+}: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <span className={`relative block ${className}`}>
+      <select {...rest} className={`${feldKlasse} appearance-none pr-9`}>
+        {children}
+      </select>
+      <span
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-3"
+        aria-hidden
+      >
+        <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M6 8l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+    </span>
+  );
+}

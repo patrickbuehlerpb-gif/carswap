@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { feldBeschriftung, feldKlasse } from "@/components/ui";
 
 /**
  * Durchsuchbare Auswahlliste mit freier Eingabe.
@@ -180,7 +181,7 @@ export function Combobox({
     <div className="block" ref={wrapRef}>
       <label
         htmlFor={`cb-${id}`}
-        className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-ink-3"
+        className={feldBeschriftung}
       >
         {label}
       </label>
@@ -208,7 +209,7 @@ export function Combobox({
             if (!open) setOpen(true);
           }}
           onKeyDown={onKeyDown}
-          className="w-full rounded-lg border border-line-strong bg-surface py-2 pl-3 pr-9 text-sm text-ink outline-none placeholder:text-ink-3 focus:border-marke disabled:opacity-60"
+          className={`${feldKlasse} pr-9 disabled:opacity-60`}
         />
         <span
           className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-3"

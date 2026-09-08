@@ -7,7 +7,7 @@ import { featuresFor, normalizeFeatures } from "@/lib/data/features";
 import { ValueChart } from "@/components/value-chart";
 import { ValuationBreakdown } from "@/components/valuation-breakdown";
 import { VehicleVisual } from "@/components/vehicle-visual";
-import { Badge, Card } from "@/components/ui";
+import { Auswahl, Badge, Card, feldBeschriftung, feldKlasse as inputClass } from "@/components/ui";
 import { MAKE_NAMES, modelsFor } from "@/lib/data/catalog";
 import { chf, km, label } from "@/lib/format";
 import type {
@@ -303,7 +303,7 @@ export function ValuationStudio({
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Antrieb">
-              <select
+              <Auswahl
                 value={draft.fuel}
                 onChange={(e) => {
                   const fuel = e.target.value as Fuel;
@@ -314,7 +314,6 @@ export function ValuationStudio({
                     features: d.features.filter((f) => allowed.has(f)),
                   }));
                 }}
-                className={inputClass}
               >
                 {(["elektro", "hybrid", "benzin", "diesel"] as Fuel[]).map(
                   (f) => (
@@ -323,13 +322,12 @@ export function ValuationStudio({
                     </option>
                   ),
                 )}
-              </select>
+              </Auswahl>
             </Field>
             <Field label="Karosserie">
-              <select
+              <Auswahl
                 value={draft.body}
                 onChange={(e) => set("body", e.target.value as Body)}
-                className={inputClass}
               >
                 {(
                   [
@@ -345,23 +343,22 @@ export function ValuationStudio({
                     {label.body(b)}
                   </option>
                 ))}
-              </select>
+              </Auswahl>
             </Field>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Zustand">
-              <select
+              <Auswahl
                 value={draft.condition}
                 onChange={(e) => set("condition", e.target.value as Condition)}
-                className={inputClass}
               >
                 {(
                   ["neuwertig", "sehr gut", "gut", "gebraucht"] as Condition[]
                 ).map((c) => (
                   <option key={c}>{c}</option>
                 ))}
-              </select>
+              </Auswahl>
             </Field>
             <Field label="Halter">
               <input
@@ -378,17 +375,16 @@ export function ValuationStudio({
           </div>
 
           <Field label="Serviceheft">
-            <select
+            <Auswahl
               value={draft.serviceHistory}
               onChange={(e) =>
                 set("serviceHistory", e.target.value as Draft["serviceHistory"])
               }
-              className={inputClass}
             >
               <option value="lückenlos scheckheft">lückenlos scheckheft</option>
               <option value="teilweise">teilweise</option>
               <option value="keine">keine</option>
-            </select>
+            </Auswahl>
           </Field>
 
           {draft.fuel === "elektro" && (
@@ -415,7 +411,7 @@ export function ValuationStudio({
           </label>
 
           <fieldset>
-            <legend className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-ink-3">
+            <legend className={feldBeschriftung}>
               Ausstattung
             </legend>
             <div className="flex flex-wrap gap-1.5">
@@ -586,9 +582,6 @@ export function ValuationStudio({
   );
 }
 
-const inputClass =
-  "w-full rounded-md border border-line bg-surface-2 px-2.5 py-1.5 text-sm text-ink outline-none focus:border-ink-3";
-
 function Field({
   label: l,
   children,
@@ -598,9 +591,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-ink-3">
-        {l}
-      </span>
+      <span className={feldBeschriftung}>{l}</span>
       {children}
     </label>
   );

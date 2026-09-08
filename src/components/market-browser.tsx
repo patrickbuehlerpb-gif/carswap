@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { Auswahl } from "@/components/ui";
 import { VehicleCard } from "@/components/vehicle-card";
 import { chf, label } from "@/lib/format";
 import { findMatches, type ListingEntry } from "@/lib/matching";
@@ -278,17 +279,19 @@ export function MarketBrowser({
           </p>
           <label className="flex items-center gap-2 text-sm text-ink-3">
             Sortieren
-            <select
+            <Auswahl
               value={sort}
               onChange={(e) => setSort(e.target.value as Sort)}
-              className="rounded-md border border-line bg-surface-2 px-2.5 py-1.5 text-sm text-ink outline-none focus:border-ink-3"
+              // Feste Breite statt mitwachsend: sonst springt die ganze Zeile,
+              // sobald eine längere Sortierung gewählt wird.
+              className="w-56"
             >
               <option value="score">Beste Übereinstimmung</option>
               <option value="cash-asc">Geringste Zuzahlung</option>
               <option value="cash-desc">Höchster Erlös</option>
               <option value="value-desc">Teuerste zuerst</option>
               <option value="km-asc">Wenigste Kilometer</option>
-            </select>
+            </Auswahl>
           </label>
         </div>
 
