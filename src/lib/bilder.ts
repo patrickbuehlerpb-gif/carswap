@@ -29,6 +29,27 @@ export interface VerkleinertesBild {
 export class BildFehler extends Error {}
 
 /**
+ * Das Seitenverhältnis, in dem ein Foto auf der Fahrzeugseite gezeigt wird.
+ *
+ * Autos werden mit dem Telefon fotografiert, und ein Telefon liegt beim
+ * Fotografieren hochkant. Ein starrer 16:9-Rahmen schneidet aus so einem Bild
+ * einen Streifen von 42 % Höhe heraus — vom Auto bleiben die Türen, Dach und
+ * Räder sind weg. Deshalb richtet sich der Rahmen nach dem Bild statt
+ * umgekehrt.
+ *
+ * Begrenzt bleibt er trotzdem: ein sehr hohes Bild würde sonst auf einem
+ * grossen Bildschirm alles andere aus dem Sichtfeld schieben, ein sehr breites
+ * zu einem Schlitz zusammenfallen.
+ */
+export const RAHMEN_BREIT = 16 / 9;
+export const RAHMEN_SCHMAL = 1;
+
+export function rahmenVerhaeltnis(width: number, height: number): number {
+  if (!(width > 0) || !(height > 0)) return RAHMEN_BREIT;
+  return Math.min(RAHMEN_BREIT, Math.max(RAHMEN_SCHMAL, width / height));
+}
+
+/**
  * Zielmasse für ein Bild. Kleinere Bilder bleiben, wie sie sind — ein
  * Hochrechnen macht sie nur grösser, nicht besser.
  */

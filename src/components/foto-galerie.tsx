@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { VehicleVisual } from "@/components/vehicle-visual";
+import { rahmenVerhaeltnis } from "@/lib/bilder";
 import type { VehiclePhoto } from "@/lib/db/schema";
 
 /**
@@ -46,7 +47,13 @@ export function FotoGalerie({
 
   return (
     <div>
-      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-line bg-surface-2">
+      <div
+        className="relative w-full overflow-hidden rounded-xl border border-line bg-surface-2"
+        // Der Rahmen nimmt die Form des Bildes an. Hier sieht man sich ein
+        // Auto an, bevor man es gegen das eigene tauscht — da darf nichts
+        // fehlen, nur weil das Telefon hochkant gehalten wurde.
+        style={{ aspectRatio: rahmenVerhaeltnis(gezeigt.width, gezeigt.height) }}
+      >
         <Image
           key={gezeigt.url}
           src={gezeigt.url}
@@ -56,7 +63,10 @@ export function FotoGalerie({
           // Drittel des Rasters. Ohne diese Angabe lädt jedes Telefon die
           // Fassung für einen grossen Bildschirm.
           sizes="(max-width: 1024px) 100vw, 62vw"
-          className="object-cover"
+          // `contain` statt `cover`: passt der Rahmen zum Bild, sieht man
+          // keinen Unterschied — und wo er wegen der Begrenzung nicht ganz
+          // passt, entstehen schmale Ränder statt eines Beschnitts.
+          className="object-contain"
           priority
         />
         {label && (

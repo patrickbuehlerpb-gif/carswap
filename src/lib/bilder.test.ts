@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_KANTE, zielMasse } from "@/lib/bilder";
+import { MAX_KANTE, RAHMEN_BREIT, RAHMEN_SCHMAL, rahmenVerhaeltnis, zielMasse } from "@/lib/bilder";
 
 /**
  * Nur die Rechnung — das Verkleinern selbst braucht eine Leinwand und läuft
@@ -39,5 +39,33 @@ describe("Zielmasse", () => {
 
   it("nimmt eine abweichende Obergrenze an", () => {
     expect(zielMasse(4000, 2000, 1000)).toEqual({ width: 1000, height: 500 });
+  });
+});
+
+/**
+ * Der Rahmen auf der Fahrzeugseite. Hochkant fotografierte Autos waren dort
+ * auf einen Streifen von 42 % Höhe beschnitten — Dach und Räder fehlten.
+ */
+describe("Rahmen für ein Foto", () => {
+  it("nimmt die Form des Bildes an", () => {
+    expect(rahmenVerhaeltnis(1200, 900)).toBeCloseTo(4 / 3);
+    expect(rahmenVerhaeltnis(1500, 1000)).toBeCloseTo(1.5);
+  });
+
+  it("lässt ein hochkantes Bild hochkant werden — bis zum Quadrat", () => {
+    // Das übliche Telefonfoto. Vorher 16:9, jetzt so hoch wie erlaubt.
+    expect(rahmenVerhaeltnis(1125, 1500)).toBe(RAHMEN_SCHMAL);
+    expect(rahmenVerhaeltnis(1000, 3000)).toBe(RAHMEN_SCHMAL);
+  });
+
+  it("lässt ein sehr breites Bild nicht zum Schlitz werden", () => {
+    expect(rahmenVerhaeltnis(4000, 1000)).toBe(RAHMEN_BREIT);
+  });
+
+  it("fällt bei unbrauchbaren Massen auf den breiten Rahmen zurück", () => {
+    // Fehlende Masse dürfen die Seite nicht auf Höhe null zusammenfallen
+    // lassen — dann sähe man gar kein Bild mehr.
+    expect(rahmenVerhaeltnis(0, 0)).toBe(RAHMEN_BREIT);
+    expect(rahmenVerhaeltnis(NaN, 100)).toBe(RAHMEN_BREIT);
   });
 });

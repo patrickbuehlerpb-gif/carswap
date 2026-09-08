@@ -594,6 +594,11 @@ export function ListingForm({
             Wir verkleinern sie schon im Browser — das spart dir Wartezeit beim Hochladen und
             allen anderen Datenvolumen beim Ansehen.
           </p>
+          <p className="mt-2 text-sm text-ink-3">
+            Das erste Bild ist die Vorschau im Marktplatz. Dort ist der Ausschnitt quer — ein
+            quer aufgenommenes Foto wirkt deshalb am besten. Auf der Fahrzeugseite selbst
+            zeigen wir jedes Bild vollständig, auch hochkant.
+          </p>
 
           <div className="mt-4 flex flex-wrap gap-3">
             {v.photos.map((p, i) => (
