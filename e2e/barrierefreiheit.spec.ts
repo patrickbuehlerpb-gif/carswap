@@ -27,7 +27,7 @@ async function pruefe(page: Page, pfad: string) {
 }
 
 test("öffentliche Seiten sind zugänglich", async ({ page }) => {
-  for (const pfad of ["/", "/markt", "/wert", "/so-funktionierts", "/agb", "/datenschutz", "/impressum"]) {
+  for (const pfad of ["/", "/markt", "/wert", "/wertverlust", "/so-funktionierts", "/agb", "/datenschutz", "/impressum"]) {
     await pruefe(page, pfad);
   }
 });
@@ -68,7 +68,9 @@ test("die Seite lässt sich auch auf dem Telefon bedienen", async ({ page }) => 
   await page.setViewportSize({ width: 390, height: 844 });
 
   // Erst abgemeldet: da stehen «Konto erstellen» und «Anmelden» im Kopf.
-  for (const pfad of ["/", "/markt", "/konto/anmelden"]) {
+  // Die Wertkurve ist breiter als ein Telefon und scrollt in ihrem eigenen
+  // Kasten — die Seite darunter darf davon nichts mitbekommen.
+  for (const pfad of ["/", "/markt", "/wertverlust", "/konto/anmelden"]) {
     await ohneQuerlauf(page, pfad);
   }
 

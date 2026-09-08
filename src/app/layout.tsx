@@ -74,6 +74,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <a href="/impressum" className="hover:text-ink">Impressum</a>
               <a href="/datenschutz" className="hover:text-ink">Datenschutz</a>
               <a href="/agb" className="hover:text-ink">AGB</a>
+              <a href="/wertverlust" className="hover:text-ink">Wertverlust</a>
               <a href="/so-funktionierts" className="hover:text-ink">So funktioniert es</a>
             </nav>
           </div>

@@ -193,8 +193,53 @@ function interpoliere(t: number, pts: ReadonlyArray<readonly [number, number]>):
  */
 const ZULASSUNGSVERLUST = 0.12;
 
-/** Restwertquote nach t Jahren, rein altersbedingt. */
-function retention(ageYears: number, fuel: Fuel, make: string): number {
+/** Die Kilometerkorrektur wird gedeckelt — sonst rechnete sich ein Auto mit 0 km reich. */
+const KM_DECKEL = 0.18;
+
+/** Je weiterer Halter, bis zu einer Grenze. */
+const HALTER_MALUS = 0.012;
+const HALTER_MALUS_MAX = 0.06;
+
+/** Ein eingetragener Unfallschaden. */
+const UNFALL_MALUS = 0.12;
+
+/**
+ * Die Stellschrauben des Modells, gebündelt für die Seite, die es erklärt.
+ *
+ * Die Erklärseite soll dieselben Zahlen nennen, die hier gerechnet werden.
+ * Schriebe sie ihre eigenen hin, stünde nach der ersten Änderung am Modell
+ * eine falsche Erklärung im Netz — und die ist schlimmer als gar keine.
+ */
+export const MODELL = {
+  /** Was allein die Zulassung kostet, bevor ein Kilometer gefahren ist. */
+  zulassungsverlust: ZULASSUNGSVERLUST,
+  /** Fahrleistung, an der die Kilometerkorrektur gemessen wird. */
+  normKmProJahr: NORM_KM_PER_YEAR,
+  /** Franken je Kilometer über der Norm, nach Antrieb. */
+  kostenProMehrKm: COST_PER_EXTRA_KM,
+  /** Grenze der Kilometerkorrektur, als Anteil des Grundwerts. */
+  kmDeckel: KM_DECKEL,
+  serviceFaktor: SERVICE_FACTOR,
+  zustandFaktor: CONDITION_FACTOR,
+  halterMalus: HALTER_MALUS,
+  halterMalusMax: HALTER_MALUS_MAX,
+  unfallMalus: UNFALL_MALUS,
+  /** Spanne der Markenfaktoren auf lambda: unter 1 hält länger, über 1 verliert schneller. */
+  markenSpanne: {
+    min: Math.min(...Object.values(BRAND_STRENGTH)),
+    max: Math.max(...Object.values(BRAND_STRENGTH)),
+  },
+} as const;
+
+/**
+ * Restwertquote nach t Jahren, rein altersbedingt.
+ *
+ * Öffentlich, weil die Seite «Wertverlust» dieselbe Kurve zeichnet, die hier
+ * gerechnet wird. Eine zweite, nachgebaute Kurve für die Erklärseite würde
+ * früher oder später von der echten abweichen — und dann erklärt die Seite
+ * etwas, das der Rechner gar nicht tut.
+ */
+export function retention(ageYears: number, fuel: Fuel, make: string): number {
   const lambda = LAMBDA[fuel] * (BRAND_STRENGTH[make] ?? 1);
   const t = Math.max(0, ageYears);
   return (1 - ZULASSUNGSVERLUST) * Math.exp(-lambda * Math.pow(t, 0.7));
@@ -232,14 +277,14 @@ export function valueAt(vehicle: Vehicle, atMonth?: string, asOf?: string): numb
   // Laufleistungskorrektur gegenüber der Norm, gedeckelt auf ±18 %
   const expectedKm = NORM_KM_PER_YEAR * ageYears;
   const rawMileageAdj = -(mileageAt - expectedKm) * COST_PER_EXTRA_KM[vehicle.fuel];
-  const mileageAdj = Math.max(-0.18 * base, Math.min(0.18 * base, rawMileageAdj));
+  const mileageAdj = Math.max(-KM_DECKEL * base, Math.min(KM_DECKEL * base, rawMileageAdj));
 
   let value = base + mileageAdj;
 
   value *= CONDITION_FACTOR[vehicle.condition];
   value *= SERVICE_FACTOR[vehicle.serviceHistory];
-  value *= 1 - Math.min(0.06, Math.max(0, vehicle.previousOwners - 1) * 0.012);
-  if (!vehicle.accidentFree) value *= 0.88;
+  value *= 1 - Math.min(HALTER_MALUS_MAX, Math.max(0, vehicle.previousOwners - 1) * HALTER_MALUS);
+  if (!vehicle.accidentFree) value *= 1 - UNFALL_MALUS;
 
   if (vehicle.fuel === "elektro" && vehicle.batterySoh != null) {
     value *= 1 + ((vehicle.batterySoh - 95) / 100) * 0.6;

@@ -29,7 +29,7 @@ function basis(): string {
   return process.env.SITE_URL ?? "http://127.0.0.1:3210";
 }
 
-const SEITEN = ["/", "/markt", "/wert", "/so-funktionierts", "/agb", "/datenschutz", "/impressum"];
+const SEITEN = ["/", "/markt", "/wert", "/wertverlust", "/so-funktionierts", "/agb", "/datenschutz", "/impressum"];
 
 for (const pfad of SEITEN) {
   test(`${pfad} nennt seine kanonische Adresse`, async ({ page }) => {
