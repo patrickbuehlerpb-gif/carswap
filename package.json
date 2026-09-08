@@ -17,6 +17,7 @@
     "e2e": "next build && playwright test",
     "e2e:schnell": "playwright test",
     "admin": "tsx scripts/make-admin.ts",
+    "inserat:weg": "tsx scripts/inserat-entfernen.ts",
     "palette": "node scripts/validate_palette.mjs"
   },
   "dependencies": {

@@ -325,6 +325,29 @@ npm run admin -- anna@example.ch
 npm run admin -- anna@example.ch --entziehen
 ```
 
+Ein Inserat aus der Datenbank nehmen — gedacht für Beispieldaten, die vor dem
+Livegang verschwinden sollen. Ohne `--ja` zeigt das Skript nur, was es täte:
+
+```bash
+npm run inserat:weg -- veh_abc123                    # Probelauf
+npm run inserat:weg -- veh_abc123 --ja               # löschen
+npm run inserat:weg -- veh_abc123 --archivieren --ja # nur stilllegen
+```
+
+Fahrzeuge, die in einem Tausch oder Ring vorkommen, lassen sich nicht löschen —
+das würde die Geschichte dieser Abschlüsse zerreissen. Für sie gibt es
+`--archivieren`: das Fahrzeug bleibt in der Datenbank und verschwindet aus
+Markt und Garage.
+
+Gegen die Produktionsdatenbank läuft es mit deren Adresse in der Umgebung:
+
+```bash
+vercel env pull .env.production.local      # DATABASE_URL aus Vercel holen
+set -a; . ./.env.production.local; set +a
+npm run inserat:weg -- veh_abc123 --ja
+rm .env.production.local                   # danach wieder weg
+```
+
 ### Tests
 
 ```bash

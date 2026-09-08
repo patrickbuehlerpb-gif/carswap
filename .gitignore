@@ -21,10 +21,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env
+# env — alles ausser der Vorlage. Das Verzeichnis ist öffentlich: eine
+# versehentlich eingecheckte Zugangsdatei wäre nicht zurückzunehmen.
 .env
-.env*.local
-.env.test
+.env.*
+!.env.example
 
 # playwright
 /test-results
